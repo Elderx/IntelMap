@@ -81,6 +81,12 @@ export const state = {
   markerClickHandlerActiveLeft: false,
   markerClickHandlerActiveRight: false,
   handleMapClick: null,
+
+  // User-created features persisted to server
+  userMarkers: [], // { id, lon, lat, title, description, color }
+  userPolygons: [], // { id, coordinates:[[lon,lat],...], title, description, color }
+  userMarkerLayer: { main: null, left: null, right: null },
+  userPolygonLayer: { main: null, left: null, right: null },
 };
 
 

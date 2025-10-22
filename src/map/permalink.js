@@ -13,28 +13,19 @@ export function updatePermalink(center, zoom, layerId, isSplit, leftLayerId, rig
   } else {
     params += `&layer=${layerId}`;
   }
-  if (state.markerCoords && state.markerCoords.length === 2) {
-    params += `&markerLat=${state.markerCoords[1].toFixed(7)}&markerLon=${state.markerCoords[0].toFixed(7)}`;
-  }
+  // No longer serialize user markers into the URL
   window.history.replaceState({}, '', params);
 }
 
 export function updatePermalinkWithFeatures() {
   if (state.restoringFromPermalink || !state.permalinkInitialized) return;
-  let markerStr = '';
-  if (state.markerCoords && state.markerCoords.length === 2) {
-    markerStr = `&markerLat=${state.markerCoords[1].toFixed(7)}&markerLon=${state.markerCoords[0].toFixed(7)}`;
-  }
+  // Do not encode user markers in permalink
   let lineStr = '';
   if (state.lineCoords && state.lineCoords.length >= 2) {
     const coords = state.lineCoords.map(c => toLonLat(c).map(n => n.toFixed(7)));
     lineStr = `&line=${coords.map(pair => pair.join(",")).join(';')}`;
   }
-  let polyStr = '';
-  if (state.polygonCoords && state.polygonCoords.length >= 3) {
-    const coords = state.polygonCoords.map(c => toLonLat(c).map(n => n.toFixed(7)));
-    polyStr = `&polygon=${coords.map(pair => pair.join(",")).join(';')}`;
-  }
+  // Do not encode user polygons in permalink
   let measureStr = '';
   if (state.measureCoords && state.measureCoords.length >= 2) {
     const coords = state.measureCoords.map(c => toLonLat(c).map(n => n.toFixed(7)));
@@ -65,7 +56,7 @@ export function updatePermalinkWithFeatures() {
     }
     params += `&layer=${layerId}`;
   }
-  params += markerStr + lineStr + polyStr + measureStr + overlaysStr + osmStr;
+  params += lineStr + measureStr + overlaysStr + osmStr;
   window.history.replaceState({}, '', params);
 }
 

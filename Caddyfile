@@ -3,6 +3,12 @@
     root * /srv
     file_server
   }
+
+  # Proxy API requests to the backend server
+  handle /api/* {
+    reverse_proxy server:3000
+  }
+
   root * /srv
   file_server
 } 

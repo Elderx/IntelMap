@@ -19,6 +19,12 @@ import { createOSMLegend, updateOSMLegend } from './ui/osmLegend.js';
 import { setupOSMInteractions } from './map/osmInteractions.js';
 import { fromLonLat } from 'ol/proj';
 import 'ol/ol.css';
+import { fetchMarkers, fetchPolygons, createMarker, createPolygon, fetchUsers } from './api/client.js';
+import { ensureUserLayers, addUserMarkerToMaps, addUserPolygonToMaps, rebuildUserLayersAllMaps } from './user/userLayers.js';
+import { setupUserFeatureHover, setupUserFeatureClick } from './user/userInteractions.js';
+import { openUserFeatureForm } from './ui/userFeatureForm.js';
+import { getSession } from './auth/session.js';
+import { showLoginOverlay } from './ui/loginOverlay.js';
 
 async function bootstrap() {
   const params = getQueryParams();
@@ -30,6 +36,9 @@ async function bootstrap() {
   const splitMapsContainer = document.getElementById('split-maps-container');
 
   createBaseMap(result, initialCenter, initialZoom, state.initialLayerIdx);
+  ensureUserLayers();
+  setupUserFeatureHover(state.map);
+  setupUserFeatureClick(state.map);
 
   let singleLayerSelectorDiv = null;
   function showSingleLayerSelector(show) { if (singleLayerSelectorDiv) singleLayerSelectorDiv.style.display = show ? 'block' : 'none'; }
@@ -46,6 +55,29 @@ async function bootstrap() {
   }
   addSingleLayerSelectorToMap();
 
+  async function loadUserFeaturesFromServer() {
+    try {
+      const [markersFC, polygonsFC] = await Promise.all([
+        fetchMarkers(),
+        fetchPolygons(),
+      ]);
+      if (markersFC && Array.isArray(markersFC.features)) {
+        markersFC.features.forEach(f => {
+          const [lon, lat] = f.geometry.coordinates;
+          addUserMarkerToMaps({ id: f.properties?.id, lon, lat, title: f.properties?.title || '', description: f.properties?.description || '', color: f.properties?.color || '#00bcd4', ownerUsername: f.properties?.owner_username || null, sharedUserIds: f.properties?.shared_user_ids || [] });
+        });
+      }
+      if (polygonsFC && Array.isArray(polygonsFC.features)) {
+        polygonsFC.features.forEach(f => {
+          const coords = (f.geometry.coordinates[0] || []).map(([lon, lat]) => [lon, lat]);
+          addUserPolygonToMaps({ id: f.properties?.id, coordinates: coords, title: f.properties?.title || '', description: f.properties?.description || '', color: f.properties?.color || '#ff9800', ownerUsername: f.properties?.owner_username || null, sharedUserIds: f.properties?.shared_user_ids || [] });
+        });
+      }
+    } catch (e) {
+      // ignore in static hosting (no server)
+    }
+  }
+
   function activateSplitScreen() {
     state.isSplit = true;
     document.getElementById('map').style.display = 'none';
@@ -56,6 +88,12 @@ async function bootstrap() {
     const mainView = state.map.getView();
     const center = mainView.getCenter(); const zoom = mainView.getZoom(); const rotation = mainView.getRotation();
     createSplitMaps(result, center, zoom, rotation);
+    ensureUserLayers();
+    rebuildUserLayersAllMaps();
+    setupUserFeatureHover(state.leftMap);
+    setupUserFeatureClick(state.leftMap);
+    setupUserFeatureHover(state.rightMap);
+    setupUserFeatureClick(state.rightMap);
     enableOverlayInfoClickHandlers();
     setupOSMInteractions(state.leftMap);
     setupOSMInteractions(state.rightMap);
@@ -96,6 +134,9 @@ async function bootstrap() {
   } else {
     restoreFeaturesFromURL(params);
   }
+
+  // Load persisted user features
+  loadUserFeaturesFromServer();
   splitToggle.addEventListener('click', function () {
     if (!state.isSplit) { activateSplitScreenWrapped(); splitToggle.textContent = 'Single screen'; if (state.drawingMode === 'marker') { enableMarkerClickHandler(); } updatePermalinkWithFeatures(); }
     else { deactivateSplitScreenWrapped(); splitToggle.textContent = 'Split screen'; if (state.drawingMode === 'marker') { enableMarkerClickHandler(); } updatePermalinkWithFeatures(); }
@@ -122,9 +163,10 @@ async function bootstrap() {
   function restoreFeaturesFromURL(params) {
     state.restoringFromPermalink = true;
     state.drawingMode = null;
-    state.markerCoords = null; if (params.markerLat && params.markerLon) { const lat = parseFloat(params.markerLat); const lon = parseFloat(params.markerLon); if (!isNaN(lat) && !isNaN(lon)) { state.markerCoords = [lon, lat]; } }
+    // Deprecated: do not restore user markers/polygons from URL
+    state.markerCoords = null;
+    state.polygonCoords = null;
     state.lineCoords = null; if (params.line) { const coords = params.line.split(';').map(pair => pair.split(',').map(Number)); if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) { state.lineCoords = coords.map(pair => fromLonLat([pair[0], pair[1]])); } }
-    state.polygonCoords = null; if (params.polygon) { const coords = params.polygon.split(';').map(pair => pair.split(',').map(Number)); if (coords.length >= 3 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) { state.polygonCoords = coords.map(pair => fromLonLat([pair[0], pair[1]])); } }
     state.measureCoords = null; if (params.measure) { const coords = params.measure.split(';').map(pair => pair.split(',').map(Number)); if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) { state.measureCoords = coords.map(pair => fromLonLat([pair[0], pair[1]])); } }
     state.overlayLayers = []; if (params.overlays) {
       state.overlayLayers = params.overlays.split(';').filter(Boolean);
@@ -144,6 +186,14 @@ async function bootstrap() {
   }
 }
 
-bootstrap();
+// Gate app behind login
+(async () => {
+  const sess = await getSession();
+  if (!sess || !sess.user) {
+    showLoginOverlay(async () => { await bootstrap(); });
+  } else {
+    await bootstrap();
+  }
+})();
 
 
