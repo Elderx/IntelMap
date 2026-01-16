@@ -58,7 +58,11 @@ export const state = {
     '#1abc9c', '#e67e22', '#34495e', '#f1c40f', '#e91e63',
     '#00bcd4', '#4caf50', '#ff9800', '#795548', '#607d8b'
   ],
-  osmAssignedColors: {}, // Maps osmId to assigned color
+  osmAssignedColors: {}, // Maps osmId to assigned color,
+
+  // Dynamic OSM Feature Search State
+  activeOsmFeatures: [], // { id, key, value, title, color, visible }
+  osmDynamicLayerObjects: { main: [], left: [], right: [] },
 
   overlaySelectorDiv: null,
   overlayDropdownButton: null,
@@ -87,6 +91,9 @@ export const state = {
   userPolygons: [], // { id, coordinates:[[lon,lat],...], title, description, color }
   userMarkerLayer: { main: null, left: null, right: null },
   userPolygonLayer: { main: null, left: null, right: null },
+
+  // Layer Groups saved by user
+  layerGroups: [], // Array of { id, name, config, created_at }
 };
 
 

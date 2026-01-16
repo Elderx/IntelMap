@@ -65,6 +65,18 @@ export async function deletePolygon(id) {
   return await apiDelete(`/api/polygons/${id}`);
 }
 
+export async function fetchLayerGroups() {
+  return await apiGet('/api/layer-groups');
+}
+
+export async function createLayerGroup(group) {
+  return await apiPost('/api/layer-groups', group);
+}
+
+export async function deleteLayerGroup(id) {
+  return await apiDelete(`/api/layer-groups/${id}`);
+}
+
 async function apiPatch(path, body) {
   try {
     const res = await fetch(path, {

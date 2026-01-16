@@ -95,6 +95,15 @@ async function initDb() {
       PRIMARY KEY (polygon_id, user_id)
     );
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS layer_groups (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      config JSONB NOT NULL,
+      owner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT now()
+    );
+  `);
 
   // Seed admin if no users
   const ucount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
@@ -348,6 +357,48 @@ app.delete('/api/polygons/:id', ensureAuth, async (req, res) => {
     if (!own.rows[0]) return res.status(403).json({ error: 'forbidden' });
     const { rowCount } = await pool.query('DELETE FROM polygons WHERE id = $1', [id]);
     if (rowCount === 0) return res.status(404).json({ error: 'not_found' });
+    res.status(204).end();
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// Layer Groups
+app.get('/api/layer-groups', ensureAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      'SELECT id, name, config, created_at FROM layer_groups WHERE owner_user_id = $1 ORDER BY created_at DESC',
+      [req.user.id]
+    );
+    res.json(rows);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/layer-groups', ensureAuth, async (req, res) => {
+  try {
+    const { name, config } = req.body || {};
+    if (!name || !config) return res.status(400).json({ error: 'missing_fields' });
+    const { rows } = await pool.query(
+      'INSERT INTO layer_groups (name, config, owner_user_id) VALUES ($1, $2::jsonb, $3) RETURNING id, name, config, created_at',
+      [name, JSON.stringify(config), req.user.id]
+    );
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.delete('/api/layer-groups/:id', ensureAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
+    const { rowCount } = await pool.query(
+      'DELETE FROM layer_groups WHERE id = $1 AND owner_user_id = $2',
+      [id, req.user.id]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: 'not_found_or_forbidden' });
     res.status(204).end();
   } catch (e) {
     console.error(e); res.status(500).json({ error: 'db_error' });

@@ -52,7 +52,8 @@ mml-map/
 ├── src/                      # Frontend source
 │   ├── main.js              # Entry point & bootstrap
 │   ├── api/                 # API client functions
-│   │   └── client.js        # CRUD for markers/polygons
+│   │   ├── client.js        # CRUD for markers/polygons
+│   │   └── osm.js           # Taginfo & Overpass client
 │   ├── auth/                # Authentication
 │   │   └── session.js       # Session management
 │   ├── config/              # Configuration
@@ -70,6 +71,7 @@ mml-map/
 │   │   ├── permalink.js     # URL state
 │   │   ├── overlayInfoClick.js  # Feature info clicks
 │   │   └── osmInteractions.js   # OSM hover/click
+│   │   └── osmDynamicLayers.js  # Dynamic Overpass layers
 │   ├── overlays/            # Overlay data
 │   │   └── fetchCapabilities.js # WMS capabilities
 │   ├── search/              # Search
@@ -81,6 +83,7 @@ mml-map/
 │   │   ├── overlayDropdown.js # Overlay selector
 │   │   ├── overlayInfo.js   # Feature info popup
 │   │   ├── osmPopup.js      # OSM popups
+│   │   ├── osmFeatureSearch.js # Dynamic OSM search UI
 │   │   ├── osmLegend.js     # OSM legend
 │   │   ├── loginOverlay.js  # Login form
 │   │   ├── userFeatureForm.js # Feature edit form
@@ -672,11 +675,10 @@ import { getSession, login, logout } from '../auth/session.js';
 
 ### Z-Index Hierarchy
 
-| Layer Type | Z-Index |
-|------------|---------|
 | Base tiles | 0 |
 | WMS overlays | 50 |
 | OSM GeoJSON | 60 |
+| Dynamic OSM (Overpass) | 150 |
 | Drawn lines | 102 |
 | Drawn polygons | 103 |
 | Measure lines | 104 |

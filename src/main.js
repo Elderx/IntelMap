@@ -8,6 +8,8 @@ import { showClickMarker } from './draw/markers.js';
 import { showAllDrawables, copyDrawnFeatures, clearDrawnFeatures } from './draw/showables.js';
 import { wireDrawButtons, wireRemoveFeaturesButton, enableMarkerClickHandler } from './draw/tools.js';
 import { setupNominatimSearch } from './search/nominatim.js';
+import { initOsmFeatureSearch } from './ui/osmFeatureSearch.js';
+import { updateOsmDynamicLayers } from './map/osmDynamicLayers.js';
 import { fetchOverlayCapabilities } from './overlays/fetchCapabilities.js';
 import { getQueryParams } from './utils/query.js';
 import { updatePermalinkWithFeatures, updatePermalink } from './map/permalink.js';
@@ -109,6 +111,7 @@ async function bootstrap() {
     copyDrawnFeatures('main', 'left', state.map, state.leftMap);
     copyDrawnFeatures('main', 'right', state.map, state.rightMap);
     clearDrawnFeatures('main', state.map);
+    updateOsmDynamicLayers(); // Sync dynamic layers to split maps
   }
   function deactivateSplitScreen() {
     state.isSplit = false;
@@ -145,6 +148,7 @@ async function bootstrap() {
   state.map.on('moveend', function () { if (!state.restoringFromPermalink && state.permalinkInitialized) { updatePermalinkWithFeatures(); } });
   import('ol/control').then(({ defaults }) => { defaults().extend([]).forEach(ctrl => state.map.addControl(ctrl)); });
 
+  initOsmFeatureSearch();
   setupNominatimSearch();
   wireDrawButtons(updatePermalinkWithFeatures);
   wireRemoveFeaturesButton(updatePermalinkWithFeatures);
@@ -152,10 +156,21 @@ async function bootstrap() {
   await fetchOverlayCapabilities();
   mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures);
 
+  // Initialize Layer Group Menu
+  import('./ui/layerGroupMenu.js').then(async ({ createLayerGroupMenu }) => {
+    const menu = await createLayerGroupMenu();
+    // Find the right-side column container created by mountOverlaySelectors
+    const column = mainMapDiv.querySelector('div[style*="top: 60px"][style*="right: 10px"]');
+    if (column) column.appendChild(menu);
+  });
+
   // Initialize OSM components
   createOSMPopup();
-  createOSMLegend();
-  updateOSMLegend();
+
+  import('./ui/activeLayers.js').then(({ createActiveLayersPanel, updateActiveLayersPanel }) => {
+    createActiveLayersPanel();
+    updateActiveLayersPanel();
+  });
 
   enableOverlayInfoClickHandlers();
   setupOSMInteractions(state.map);

@@ -81,10 +81,10 @@ export function updateAllOverlays() {
       state.osmAssignedColors[osmId] = color;
     }
     const makeOsmStyle = () => new Style({
-      image: new CircleStyle({ 
-        radius: 6, 
-        fill: new Fill({ color }), 
-        stroke: new Stroke({ color: 'white', width: 2 }) 
+      image: new CircleStyle({
+        radius: 6,
+        fill: new Fill({ color }),
+        stroke: new Stroke({ color: 'white', width: 2 })
       }),
       stroke: new Stroke({ color, width: 2 }),
       fill: new Fill({ color: color + '20' }), // Add transparency
@@ -115,6 +115,9 @@ export function updateAllOverlays() {
       if (state.rightMap) state.rightMap.addLayer(rightLayer);
     }
   });
+
+  // Update the Unified Active Layers Panel
+  import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
 }
 
 
