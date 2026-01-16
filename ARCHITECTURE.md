@@ -26,7 +26,7 @@ MML Map is a Finnish map visualization application built with OpenLayers and Vit
 - **Overlays**: WMS (Digiroad), OSM GeoJSON datasets
 - **Drawing Tools**: Markers, lines, polygons, measurement
 - **User Features**: Persistent markers/polygons with authentication and sharing
-- **Search**: Google Places Autocomplete integration
+- **Search**: Nominatim (OSM) Autocomplete integration
 - **Permalinks**: Full URL state for sharing map views
 
 ---
@@ -73,7 +73,7 @@ mml-map/
 │   ├── overlays/            # Overlay data
 │   │   └── fetchCapabilities.js # WMS capabilities
 │   ├── search/              # Search
-│   │   └── googlePlaces.js  # Google Places
+│   │   └── nominatim.js     # Nominatim Search
 │   ├── state/               # State management
 │   │   └── store.js         # Global state
 │   ├── ui/                  # UI components
@@ -160,7 +160,7 @@ graph TB
     subgraph External["External Services"]
         MML[MML WMTS]
         Digiroad[Digiroad WMS]
-        Google[Google Places]
+        Nominatim[Nominatim API]
         Mapbox[Mapbox Styles]
     end
     
@@ -417,10 +417,12 @@ Login form overlay - gates app behind authentication.
 
 ### Search
 
-#### `src/search/googlePlaces.js`
-Google Places Autocomplete integration:
+#### `src/search/nominatim.js`
+Nominatim (OSM) Autocomplete integration:
 - Wires to `#search-bar` input
-- On place selection: recenters maps, drops search marker
+- Debounced search queries to Nominatim API
+- on place selection: recenters maps, drops search marker
+- Configurable endpoint via `VITE_NOMINATIM_URL`
 
 ---
 
@@ -627,13 +629,13 @@ state.someLayerObjects[key] = [];
 | `SESSION_SECRET` | dev-secret | Session encryption |
 | `ADMIN_PASSWORD` | admin | Initial admin user password |
 | `VITE_TILE_CACHE_URL` | (empty) | Tile cache proxy URL (build-time) |
+| `VITE_NOMINATIM_URL` | (empty) | Nominatim API URL (default: openstreetmap.org) |
 | `NODE_ENV` | - | development/production |
 
 ### API Keys to Update
 
-1. **Google Places** - `index.html` script tag
-2. **Mapbox** - `src/config/constants.js` → `mapboxAccessToken`
-3. **MML** - `src/config/constants.js` → `apiKey`
+1. **Mapbox** - `src/config/constants.js` → `mapboxAccessToken`
+2. **MML** - `src/config/constants.js` → `apiKey`
 
 ---
 

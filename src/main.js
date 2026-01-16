@@ -7,7 +7,7 @@ import { enableOverlayInfoClickHandlers, disableOverlayInfoClickHandlers } from 
 import { showClickMarker } from './draw/markers.js';
 import { showAllDrawables, copyDrawnFeatures, clearDrawnFeatures } from './draw/showables.js';
 import { wireDrawButtons, wireRemoveFeaturesButton, enableMarkerClickHandler } from './draw/tools.js';
-import { setupGooglePlacesAutocomplete } from './search/googlePlaces.js';
+import { setupNominatimSearch } from './search/nominatim.js';
 import { fetchOverlayCapabilities } from './overlays/fetchCapabilities.js';
 import { getQueryParams } from './utils/query.js';
 import { updatePermalinkWithFeatures, updatePermalink } from './map/permalink.js';
@@ -101,9 +101,9 @@ async function bootstrap() {
     state.rightMapMoveendListener = function () { if (!state.restoringFromPermalink && state.permalinkInitialized) updatePermalinkWithFeatures(); };
     state.leftMap.on('moveend', state.leftMapMoveendListener);
     state.rightMap.on('moveend', state.rightMapMoveendListener);
-    const leftLayerSelectorDiv = createLayerSelectorDropdown(state.leftLayerId, function(newLayerId) { state.leftLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.leftMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
+    const leftLayerSelectorDiv = createLayerSelectorDropdown(state.leftLayerId, function (newLayerId) { state.leftLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.leftMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
     leftLayerSelectorDiv.style.left = '10px'; leftLayerSelectorDiv.style.right = 'auto';
-    const rightLayerSelectorDiv = createLayerSelectorDropdown(state.rightLayerId, function(newLayerId) { state.rightLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.rightMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
+    const rightLayerSelectorDiv = createLayerSelectorDropdown(state.rightLayerId, function (newLayerId) { state.rightLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.rightMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
     document.getElementById('map-left').appendChild(leftLayerSelectorDiv);
     document.getElementById('map-right').appendChild(rightLayerSelectorDiv);
     copyDrawnFeatures('main', 'left', state.map, state.leftMap);
@@ -145,7 +145,7 @@ async function bootstrap() {
   state.map.on('moveend', function () { if (!state.restoringFromPermalink && state.permalinkInitialized) { updatePermalinkWithFeatures(); } });
   import('ol/control').then(({ defaults }) => { defaults().extend([]).forEach(ctrl => state.map.addControl(ctrl)); });
 
-  setupGooglePlacesAutocomplete();
+  setupNominatimSearch();
   wireDrawButtons(updatePermalinkWithFeatures);
   wireRemoveFeaturesButton(updatePermalinkWithFeatures);
 

@@ -1,0 +1,32 @@
+[
+  {
+    "id": "filtered_barrier",
+    "title": "Filtered Barrier",
+    "file": "filtered_barrier.geojson"
+  },
+  {
+    "id": "filtered_building_bunker",
+    "title": "Filtered Building Bunker",
+    "file": "filtered_building_bunker.geojson"
+  },
+  {
+    "id": "filtered_landuse_military",
+    "title": "Filtered Landuse Military",
+    "file": "filtered_landuse_military.geojson"
+  },
+  {
+    "id": "filtered_man_made_mast",
+    "title": "Filtered Man Made Mast",
+    "file": "filtered_man_made_mast.geojson"
+  },
+  {
+    "id": "filtered_military",
+    "title": "Filtered Military",
+    "file": "filtered_military.geojson"
+  },
+  {
+    "id": "filtered_tunnel",
+    "title": "Filtered Tunnel",
+    "file": "filtered_tunnel.geojson"
+  }
+]
