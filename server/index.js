@@ -9,6 +9,7 @@ const { Pool } = require('pg');
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/mmlmap';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
 
 const pool = new Pool({ connectionString: DATABASE_URL });
 
@@ -98,9 +99,9 @@ async function initDb() {
   // Seed admin if no users
   const ucount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
   if (ucount.rows[0].c === 0) {
-    const hash = await bcrypt.hash('admin', 10);
+    const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
     await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', ['admin', hash]);
-    console.log('[server] Seeded default admin/admin user');
+    console.log('[server] Seeded default admin user (password from ADMIN_PASSWORD env or default)');
   }
 
   // Assign owner to legacy rows (default to admin) if not set
@@ -201,7 +202,7 @@ app.post('/api/markers', ensureAuth, async (req, res) => {
     );
     const markerId = rows[0].id;
     if (Array.isArray(sharedUserIds) && sharedUserIds.length) {
-      const values = sharedUserIds.map((uid, i) => `($1, $${i+2})`).join(',');
+      const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
       await pool.query(`INSERT INTO marker_shares (marker_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [markerId, ...sharedUserIds]);
     }
     const ownerRow = await pool.query('SELECT $1::text as owner_username', [req.user.username]);
@@ -228,7 +229,7 @@ app.patch('/api/markers/:id', ensureAuth, async (req, res) => {
     if (Array.isArray(sharedUserIds)) {
       await pool.query('DELETE FROM marker_shares WHERE marker_id = $1', [id]);
       if (sharedUserIds.length) {
-        const values = sharedUserIds.map((uid, i) => `($1, $${i+2})`).join(',');
+        const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
         await pool.query(`INSERT INTO marker_shares (marker_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [id, ...sharedUserIds]);
       }
     }
@@ -291,7 +292,7 @@ app.post('/api/polygons', ensureAuth, async (req, res) => {
     );
     const polygonId = rows[0].id;
     if (Array.isArray(sharedUserIds) && sharedUserIds.length) {
-      const values = sharedUserIds.map((uid, i) => `($1, $${i+2})`).join(',');
+      const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
       await pool.query(`INSERT INTO polygon_shares (polygon_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [polygonId, ...sharedUserIds]);
     }
     const enriched = { ...rows[0], owner_username: req.user.username, shared_user_ids: sharedUserIds || [] };
@@ -328,7 +329,7 @@ app.patch('/api/polygons/:id', ensureAuth, async (req, res) => {
     if (Array.isArray(sharedUserIds)) {
       await pool.query('DELETE FROM polygon_shares WHERE polygon_id = $1', [id]);
       if (sharedUserIds.length) {
-        const values = sharedUserIds.map((uid, i) => `($1, $${i+2})`).join(',');
+        const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
         await pool.query(`INSERT INTO polygon_shares (polygon_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [id, ...sharedUserIds]);
       }
     }

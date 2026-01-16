@@ -13,6 +13,10 @@ RUN npm ci
 ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
+# Tile cache URL (passed at build time for Vite to inline)
+ARG VITE_TILE_CACHE_URL=""
+ENV VITE_TILE_CACHE_URL=$VITE_TILE_CACHE_URL
+
 # If in production, build the app
 RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
 
@@ -39,4 +43,4 @@ ARG NODE_ENV=production
 ENV NODE_ENV=$NODE_ENV
 
 # If in development, override entrypoint
-ENTRYPOINT ["/bin/sh", "-c", "if [ \"$NODE_ENV\" = \"development\" ]; then exec npm run dev -- --host; else exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile; fi"] 
+ENTRYPOINT ["/bin/sh", "-c", "if [ \"$NODE_ENV\" = \"development\" ]; then exec npm run dev -- --host; else exec caddy run --config /etc/caddy/Caddyfile --adapter caddyfile; fi"]
