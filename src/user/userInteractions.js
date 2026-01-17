@@ -9,16 +9,27 @@ import { disableOverlayInfoClickHandlers, enableOverlayInfoClickHandlers } from 
 export function setupUserFeatureHover(mapObj) {
   if (!mapObj) return;
 
-  mapObj.on('pointermove', function(evt) {
+  let activeUserFeature = null;
+
+  mapObj.on('pointermove', function (evt) {
     if (state.drawingMode) return;
-    const hit = mapObj.forEachFeatureAtPixel(evt.pixel, function(feature, layer) {
+    const hit = mapObj.forEachFeatureAtPixel(evt.pixel, function (feature, layer) {
       if (feature && (feature.get('userType') === 'marker' || feature.get('userType') === 'polygon')) return feature;
+    }, {
+      hitTolerance: 5,
+      layerFilter: (layer) => {
+        // Only check layers that are NOT OSM layers
+        return layer && !layer.get('osmId');
+      }
     });
+
     if (hit) {
+      activeUserFeature = hit;
       const title = hit.get('title') || (hit.get('userType') === 'marker' ? 'Marker' : 'Polygon');
       const color = hit.get('color') || '#1976d2';
       const desc = hit.get('description') || '';
-      const fakeFeature = { getProperties: () => ({ title, description: desc }), getGeometry: () => ({ getType: () => hit.get('userType') === 'marker' ? 'Point' : 'Polygon' }) };
+
+      // We pass HTML content for user features
       const html = `
         <div style="margin-bottom:6px;font-weight:bold;color:${color}">${title}</div>
         ${desc ? `<div style="font-size:0.9em;color:#555">${desc}</div>` : ''}
@@ -26,17 +37,24 @@ export function setupUserFeatureHover(mapObj) {
       showOSMPopup(html, evt.pixel, false);
       mapObj.getTargetElement().style.cursor = 'pointer';
     } else {
-      hideOSMPopup(false);
-      mapObj.getTargetElement().style.cursor = '';
+      // ONLY hide if we were previously hovering a user feature
+      if (activeUserFeature) {
+        activeUserFeature = null;
+        hideOSMPopup(false);
+        mapObj.getTargetElement().style.cursor = '';
+      }
     }
   });
 }
 
 export function setupUserFeatureClick(mapObj) {
   if (!mapObj) return;
-  mapObj.on('singleclick', function(evt) {
+  mapObj.on('singleclick', function (evt) {
     if (state.drawingMode) return;
-    const feats = mapObj.getFeaturesAtPixel(evt.pixel) || [];
+    const feats = mapObj.getFeaturesAtPixel(evt.pixel, {
+      hitTolerance: 5,
+      layerFilter: (layer) => layer && !layer.get('osmId')
+    }) || [];
     const userFeats = feats.filter(f => f && (f.get('userType') === 'marker' || f.get('userType') === 'polygon'));
     if (userFeats.length === 0) return;
 
@@ -88,7 +106,7 @@ export function setupUserFeatureClick(mapObj) {
     if (userFeats.length === 1) {
       handleEdit(userFeats[0]);
     } else {
-      openFeaturePicker(userFeats, handleEdit, () => {});
+      openFeaturePicker(userFeats, handleEdit, () => { });
     }
   });
 }

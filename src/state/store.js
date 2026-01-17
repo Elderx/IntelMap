@@ -63,6 +63,7 @@ export const state = {
   // Dynamic OSM Feature Search State
   activeOsmFeatures: [], // { id, key, value, title, color, visible }
   osmDynamicLayerObjects: { main: [], left: [], right: [] },
+  osmLocalOnlyMode: false, // When true, only display cached OSM data (no network requests)
 
   overlaySelectorDiv: null,
   overlayDropdownButton: null,

@@ -105,6 +105,20 @@ async function initDb() {
     );
   `);
 
+  // OSM Tile Cache - tracks which tiles have been downloaded to nginx cache
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS osm_tile_cache (
+      id SERIAL PRIMARY KEY,
+      layer_id TEXT NOT NULL,
+      tile_key TEXT NOT NULL,
+      bbox JSONB NOT NULL,
+      feature_count INTEGER DEFAULT 0,
+      owner_user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      created_at TIMESTAMPTZ DEFAULT now(),
+      UNIQUE (layer_id, tile_key, owner_user_id)
+    );
+  `);
+
   // Seed admin if no users
   const ucount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
   if (ucount.rows[0].c === 0) {
@@ -399,6 +413,70 @@ app.delete('/api/layer-groups/:id', ensureAuth, async (req, res) => {
       [id, req.user.id]
     );
     if (rowCount === 0) return res.status(404).json({ error: 'not_found_or_forbidden' });
+    res.status(204).end();
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// OSM Tile Cache
+app.get('/api/osm-tiles', ensureAuth, async (req, res) => {
+  try {
+    const { layer_id } = req.query;
+    let query, params;
+
+    if (layer_id) {
+      query = 'SELECT tile_key, bbox, feature_count FROM osm_tile_cache WHERE layer_id = $1 AND owner_user_id = $2';
+      params = [layer_id, req.user.id];
+    } else {
+      // Return all cached tiles grouped by layer
+      query = 'SELECT layer_id, tile_key, bbox, feature_count FROM osm_tile_cache WHERE owner_user_id = $1';
+      params = [req.user.id];
+    }
+
+    const { rows } = await pool.query(query, params);
+    res.json(rows);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/osm-tiles', ensureAuth, async (req, res) => {
+  try {
+    const { layer_id, tile_key, bbox, feature_count } = req.body || {};
+    if (!layer_id || !tile_key || !bbox) {
+      return res.status(400).json({ error: 'missing_fields' });
+    }
+
+    const { rows } = await pool.query(
+      `INSERT INTO osm_tile_cache (layer_id, tile_key, bbox, feature_count, owner_user_id) 
+       VALUES ($1, $2, $3::jsonb, $4, $5)
+       ON CONFLICT (layer_id, tile_key, owner_user_id) 
+       DO UPDATE SET feature_count = $4, created_at = now()
+       RETURNING id, layer_id, tile_key, bbox, feature_count`,
+      [layer_id, tile_key, JSON.stringify(bbox), feature_count || 0, req.user.id]
+    );
+    res.status(201).json(rows[0]);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.delete('/api/osm-tiles', ensureAuth, async (req, res) => {
+  try {
+    const { layer_id } = req.query;
+    let query, params;
+
+    if (layer_id) {
+      query = 'DELETE FROM osm_tile_cache WHERE layer_id = $1 AND owner_user_id = $2';
+      params = [layer_id, req.user.id];
+    } else {
+      // Clear all tile cache for user
+      query = 'DELETE FROM osm_tile_cache WHERE owner_user_id = $1';
+      params = [req.user.id];
+    }
+
+    await pool.query(query, params);
     res.status(204).end();
   } catch (e) {
     console.error(e); res.status(500).json({ error: 'db_error' });

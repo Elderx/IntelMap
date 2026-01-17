@@ -106,3 +106,23 @@ async function apiDelete(path) {
     return false;
   }
 }
+
+// OSM Tile Cache API
+export async function fetchCachedTiles(layerId = null) {
+  const path = layerId ? `/api/osm-tiles?layer_id=${encodeURIComponent(layerId)}` : '/api/osm-tiles';
+  return await apiGet(path) || [];
+}
+
+export async function markTileAsCached(layerId, tileKey, bbox, featureCount = 0) {
+  return await apiPost('/api/osm-tiles', {
+    layer_id: layerId,
+    tile_key: tileKey,
+    bbox,
+    feature_count: featureCount
+  });
+}
+
+export async function clearTileCacheFromDb(layerId = null) {
+  const path = layerId ? `/api/osm-tiles?layer_id=${encodeURIComponent(layerId)}` : '/api/osm-tiles';
+  return await apiDelete(path);
+}

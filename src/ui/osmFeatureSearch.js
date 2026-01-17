@@ -1,6 +1,6 @@
 import { searchOsmTags } from '../api/osm.js';
 import { state } from '../state/store.js';
-import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
+import { updateOsmDynamicLayers, clearAllTileCache } from '../map/osmDynamicLayers.js';
 
 let container = null;
 
@@ -68,6 +68,58 @@ export function initOsmFeatureSearch() {
     closeBtn.onclick = () => { panel.style.display = 'none'; };
     header.appendChild(closeBtn);
     panel.appendChild(header);
+
+    // === LOCAL ONLY MODE TOGGLE ===
+    const localOnlyRow = document.createElement('div');
+    localOnlyRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:10px;background:#f5f5f5;border-radius:8px;';
+
+    const localOnlyLabel = document.createElement('div');
+    localOnlyLabel.innerHTML = `
+        <div style="font-weight:600;color:#333;">📦 Local Only Mode</div>
+        <div style="font-size:0.8em;color:#666;">Only show cached data (no network)</div>
+    `;
+
+    const localOnlyToggle = document.createElement('label');
+    localOnlyToggle.style.cssText = 'position:relative;display:inline-block;width:50px;height:26px;cursor:pointer;';
+    localOnlyToggle.innerHTML = `
+        <input type="checkbox" id="local-only-toggle" style="opacity:0;width:0;height:0;">
+        <span style="position:absolute;inset:0;background:#ccc;border-radius:26px;transition:0.3s;"></span>
+        <span style="position:absolute;left:3px;top:3px;width:20px;height:20px;background:white;border-radius:50%;transition:0.3s;"></span>
+    `;
+
+    const checkbox = localOnlyToggle.querySelector('input');
+    const slider = localOnlyToggle.querySelector('span:first-of-type');
+    const knob = localOnlyToggle.querySelector('span:last-of-type');
+
+    checkbox.checked = state.osmLocalOnlyMode;
+    if (checkbox.checked) {
+        slider.style.background = '#4caf50';
+        knob.style.left = '27px';
+    }
+
+    checkbox.onchange = () => {
+        state.osmLocalOnlyMode = checkbox.checked;
+        slider.style.background = checkbox.checked ? '#4caf50' : '#ccc';
+        knob.style.left = checkbox.checked ? '27px' : '3px';
+        console.log(`[OSM] Local Only Mode: ${state.osmLocalOnlyMode ? 'ON' : 'OFF'}`);
+    };
+
+    localOnlyRow.appendChild(localOnlyLabel);
+    localOnlyRow.appendChild(localOnlyToggle);
+    panel.appendChild(localOnlyRow);
+
+    // === CLEAR CACHE BUTTON ===
+    const clearCacheBtn = document.createElement('button');
+    clearCacheBtn.textContent = '🗑️ Clear Tile Cache';
+    clearCacheBtn.title = 'Clear database records of cached tiles';
+    clearCacheBtn.style.cssText = 'width:100%;padding:8px;margin-bottom:16px;background:#ff5722;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;';
+    clearCacheBtn.onclick = async () => {
+        if (confirm('Clear OSM tile cache history? This will make the map forget which tiles are cached in Nginx.')) {
+            await clearAllTileCache();
+            alert('Cache cleared!');
+        }
+    };
+    panel.appendChild(clearCacheBtn);
 
     // Search input
     const inputGroup = document.createElement('div');

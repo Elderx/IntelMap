@@ -85,23 +85,18 @@ export async function searchOsmTags(query) {
  */
 export function buildOverpassQuery(key, value, bbox) {
     // Use a timeout to prevent long queries (reduced for better responsiveness)
-    const timeout = 45;
-    const [minLon, minLat, maxLon, maxLat] = bbox;
+    const timeout = 180;
+    // Snap coordinates to 6 decimal places (~10cm) to ensure stable cache keys
+    const [minLon, minLat, maxLon, maxLat] = bbox.map(c => Math.round(c * 1000000) / 1000000);
     const bboxStr = `${minLat},${minLon},${maxLat},${maxLon}`;
 
-    // Construct tag filter: [key=value] or [key]
-    const tagFilter = (value === '*' || !value) ? `["${key}"]` : `["${key}"="${value}"]`;
-
-    // Query for nodes, ways, and relations with this tag in the bbox
-    return `
-    [out:json][timeout:${timeout}];
-    (
-      node${tagFilter}(${bboxStr});
-      way${tagFilter}(${bboxStr});
-      relation${tagFilter}(${bboxStr});
-    );
-    out geom;
-  `;
+    let q = '';
+    if (value === '*') {
+        q = `[out:json][timeout:${timeout}];(node["${key}"](${bboxStr});way["${key}"](${bboxStr});relation["${key}"](${bboxStr}););out geom;`;
+    } else {
+        q = `[out:json][timeout:${timeout}];(node["${key}"="${value}"](${bboxStr});way["${key}"="${value}"](${bboxStr});relation["${key}"="${value}"](${bboxStr}););out geom;`;
+    }
+    return q;
 }
 
 /**
@@ -116,12 +111,13 @@ export async function fetchOverpassData(query) {
         let timer;
         try {
             const controller = new AbortController();
-            timer = setTimeout(() => controller.abort(), 20000); // Reduced to 20s timeout
+            timer = setTimeout(() => controller.abort(), 120000); // 120s (2m) for large data blocks
 
             // Use GET with ?data= specifically to allow Nginx caching
             // Overpass supports large queries in GET via this parameter
             const url = `${serverUrl}?data=${encodeURIComponent(query)}`;
 
+            const startTime = performance.now();
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
@@ -129,6 +125,28 @@ export async function fetchOverpassData(query) {
                 },
                 signal: controller.signal
             });
+
+            const duration = (performance.now() - startTime).toFixed(0);
+            const cacheStatus = (response.headers.get('X-Cache-Status') || 'MISS').toUpperCase();
+
+            // Mapping for better color-coded observability
+            const statusConfig = {
+                'HIT': { color: '#4CAF50', label: 'HIT', warn: false },
+                'MISS': { color: '#FF9800', label: 'MISS (REMOTE REQUEST)', warn: true },
+                'EXPIRED': { color: '#2196F3', label: 'EXPIRED (REVALIDATING)', warn: true },
+                'STALE': { color: '#9C27B0', label: 'STALE (SERVED FROM DISK)', warn: false },
+                'UPDATING': { color: '#00BCD4', label: 'UPDATING (BACKGROUND FETCH)', warn: false },
+                'REVALIDATED': { color: '#009688', label: 'REVALIDATED', warn: false },
+                'BYPASS': { color: '#f44336', label: 'BYPASS (FORCE REFRESH)', warn: true }
+            };
+
+            const cfg = statusConfig[cacheStatus] || { color: '#757575', label: cacheStatus, warn: true };
+
+            if (!cfg.warn) {
+                console.log(`%c[OSM CACHE] ${cfg.label} (${duration}ms)`, `color: ${cfg.color}; font-weight: bold;`);
+            } else {
+                console.warn(`%c[OSM CACHE] ${cfg.label} (${duration}ms) - DOWNLOAD LIKELY: ${url}`, `color: white; background: ${cfg.color}; padding: 2px 6px; border-radius: 3px; font-weight: bold;`);
+            }
 
             clearTimeout(timer);
 
