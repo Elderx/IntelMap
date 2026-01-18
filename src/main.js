@@ -2,7 +2,7 @@ import { hardcodedLayers, mapboxAccessToken } from './config/constants.js';
 import { state } from './state/store.js';
 import { loadCapabilities, createBaseMap, createSplitMaps, parseInitialFromParams } from './map/init.js';
 import { createTileLayerFromList } from './map/layers.js';
-import { createOverlayDropdown, mountOverlaySelectors } from './ui/overlayDropdown.js';
+import { createAllOverlayDropdowns, mountOverlaySelectors } from './ui/overlayDropdown.js';
 import { enableOverlayInfoClickHandlers, disableOverlayInfoClickHandlers } from './map/overlayInfoClick.js';
 import { showClickMarker } from './draw/markers.js';
 import { showAllDrawables, copyDrawnFeatures, clearDrawnFeatures } from './draw/showables.js';
@@ -43,41 +43,67 @@ async function bootstrap() {
   setupUserFeatureHover(state.map);
   setupUserFeatureClick(state.map);
 
-  let singleLayerSelectorDiv = null;
-  function showSingleLayerSelector(show) { if (singleLayerSelectorDiv) singleLayerSelectorDiv.style.display = show ? 'block' : 'none'; }
-  function addSingleLayerSelectorToMap() {
-    if (singleLayerSelectorDiv) singleLayerSelectorDiv.remove();
-    state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;
-    singleLayerSelectorDiv = createLayerSelectorDropdown(state.currentLayerId, function (newLayerId) {
-      state.currentLayerId = newLayerId;
-      const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.selectedDate);
-      state.map.getLayers().setAt(0, newLayer);
-      const view = state.map.getView();
-      updatePermalink(view.getCenter(), view.getZoom(), newLayerId, false);
-    }, function (newDate) {
-      state.selectedDate = newDate;
-      const newLayer = createTileLayerFromList(result, state.currentLayerId, null, mapboxAccessToken, newDate);
-      state.map.getLayers().setAt(0, newLayer);
+  async function mountUnifiedLayerManager(parentDiv, mapKey, initialLayerId, onLayerChange, onDateChange) {
+    // 1. Create/Find column
+    let column = parentDiv.querySelector('.ui-column-container');
+    if (column) column.remove();
+
+    column = document.createElement('div');
+    column.className = 'ui-column-container';
+    column.style.position = 'absolute';
+    column.style.top = '60px';
+    column.style.right = '10px';
+    column.style.zIndex = '10';
+    column.style.maxWidth = '320px';
+    column.style.minWidth = '220px';
+    column.style.boxSizing = 'border-box';
+    column.style.maxHeight = 'calc(100vh - 80px)';
+    column.style.overflowY = 'auto';
+    column.style.scrollbarWidth = 'none';
+    column.style.msOverflowStyle = 'none';
+    parentDiv.appendChild(column);
+
+    // 2. Basemap Selector
+    const basemapSelector = createLayerSelectorDropdown(initialLayerId,
+      function (newId) {
+        onLayerChange(newId);
+      },
+      function (newDate) {
+        onDateChange(newDate);
+      }
+    );
+    column.appendChild(basemapSelector);
+
+    // 3. Overlays
+    const overlayDropdowns = createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures);
+    overlayDropdowns.forEach(d => {
+      d.container.style.marginTop = '8px';
+      column.appendChild(d.container);
     });
 
-    // Append to the UI column (at the top)
-    const column = mainMapDiv.querySelector('.ui-column-container');
-    if (column) {
-      // Ensure it's the first child
-      if (column.firstChild) {
-        column.insertBefore(singleLayerSelectorDiv, column.firstChild);
-      } else {
-        column.appendChild(singleLayerSelectorDiv);
+    // 4. Layer Groups
+    const groupMenu = await createLayerGroupMenu();
+    groupMenu.style.marginTop = '8px';
+    column.appendChild(groupMenu);
+
+    return column;
+  }
+
+  function addSingleLayerSelectorToMap() {
+    mountUnifiedLayerManager(mainMapDiv, 'main', hardcodedLayers[state.initialLayerIdx].id,
+      function (newLayerId) {
+        state.currentLayerId = newLayerId;
+        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.selectedDate);
+        state.map.getLayers().setAt(0, newLayer);
+        const view = state.map.getView();
+        updatePermalink(view.getCenter(), view.getZoom(), newLayerId, false);
+      },
+      function (newDate) {
+        state.selectedDate = newDate;
+        const newLayer = createTileLayerFromList(result, state.currentLayerId, null, mapboxAccessToken, newDate);
+        state.map.getLayers().setAt(0, newLayer);
       }
-    } else {
-      // Fallback for when column is not yet mounted
-      singleLayerSelectorDiv.style.position = 'absolute';
-      singleLayerSelectorDiv.style.top = '10px';
-      singleLayerSelectorDiv.style.right = '10px';
-      singleLayerSelectorDiv.style.zIndex = '10';
-      mainMapDiv.appendChild(singleLayerSelectorDiv);
-    }
-    showSingleLayerSelector(true);
+    );
   }
 
   async function loadUserFeaturesFromServer() {
@@ -107,7 +133,7 @@ async function bootstrap() {
     state.isSplit = true;
     document.getElementById('map').style.display = 'none';
     splitMapsContainer.style.display = 'block';
-    showSingleLayerSelector(false);
+    // showSingleLayerSelector(false); // No longer needed, mountUnifiedLayerManager handles removal
     if (state.leftMap) state.leftMap.setTarget(null);
     if (state.rightMap) state.rightMap.setTarget(null);
     const mainView = state.map.getView();
@@ -126,7 +152,8 @@ async function bootstrap() {
     state.rightMapMoveendListener = function () { if (!state.restoringFromPermalink && state.permalinkInitialized) updatePermalinkWithFeatures(); };
     state.leftMap.on('moveend', state.leftMapMoveendListener);
     state.rightMap.on('moveend', state.rightMapMoveendListener);
-    const leftLayerSelectorDiv = createLayerSelectorDropdown(state.leftLayerId,
+
+    mountUnifiedLayerManager(document.getElementById('map-left'), 'left', state.leftLayerId,
       function (newLayerId) {
         state.leftLayerId = newLayerId;
         const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.leftDate);
@@ -139,16 +166,8 @@ async function bootstrap() {
         state.leftMap.getLayers().setAt(0, newLayer);
       }
     );
-    // In split screen, these still need to be absolute since they are child of map containers
-    leftLayerSelectorDiv.style.position = 'absolute';
-    leftLayerSelectorDiv.style.top = '10px';
-    leftLayerSelectorDiv.style.left = '10px';
-    leftLayerSelectorDiv.style.right = 'auto';
-    leftLayerSelectorDiv.style.zIndex = '10';
-    leftLayerSelectorDiv.style.marginTop = '0';
 
-    leftLayerSelectorDiv.style.left = '10px'; leftLayerSelectorDiv.style.right = 'auto';
-    const rightLayerSelectorDiv = createLayerSelectorDropdown(state.rightLayerId,
+    mountUnifiedLayerManager(document.getElementById('map-right'), 'right', state.rightLayerId,
       function (newLayerId) {
         state.rightLayerId = newLayerId;
         const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.rightDate);
@@ -161,14 +180,6 @@ async function bootstrap() {
         state.rightMap.getLayers().setAt(0, newLayer);
       }
     );
-    rightLayerSelectorDiv.style.position = 'absolute';
-    rightLayerSelectorDiv.style.top = '10px';
-    rightLayerSelectorDiv.style.right = '10px';
-    rightLayerSelectorDiv.style.zIndex = '10';
-    rightLayerSelectorDiv.style.marginTop = '0';
-
-    document.getElementById('map-left').appendChild(leftLayerSelectorDiv);
-    document.getElementById('map-right').appendChild(rightLayerSelectorDiv);
     copyDrawnFeatures('main', 'left', state.map, state.leftMap);
     copyDrawnFeatures('main', 'right', state.map, state.rightMap);
     clearDrawnFeatures('main', state.map);
@@ -178,7 +189,7 @@ async function bootstrap() {
     state.isSplit = false;
     splitMapsContainer.style.display = 'none';
     document.getElementById('map').style.display = 'block';
-    showSingleLayerSelector(true);
+    addSingleLayerSelectorToMap(); // Re-add single layer selector
     if (state.leftMap) state.leftMap.setTarget(null);
     if (state.rightMap) state.rightMap.setTarget(null);
     if (state.leftMap && state.leftMapMoveendListener) state.leftMap.un('moveend', state.leftMapMoveendListener);
@@ -215,15 +226,9 @@ async function bootstrap() {
   wireRemoveFeaturesButton(updatePermalinkWithFeatures);
 
   await fetchOverlayCapabilities();
-  mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures);
 
-  // Add Basemap selector to column
+  // Add Unified Layer Manager to main map
   addSingleLayerSelectorToMap();
-
-  // Add Layer Groups
-  const groupMenu = await createLayerGroupMenu();
-  const column = mainMapDiv.querySelector('.ui-column-container');
-  if (column) column.appendChild(groupMenu);
 
   // Initialize OSM components
   createOSMPopup();

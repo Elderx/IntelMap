@@ -1,4 +1,7 @@
 import { hardcodedLayers } from '../config/constants.js';
+import flatpickr from 'flatpickr';
+import 'flatpickr/dist/flatpickr.min.css';
+import { fetchLayerAvailability } from '../api/nasaAvailability.js';
 
 export function createLayerSelectorDropdown(initialId, onChange, onDateChange) {
   const container = document.createElement('div');
@@ -66,21 +69,46 @@ export function createLayerSelectorDropdown(initialId, onChange, onDateChange) {
   });
 
   const dateInput = document.createElement('input');
-  dateInput.type = 'date';
+  dateInput.type = 'text'; // Flatpickr uses text
   dateInput.style.width = '100%';
   dateInput.style.padding = '6px';
   dateInput.style.borderRadius = '6px';
   dateInput.style.border = '1px solid #ccc';
   dateInput.style.boxSizing = 'border-box';
   dateInput.style.display = 'none';
+  dateInput.placeholder = 'Select date...';
 
-  const updateVisibility = (val) => {
+  let fp = null;
+
+  const updateVisibility = async (val) => {
     const layer = hardcodedLayers.find(l => l.id === val);
     if (layer && layer.hasTime) {
       dateInput.style.display = 'block';
-      dateInput.value = layer.date || new Date().toISOString().split('T')[0];
+
+      const config = {
+        defaultDate: layer.date || new Date().toISOString().split('T')[0],
+        dateFormat: "Y-m-d",
+        onChange: (selectedDates, dateStr) => {
+          if (onDateChange) onDateChange(dateStr);
+        }
+      };
+
+      // If it's a NASA layer, fetch availability
+      if (layer.type === 'nasa' && layer.nasaLayerId) {
+        const availability = await fetchLayerAvailability(layer.nasaLayerId);
+        if (availability && availability.ranges.length > 0) {
+          config.enable = availability.ranges.map(r => ({ from: r.from, to: r.to }));
+          // Set the default date to the last available day if current default is outside ranges
+          // For now, just trust the default or use the last range's end
+        }
+      }
+
+      if (fp) fp.destroy();
+      fp = flatpickr(dateInput, config);
     } else {
       dateInput.style.display = 'none';
+      if (fp) fp.destroy();
+      fp = null;
     }
   };
 
@@ -112,10 +140,6 @@ export function createLayerSelectorDropdown(initialId, onChange, onDateChange) {
     const layer = hardcodedLayers.find(l => l.id === this.value);
     valueSpan.textContent = layer ? layer.name : this.value;
     onChange(this.value);
-  });
-
-  dateInput.addEventListener('change', function () {
-    if (onDateChange) onDateChange(this.value);
   });
 
   container.appendChild(button);

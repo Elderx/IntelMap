@@ -146,62 +146,58 @@ export function createOverlayDropdown(mapKey, selected, onChange, overlayList, l
   return { container, dropdownButton, dropdownPanel };
 }
 
-export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
-  if (state.overlayDropdownButton && state.overlayDropdownButton.parentElement) state.overlayDropdownButton.parentElement.remove();
-  if (state.overlayDropdownPanel && state.overlayDropdownPanel.parentElement) state.overlayDropdownPanel.parentElement.remove();
-  if (state.overlaySelectorDiv) state.overlaySelectorDiv.remove();
-  if (window.genericOverlaySelectorDiv) window.genericOverlaySelectorDiv.remove();
-  if (window.osmOverlaySelectorDiv) window.osmOverlaySelectorDiv.remove();
-
-  // Create a single absolute-positioned column container to stack all dropdowns
-  const column = document.createElement('div');
-  column.className = 'ui-column-container';
-  column.style.position = 'absolute';
-  column.style.top = '60px';
-  column.style.right = '10px';
-  column.style.zIndex = '10';
-  column.style.maxWidth = '320px';
-  column.style.minWidth = '220px';
-  column.style.boxSizing = 'border-box';
-  column.style.maxHeight = 'calc(100vh - 80px)';
-  column.style.overflowY = 'auto';
-  // Hide scrollbar but keep functionality
-  column.style.scrollbarWidth = 'none';
-  column.style.msOverflowStyle = 'none';
-
-  const digiroad = createOverlayDropdown('main', state.digiroadOverlayLayers, function (newSelected) {
+export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
+  const digiroad = createOverlayDropdown(mapKey, state.digiroadOverlayLayers, function (newSelected) {
     state.digiroadOverlayLayers = newSelected;
     updateAllOverlays();
     updatePermalinkWithFeatures();
   }, state.digiroadOverlayList, 'Digiroad overlays', { isAccordion: true });
-  state.overlaySelectorDiv = column;
-  state.overlayDropdownButton = digiroad.dropdownButton;
-  state.overlayDropdownPanel = digiroad.dropdownPanel;
-  column.appendChild(digiroad.container);
 
-  const generic = createOverlayDropdown('main', state.genericOverlayLayers, function (newSelected) {
+  const generic = createOverlayDropdown(mapKey, state.genericOverlayLayers, function (newSelected) {
     state.genericOverlayLayers = newSelected;
     updateAllOverlays();
     updatePermalinkWithFeatures();
   }, state.genericOverlayList, 'Other overlays', { isAccordion: true });
-  window.genericOverlaySelectorDiv = generic.container;
-  generic.container.style.marginTop = '8px';
-  column.appendChild(generic.container);
 
-  // OSM Data dropdown (beneath generic)
+  // OSM Data dropdown
   const osmSelected = state.osmSelectedIds;
   const osmList = state.osmItems.map(i => ({ name: i.id, title: i.title, type: 'geojson' }));
-  const osm = createOverlayDropdown('main', osmSelected, function (newSelected) {
+  const osm = createOverlayDropdown(mapKey, osmSelected, function (newSelected) {
     state.osmSelectedIds = newSelected;
     updateAllOverlays();
     updateOSMLegend();
     updatePermalinkWithFeatures();
   }, osmList, 'OSM Data', { isAccordion: true });
-  window.osmOverlaySelectorDiv = osm.container;
-  osm.container.style.marginTop = '8px';
-  column.appendChild(osm.container);
 
-  mainMapDiv.appendChild(column);
+  return [digiroad, generic, osm];
+}
+
+export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
+  // Check if we are in single map mode (legacy support or main map initialization)
+  let column = mainMapDiv.querySelector('.ui-column-container');
+  if (!column) {
+    column = document.createElement('div');
+    column.className = 'ui-column-container';
+    column.style.position = 'absolute';
+    column.style.top = '60px';
+    column.style.right = '10px';
+    column.style.zIndex = '10';
+    column.style.maxWidth = '320px';
+    column.style.minWidth = '220px';
+    column.style.boxSizing = 'border-box';
+    column.style.maxHeight = 'calc(100vh - 80px)';
+    column.style.overflowY = 'auto';
+    column.style.scrollbarWidth = 'none';
+    column.style.msOverflowStyle = 'none';
+    mainMapDiv.appendChild(column);
+  }
+
+  const dropdowns = createAllOverlayDropdowns('main', updatePermalinkWithFeatures);
+
+  dropdowns.forEach((d, idx) => {
+    if (idx > 0) d.container.style.marginTop = '8px';
+    column.appendChild(d.container);
+  });
 }
 
 
