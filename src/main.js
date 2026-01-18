@@ -15,6 +15,7 @@ import { getQueryParams } from './utils/query.js';
 import { updatePermalinkWithFeatures, updatePermalink } from './map/permalink.js';
 import { syncViews } from './map/sync.js';
 import { createLayerSelectorDropdown } from './ui/layerSelector.js';
+import { createLayerGroupMenu } from './ui/layerGroupMenu.js';
 import { updateAllOverlays } from './map/overlays.js';
 import { createOSMPopup } from './ui/osmPopup.js';
 import { createOSMLegend, updateOSMLegend } from './ui/osmLegend.js';
@@ -46,16 +47,38 @@ async function bootstrap() {
   function showSingleLayerSelector(show) { if (singleLayerSelectorDiv) singleLayerSelectorDiv.style.display = show ? 'block' : 'none'; }
   function addSingleLayerSelectorToMap() {
     if (singleLayerSelectorDiv) singleLayerSelectorDiv.remove();
-    singleLayerSelectorDiv = createLayerSelectorDropdown(hardcodedLayers[state.initialLayerIdx].id, function (newLayerId) {
-      const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken);
+    state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;
+    singleLayerSelectorDiv = createLayerSelectorDropdown(state.currentLayerId, function (newLayerId) {
+      state.currentLayerId = newLayerId;
+      const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.selectedDate);
       state.map.getLayers().setAt(0, newLayer);
       const view = state.map.getView();
       updatePermalink(view.getCenter(), view.getZoom(), newLayerId, false);
+    }, function (newDate) {
+      state.selectedDate = newDate;
+      const newLayer = createTileLayerFromList(result, state.currentLayerId, null, mapboxAccessToken, newDate);
+      state.map.getLayers().setAt(0, newLayer);
     });
-    mainMapDiv.appendChild(singleLayerSelectorDiv);
+
+    // Append to the UI column (at the top)
+    const column = mainMapDiv.querySelector('.ui-column-container');
+    if (column) {
+      // Ensure it's the first child
+      if (column.firstChild) {
+        column.insertBefore(singleLayerSelectorDiv, column.firstChild);
+      } else {
+        column.appendChild(singleLayerSelectorDiv);
+      }
+    } else {
+      // Fallback for when column is not yet mounted
+      singleLayerSelectorDiv.style.position = 'absolute';
+      singleLayerSelectorDiv.style.top = '10px';
+      singleLayerSelectorDiv.style.right = '10px';
+      singleLayerSelectorDiv.style.zIndex = '10';
+      mainMapDiv.appendChild(singleLayerSelectorDiv);
+    }
     showSingleLayerSelector(true);
   }
-  addSingleLayerSelectorToMap();
 
   async function loadUserFeaturesFromServer() {
     try {
@@ -103,9 +126,47 @@ async function bootstrap() {
     state.rightMapMoveendListener = function () { if (!state.restoringFromPermalink && state.permalinkInitialized) updatePermalinkWithFeatures(); };
     state.leftMap.on('moveend', state.leftMapMoveendListener);
     state.rightMap.on('moveend', state.rightMapMoveendListener);
-    const leftLayerSelectorDiv = createLayerSelectorDropdown(state.leftLayerId, function (newLayerId) { state.leftLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.leftMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
+    const leftLayerSelectorDiv = createLayerSelectorDropdown(state.leftLayerId,
+      function (newLayerId) {
+        state.leftLayerId = newLayerId;
+        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.leftDate);
+        state.leftMap.getLayers().setAt(0, newLayer);
+        updatePermalinkWithFeatures();
+      },
+      function (newDate) {
+        state.leftDate = newDate;
+        const newLayer = createTileLayerFromList(result, state.leftLayerId, null, mapboxAccessToken, newDate);
+        state.leftMap.getLayers().setAt(0, newLayer);
+      }
+    );
+    // In split screen, these still need to be absolute since they are child of map containers
+    leftLayerSelectorDiv.style.position = 'absolute';
+    leftLayerSelectorDiv.style.top = '10px';
+    leftLayerSelectorDiv.style.left = '10px';
+    leftLayerSelectorDiv.style.right = 'auto';
+    leftLayerSelectorDiv.style.zIndex = '10';
+    leftLayerSelectorDiv.style.marginTop = '0';
+
     leftLayerSelectorDiv.style.left = '10px'; leftLayerSelectorDiv.style.right = 'auto';
-    const rightLayerSelectorDiv = createLayerSelectorDropdown(state.rightLayerId, function (newLayerId) { state.rightLayerId = newLayerId; const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken); state.rightMap.getLayers().setAt(0, newLayer); updatePermalinkWithFeatures(); });
+    const rightLayerSelectorDiv = createLayerSelectorDropdown(state.rightLayerId,
+      function (newLayerId) {
+        state.rightLayerId = newLayerId;
+        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.rightDate);
+        state.rightMap.getLayers().setAt(0, newLayer);
+        updatePermalinkWithFeatures();
+      },
+      function (newDate) {
+        state.rightDate = newDate;
+        const newLayer = createTileLayerFromList(result, state.rightLayerId, null, mapboxAccessToken, newDate);
+        state.rightMap.getLayers().setAt(0, newLayer);
+      }
+    );
+    rightLayerSelectorDiv.style.position = 'absolute';
+    rightLayerSelectorDiv.style.top = '10px';
+    rightLayerSelectorDiv.style.right = '10px';
+    rightLayerSelectorDiv.style.zIndex = '10';
+    rightLayerSelectorDiv.style.marginTop = '0';
+
     document.getElementById('map-left').appendChild(leftLayerSelectorDiv);
     document.getElementById('map-right').appendChild(rightLayerSelectorDiv);
     copyDrawnFeatures('main', 'left', state.map, state.leftMap);
@@ -156,13 +217,13 @@ async function bootstrap() {
   await fetchOverlayCapabilities();
   mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures);
 
-  // Initialize Layer Group Menu
-  import('./ui/layerGroupMenu.js').then(async ({ createLayerGroupMenu }) => {
-    const menu = await createLayerGroupMenu();
-    // Find the right-side column container created by mountOverlaySelectors
-    const column = mainMapDiv.querySelector('div[style*="top: 60px"][style*="right: 10px"]');
-    if (column) column.appendChild(menu);
-  });
+  // Add Basemap selector to column
+  addSingleLayerSelectorToMap();
+
+  // Add Layer Groups
+  const groupMenu = await createLayerGroupMenu();
+  const column = mainMapDiv.querySelector('.ui-column-container');
+  if (column) column.appendChild(groupMenu);
 
   // Initialize OSM components
   createOSMPopup();
@@ -199,6 +260,7 @@ async function bootstrap() {
     state.permalinkInitialized = true;
     updatePermalinkWithFeatures();
   }
+
 }
 
 // Gate app behind login

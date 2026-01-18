@@ -59,6 +59,16 @@ test.describe('Extended Integrations', () => {
         await select.selectOption({ value: 'taustakartta' });
         await page.waitForTimeout(1000);
         await select.selectOption({ value: 'maastokartta' });
+        await page.waitForTimeout(500);
+
+        // Test MapAnt
+        const [request] = await Promise.all([
+            page.waitForRequest(req => req.url().includes('wmts_EPSG3857.php')),
+            select.selectOption({ value: 'mapant' })
+        ]);
+        await page.waitForTimeout(1000);
+        await expect(select).toHaveValue('mapant');
+        expect(request.url()).toContain('wmts_EPSG3857.php');
     });
 
     test('should use drawing tools', async ({ page }) => {

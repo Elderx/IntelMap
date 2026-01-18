@@ -4,7 +4,7 @@ import OSM from 'ol/source/OSM.js';
 import XYZ from 'ol/source/XYZ.js';
 import VectorTileLayer from 'ol/layer/VectorTile.js';
 import { applyStyle } from 'ol-mapbox-style';
-import { hardcodedLayers, apiKey, tileMatrixSet, tileCacheUrl } from '../config/constants.js';
+import { hardcodedLayers, apiKey, tileMatrixSet, tileCacheUrl, nasaGibsBaseUrl } from '../config/constants.js';
 
 // Build tile URLs with optional cache proxy prefix
 function buildTileUrl(baseUrl, path) {
@@ -14,7 +14,7 @@ function buildTileUrl(baseUrl, path) {
   return `${baseUrl}${path}`;
 }
 
-export function createTileLayerFromList(result, layerId, onError, mapboxAccessToken) {
+export function createTileLayerFromList(result, layerId, onError, mapboxAccessToken, overrideDate) {
   const layerInfo = hardcodedLayers.find(l => l.id === layerId);
 
   if (layerInfo && layerInfo.type === 'osm') {
@@ -59,7 +59,51 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
     });
   }
 
-  // WMTS layers (MML) - the capsUrl already routes through cache proxy
+  if (layerInfo && layerInfo.type === 'mapant') {
+    // MapAnt Orienteering Map - using Web Mercator (Choice 2 from docs)
+    // Using the direct EPSG:3857 optimized script found in examples.
+    // dim=0 or omitting it means full brightness. 
+    // Choice (2) documentation says &dim=0.7 is a good value.
+    // template: wmts_EPSG3857.php?z={z}&x={x}&y={y}
+    const template = 'wmts_EPSG3857.php?z={z}&x={x}&y={y}&dim=0';
+    const mapantUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/mapant/${template}`
+      : `https://wmts.mapant.fi/${template}`;
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({
+        url: mapantUrl,
+        attributions: 'Map &copy; <a href="http://www.mapant.fi/">MapAnt.fi</a>',
+        maxZoom: 19
+      })
+    });
+  }
+
+  if (layerInfo && layerInfo.type === 'nasa') {
+    // NASA GIBS Layers - route through cache proxy if available
+    const date = overrideDate || layerInfo.date; // Use override date if provided, otherwise default
+    const nasaId = layerInfo.nasaLayerId;
+    const format = layerInfo.format || 'jpeg';
+    const matrixSet = layerInfo.matrixSet || 'GoogleMapsCompatible_Level8';
+
+    // Path template depends on whether the layer requires a date parameter
+    const path = date
+      ? `/wmts/epsg3857/best/${nasaId}/default/${date}/${matrixSet}/{z}/{y}/{x}.${format}`
+      : `/wmts/epsg3857/best/${nasaId}/default/${matrixSet}/{z}/{y}/{x}.${format}`;
+
+    const nasaUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/nasa${path}`
+      : `https://gibs.earthdata.nasa.gov${path}`;
+
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({
+        url: nasaUrl,
+        attributions: 'Imagery © <a href="https://earthdata.nasa.gov">NASA GIBS</a>',
+        maxZoom: matrixSet.endsWith('Level9') ? 9 : 8
+      })
+    });
+  }
   // The tile URLs from capabilities are relative to the capabilities URL base
   const options = optionsFromCapabilities(result, { layer: layerId, matrixSet: tileMatrixSet, requestEncoding: 'REST' });
 

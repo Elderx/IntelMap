@@ -80,6 +80,10 @@ export const state = {
 
   leftLayerId: null,
   rightLayerId: null,
+  currentLayerId: null,
+  selectedDate: null,
+  leftDate: null,
+  rightDate: null,
   initialLayerIdx: 1,
   drawInteraction: null,
   markerClickHandlerActive: false,

@@ -17,36 +17,61 @@ function getOverlaySummary(selected, overlayList) {
   return `${selected.length} selected`;
 }
 
-export function createOverlayDropdown(mapKey, selected, onChange, overlayList, labelText) {
+export function createOverlayDropdown(mapKey, selected, onChange, overlayList, labelText, options = {}) {
+  const isAccordion = options.isAccordion || false;
+
   let dropdownButton = document.createElement('button');
   dropdownButton.type = 'button';
   dropdownButton.className = 'overlay-dropdown-btn';
   dropdownButton.style.width = '100%';
   dropdownButton.style.textAlign = 'left';
-  dropdownButton.style.padding = '8px';
-  dropdownButton.style.borderRadius = '6px';
+  dropdownButton.style.padding = '10px 12px';
+  dropdownButton.style.borderRadius = '8px';
   dropdownButton.style.border = '1px solid #ccc';
   dropdownButton.style.background = 'white';
   dropdownButton.style.cursor = 'pointer';
-  dropdownButton.style.fontSize = '1em';
+  dropdownButton.style.fontSize = '0.95em';
   dropdownButton.style.margin = '0';
   dropdownButton.style.boxSizing = 'border-box';
   dropdownButton.style.outline = 'none';
   dropdownButton.style.position = 'relative';
-  dropdownButton.textContent = getOverlaySummary(selected, overlayList);
+  dropdownButton.style.display = 'flex';
+  dropdownButton.style.justifyContent = 'space-between';
+  dropdownButton.style.alignItems = 'center';
+
+  const labelSpan = document.createElement('span');
+  labelSpan.textContent = labelText;
+  labelSpan.style.fontWeight = 'bold';
+  labelSpan.style.color = '#555';
+
+  const valueSpan = document.createElement('span');
+  valueSpan.textContent = getOverlaySummary(selected, overlayList);
+  valueSpan.style.color = '#888';
+  valueSpan.style.fontSize = '0.9em';
+  valueSpan.style.maxWidth = '150px';
+  valueSpan.style.overflow = 'hidden';
+  valueSpan.style.textOverflow = 'ellipsis';
+  valueSpan.style.whiteSpace = 'nowrap';
+
+  dropdownButton.appendChild(labelSpan);
+  dropdownButton.appendChild(valueSpan);
   let dropdownPanel = document.createElement('div');
   dropdownPanel.className = 'overlay-dropdown-panel';
   dropdownPanel.style.display = 'none';
-  dropdownPanel.style.position = 'absolute';
-  dropdownPanel.style.left = '0';
-  dropdownPanel.style.top = '110%';
+  if (isAccordion) {
+    dropdownPanel.style.position = 'relative';
+    dropdownPanel.style.marginTop = '4px';
+    dropdownPanel.style.border = '1px solid #eee';
+  } else {
+    dropdownPanel.style.position = 'absolute';
+    dropdownPanel.style.left = '0';
+    dropdownPanel.style.top = '110%';
+    dropdownPanel.style.boxShadow = '0 2px 12px rgba(0,0,0,0.13)';
+  }
   dropdownPanel.style.width = '100%';
   dropdownPanel.style.background = 'rgba(255,255,255,0.97)';
   dropdownPanel.style.padding = '10px 12px';
   dropdownPanel.style.borderRadius = '10px';
-  dropdownPanel.style.boxShadow = '0 2px 12px rgba(0,0,0,0.13)';
-  dropdownPanel.style.maxWidth = '320px';
-  dropdownPanel.style.minWidth = '180px';
   dropdownPanel.style.boxSizing = 'border-box';
   dropdownPanel.style.overflow = 'auto';
   dropdownPanel.style.maxHeight = '350px';
@@ -68,10 +93,10 @@ export function createOverlayDropdown(mapKey, selected, onChange, overlayList, l
     checkbox.value = layer.name;
     checkbox.checked = selected.includes(layer.name);
     checkbox.style.marginRight = '8px';
-    checkbox.addEventListener('change', function(e) {
+    checkbox.addEventListener('change', function (e) {
       const newSelected = Array.from(dropdownPanel.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
       onChange(newSelected);
-      dropdownButton.textContent = getOverlaySummary(newSelected, overlayList);
+      valueSpan.textContent = getOverlaySummary(newSelected, overlayList);
     });
     row.appendChild(checkbox);
     const title = document.createElement('span');
@@ -93,13 +118,25 @@ export function createOverlayDropdown(mapKey, selected, onChange, overlayList, l
   // Dropdown open/close logic
   let open = false;
   function closeDropdown() { dropdownPanel.style.display = 'none'; open = false; }
-  function openDropdown() { dropdownPanel.style.display = 'block'; open = true; }
-  dropdownButton.addEventListener('click', function(e) {
+  function openDropdown() {
+    if (isAccordion) {
+      // Close other accordions in the same container
+      const container = dropdownButton.closest('.ui-column-container');
+      if (container) {
+        container.querySelectorAll('.overlay-dropdown-panel').forEach(p => {
+          if (p !== dropdownPanel) p.style.display = 'none';
+        });
+      }
+    }
+    dropdownPanel.style.display = 'block';
+    open = true;
+  }
+  dropdownButton.addEventListener('click', function (e) {
     e.stopPropagation();
     if (open) closeDropdown(); else openDropdown();
   });
-  document.addEventListener('click', function(e) {
-    if (!dropdownPanel.contains(e.target) && e.target !== dropdownButton) closeDropdown();
+  document.addEventListener('click', function (e) {
+    if (!isAccordion && !dropdownPanel.contains(e.target) && e.target !== dropdownButton) closeDropdown();
   });
   const container = document.createElement('div');
   container.style.position = 'relative';
@@ -118,44 +155,50 @@ export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
 
   // Create a single absolute-positioned column container to stack all dropdowns
   const column = document.createElement('div');
+  column.className = 'ui-column-container';
   column.style.position = 'absolute';
   column.style.top = '60px';
   column.style.right = '10px';
-  column.style.zIndex = 10;
+  column.style.zIndex = '10';
   column.style.maxWidth = '320px';
-  column.style.minWidth = '180px';
+  column.style.minWidth = '220px';
   column.style.boxSizing = 'border-box';
+  column.style.maxHeight = 'calc(100vh - 80px)';
+  column.style.overflowY = 'auto';
+  // Hide scrollbar but keep functionality
+  column.style.scrollbarWidth = 'none';
+  column.style.msOverflowStyle = 'none';
 
-  const digiroad = createOverlayDropdown('main', state.digiroadOverlayLayers, function(newSelected) {
+  const digiroad = createOverlayDropdown('main', state.digiroadOverlayLayers, function (newSelected) {
     state.digiroadOverlayLayers = newSelected;
     updateAllOverlays();
     updatePermalinkWithFeatures();
-  }, state.digiroadOverlayList, 'Digiroad overlays:');
+  }, state.digiroadOverlayList, 'Digiroad overlays', { isAccordion: true });
   state.overlaySelectorDiv = column;
   state.overlayDropdownButton = digiroad.dropdownButton;
   state.overlayDropdownPanel = digiroad.dropdownPanel;
   column.appendChild(digiroad.container);
 
-  const generic = createOverlayDropdown('main', state.genericOverlayLayers, function(newSelected) {
+  const generic = createOverlayDropdown('main', state.genericOverlayLayers, function (newSelected) {
     state.genericOverlayLayers = newSelected;
     updateAllOverlays();
     updatePermalinkWithFeatures();
-  }, state.genericOverlayList, 'Other overlays:');
+  }, state.genericOverlayList, 'Other overlays', { isAccordion: true });
   window.genericOverlaySelectorDiv = generic.container;
-  generic.container.style.marginTop = '12px';
+  generic.container.style.marginTop = '8px';
   column.appendChild(generic.container);
 
   // OSM Data dropdown (beneath generic)
   const osmSelected = state.osmSelectedIds;
   const osmList = state.osmItems.map(i => ({ name: i.id, title: i.title, type: 'geojson' }));
-  const osm = createOverlayDropdown('main', osmSelected, function(newSelected) {
+  const osm = createOverlayDropdown('main', osmSelected, function (newSelected) {
     state.osmSelectedIds = newSelected;
     updateAllOverlays();
     updateOSMLegend();
     updatePermalinkWithFeatures();
-  }, osmList, 'OSM Data:');
+  }, osmList, 'OSM Data', { isAccordion: true });
   window.osmOverlaySelectorDiv = osm.container;
-  osm.container.style.marginTop = '12px';
+  osm.container.style.marginTop = '8px';
   column.appendChild(osm.container);
 
   mainMapDiv.appendChild(column);

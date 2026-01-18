@@ -79,32 +79,44 @@ export async function createLayerGroupMenu() {
     container.id = 'layer-group-menu-container';
     container.style.position = 'relative';
     container.style.width = '100%';
-    container.style.marginTop = '12px';
+    container.style.marginTop = '8px';
 
     const button = document.createElement('button');
     button.className = 'overlay-dropdown-btn';
     button.style.width = '100%';
     button.style.textAlign = 'left';
-    button.style.padding = '8px';
-    button.style.borderRadius = '6px';
+    button.style.padding = '10px 12px';
+    button.style.borderRadius = '8px';
     button.style.border = '1px solid #ccc';
-    button.style.background = '#e3f2fd';
+    button.style.background = '#e3f2fd'; // Light blue highlight for groups
     button.style.cursor = 'pointer';
     button.style.fontWeight = 'bold';
     button.style.color = '#1976d2';
-    button.textContent = '📂 Layer Groups';
+    button.style.fontSize = '0.95em';
+    button.style.display = 'flex';
+    button.style.justifyContent = 'space-between';
+    button.style.alignItems = 'center';
+
+    const labelSpan = document.createElement('span');
+    labelSpan.textContent = '📂 Layer Groups';
+    button.appendChild(labelSpan);
+
+    const arrowSpan = document.createElement('span');
+    arrowSpan.textContent = '▾';
+    arrowSpan.style.color = '#1976d2';
+    button.appendChild(arrowSpan);
 
     const panel = document.createElement('div');
+    panel.className = 'overlay-dropdown-panel';
     panel.style.display = 'none';
-    panel.style.position = 'absolute';
-    panel.style.left = '0';
-    panel.style.top = '110%';
+    panel.style.position = 'relative';
+    panel.style.marginTop = '4px';
     panel.style.width = '100%';
     panel.style.background = 'white';
-    panel.style.padding = '10px';
-    panel.style.borderRadius = '8px';
-    panel.style.boxShadow = '0 2px 10px rgba(0,0,0,0.1)';
-    panel.style.zIndex = '100';
+    panel.style.padding = '10px 12px';
+    panel.style.borderRadius = '10px';
+    panel.style.border = '1px solid #eee';
+    panel.style.boxSizing = 'border-box';
     panel.style.maxHeight = '300px';
     panel.style.overflowY = 'auto';
 
@@ -117,14 +129,17 @@ export async function createLayerGroupMenu() {
         if (isVisible) {
             panel.style.display = 'none';
         } else {
+            // Close other accordions
+            const column = container.closest('.ui-column-container');
+            if (column) {
+                column.querySelectorAll('.overlay-dropdown-panel').forEach(p => {
+                    if (p !== panel) p.style.display = 'none';
+                });
+            }
             panel.style.display = 'block';
             await refreshGroupList(panel);
         }
     };
-
-    document.addEventListener('click', (e) => {
-        if (!container.contains(e.target)) panel.style.display = 'none';
-    });
 
     return container;
 }
