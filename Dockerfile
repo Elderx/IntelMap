@@ -3,7 +3,7 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 COPY package*.json ./
-COPY vite.config.js ./
+COPY vite.config.mjs ./
 COPY . .
 
 # Install dependencies

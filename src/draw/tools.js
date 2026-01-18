@@ -20,18 +20,31 @@ import { createMarker, createPolygon } from '../api/client.js';
 export function enableMarkerClickHandler() {
   if (!state.isSplit) {
     if (!state.markerClickHandlerActive) {
-      state.handleMapClick = function(evt) { if (state.drawingMode === 'marker') { const coord = toLonLat(evt.coordinate); showClickMarker(coord[0], coord[1]); import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => {}, { users, ownerUsername: null }); }); } };
+      state.handleMapClick = function (evt) {
+        console.log('[tools] Marker click detected', evt.coordinate);
+        if (state.drawingMode === 'marker') {
+          const coord = toLonLat(evt.coordinate);
+          showClickMarker(coord[0], coord[1]);
+          import('../api/client.js').then(async ({ fetchUsers }) => {
+            console.log('[tools] Fetching users');
+            const response = await fetchUsers();
+            const users = Array.isArray(response) ? response : [];
+            console.log('[tools] Opening form');
+            openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => { }, { users, ownerUsername: null });
+          }).catch(e => console.error('[tools] Import failed', e));
+        }
+      };
       state.map.on('singleclick', state.handleMapClick);
       state.markerClickHandlerActive = true;
     }
   } else {
     if (state.leftMap && !state.markerClickHandlerActiveLeft) {
-      state.handleMapClick = function(evt) { if (state.drawingMode === 'marker') { const coord = toLonLat(evt.coordinate); showClickMarker(coord[0], coord[1]); import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => {}, { users, ownerUsername: null }); }); } };
+      state.handleMapClick = function (evt) { if (state.drawingMode === 'marker') { const coord = toLonLat(evt.coordinate); showClickMarker(coord[0], coord[1]); import('../api/client.js').then(async ({ fetchUsers }) => { const response = await fetchUsers(); const users = Array.isArray(response) ? response : []; openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => { }, { users, ownerUsername: null }); }); } };
       state.leftMap.on('singleclick', state.handleMapClick);
       state.markerClickHandlerActiveLeft = true;
     }
     if (state.rightMap && !state.markerClickHandlerActiveRight) {
-      state.handleMapClick = function(evt) { if (state.drawingMode === 'marker') { const coord = toLonLat(evt.coordinate); showClickMarker(coord[0], coord[1]); import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => {}, { users, ownerUsername: null }); }); } };
+      state.handleMapClick = function (evt) { if (state.drawingMode === 'marker') { const coord = toLonLat(evt.coordinate); showClickMarker(coord[0], coord[1]); import('../api/client.js').then(async ({ fetchUsers }) => { const response = await fetchUsers(); const users = Array.isArray(response) ? response : []; openUserFeatureForm('marker', { title: '', description: '', color: '#00bcd4' }, async (meta) => { const payload = { lon: coord[0], lat: coord[1], title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] }; const saved = await createMarker(payload); const marker = saved ? { id: saved.properties?.id, lon: payload.lon, lat: payload.lat, title: payload.title, description: payload.description, color: payload.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { ...payload, ownerUsername: null, sharedUserIds: payload.sharedUserIds }; addUserMarkerToMaps(marker); }, () => { }, { users, ownerUsername: null }); }); } };
       state.rightMap.on('singleclick', state.handleMapClick);
       state.markerClickHandlerActiveRight = true;
     }
@@ -161,12 +174,16 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
           const last = lonlat[lonlat.length - 1];
           if (first[0] !== last[0] || first[1] !== last[1]) lonlat = [...lonlat, first];
         }
-        import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
-          const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
-          const saved = await createPolygon(payload);
-          const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
-          addUserPolygonToMaps(poly);
-        }, () => {}, { users, ownerUsername: null }); });
+        import('../api/client.js').then(async ({ fetchUsers }) => {
+          const response = await fetchUsers();
+          const users = Array.isArray(response) ? response : [];
+          openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
+            const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
+            const saved = await createPolygon(payload);
+            const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
+            addUserPolygonToMaps(poly);
+          }, () => { }, { users, ownerUsername: null });
+        });
         clearDrawInteraction();
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();
@@ -196,12 +213,16 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
           const last = lonlat[lonlat.length - 1];
           if (first[0] !== last[0] || first[1] !== last[1]) lonlat = [...lonlat, first];
         }
-        import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
-          const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
-          const saved = await createPolygon(payload);
-          const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
-          addUserPolygonToMaps(poly);
-        }, () => {}, { users, ownerUsername: null }); });
+        import('../api/client.js').then(async ({ fetchUsers }) => {
+          const response = await fetchUsers();
+          const users = Array.isArray(response) ? response : [];
+          openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
+            const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
+            const saved = await createPolygon(payload);
+            const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
+            addUserPolygonToMaps(poly);
+          }, () => { }, { users, ownerUsername: null });
+        });
         clearDrawInteraction();
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();
@@ -218,12 +239,16 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
           const last = lonlat[lonlat.length - 1];
           if (first[0] !== last[0] || first[1] !== last[1]) lonlat = [...lonlat, first];
         }
-        import('../api/client.js').then(async ({ fetchUsers }) => { const users = await fetchUsers(); openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
-          const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
-          const saved = await createPolygon(payload);
-          const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
-          addUserPolygonToMaps(poly);
-        }, () => {}, { users, ownerUsername: null }); });
+        import('../api/client.js').then(async ({ fetchUsers }) => {
+          const response = await fetchUsers();
+          const users = Array.isArray(response) ? response : [];
+          openUserFeatureForm('polygon', { title: '', description: '', color: '#ff9800' }, async (meta) => {
+            const payload = { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, sharedUserIds: meta.sharedUserIds || [] };
+            const saved = await createPolygon(payload);
+            const poly = saved ? { id: saved.properties?.id, coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { coordinates: lonlat, title: meta.title, description: meta.description, color: meta.color, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
+            addUserPolygonToMaps(poly);
+          }, () => { }, { users, ownerUsername: null });
+        });
         clearDrawInteraction();
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();

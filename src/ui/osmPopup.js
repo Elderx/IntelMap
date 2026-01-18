@@ -66,7 +66,9 @@ export function showOSMPopup(features, pixel, isClick = false) {
 
   const container = document.createElement('div');
 
-  if (features.length === 1) {
+  if (typeof features === 'string') {
+    container.innerHTML = features;
+  } else if (features.length === 1) {
     // SINGLE FEATURE: Show details directly
     container.innerHTML = formatDetailView(features[0]);
   } else {

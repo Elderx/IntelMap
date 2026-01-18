@@ -123,6 +123,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
 
   const saveBtn = document.createElement('button');
   saveBtn.textContent = 'Save';
+  saveBtn.classList.add('save-feature-btn'); // Identifying class for tests
   saveBtn.style.padding = '8px 12px';
   saveBtn.style.background = '#1976d2';
   saveBtn.style.color = 'white';
