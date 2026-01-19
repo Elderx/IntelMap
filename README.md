@@ -1,10 +1,9 @@
 # MML Map (OpenLayers WMTS/WMS)
 
-A modern, modular OpenLayers application for viewing Finnish Maanmittauslaitos (MML) and NASA GIBS maps. Supports split-screen view, drawing tools, and dynamic data overlays.
+A modern, modular OpenLayers application for viewing different WMTS/WMS tile/vector based maps. Supports split-screen view, drawing tools, and dynamic data overlays.
 
 ## Features
 - **Dual View**: Independent layer and time selection for split-screen comparisons.
-- **NASA GIBS**: Historical and near-real-time satellite imagery with data availability checks.
 - **Search**: Integrated **Nominatim** search for finding places and addresses globally.
 - **Persistence**: User features (markers, polygons) are stored in a **PostGIS**-enabled database.
 - **Performance**: High-speed **Nginx tile caching** proxy reduces latency and handles CORS for various tile providers.
