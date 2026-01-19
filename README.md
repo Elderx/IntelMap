@@ -5,7 +5,10 @@ A modern, modular OpenLayers application for viewing Finnish Maanmittauslaitos (
 ## Features
 - **Dual View**: Independent layer and time selection for split-screen comparisons.
 - **NASA GIBS**: Historical and near-real-time satellite imagery with data availability checks.
-- **Drawing Tools**: Marker, line, polygon, and measurement support.
+- **Search**: Integrated **Nominatim** search for finding places and addresses globally.
+- **Persistence**: User features (markers, polygons) are stored in a **PostGIS**-enabled database.
+- **Performance**: High-speed **Nginx tile caching** proxy reduces latency and handles CORS for various tile providers.
+- **Tools**: Interactive drawing (marker/line/polygon) and measurement support.
 - **OSM Data**: Dynamic GeoJSON overlays from OpenStreetMap.
 
 ## Getting Started (Docker Compose)
