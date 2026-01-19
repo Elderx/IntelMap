@@ -54,7 +54,22 @@ export function updateAllOverlays() {
     });
     state.osmLayerObjects[key] = [];
   });
-  state.digiroadOverlayLayers.forEach(layerName => {
+
+  // Aggregate all unique active layer names from manual selection and active groups
+  const allDigiroad = new Set(state.digiroadOverlayLayers || []);
+  const allGeneric = new Set(state.genericOverlayLayers || []);
+  const allOsmIds = new Set(state.osmSelectedIds || []);
+
+  (state.activeLayerGroupIds || []).forEach(groupId => {
+    const group = state.layerGroups.find(g => g.id === groupId);
+    if (!group || !group.config) return;
+
+    if (group.config.activeOverlays) group.config.activeOverlays.forEach(id => allDigiroad.add(id));
+    if (group.config.genericOverlayLayers) group.config.genericOverlayLayers.forEach(id => allGeneric.add(id));
+    if (group.config.activeOsmDatasets) group.config.activeOsmDatasets.forEach(id => allOsmIds.add(id));
+  });
+
+  allDigiroad.forEach(layerName => {
     const layer = createWMSOverlayLayer(layerName);
     state.overlayLayerObjects.main.push(layer);
     if (state.map) state.map.addLayer(layer);
@@ -67,7 +82,8 @@ export function updateAllOverlays() {
       if (state.rightMap) state.rightMap.addLayer(rightLayer);
     }
   });
-  state.genericOverlayLayers.forEach(layerId => {
+
+  allGeneric.forEach(layerId => {
     const layerInfo = state.genericOverlayList.find(l => l.name === layerId);
     let layer;
     if (layerInfo && layerInfo.type === 'openseamap') {
@@ -88,7 +104,7 @@ export function updateAllOverlays() {
   });
 
   // Add OSM GeoJSON overlays to all active maps
-  state.osmSelectedIds.forEach((osmId) => {
+  allOsmIds.forEach((osmId) => {
     const item = state.osmItems.find(i => i.id === osmId);
     if (!item) return;
 

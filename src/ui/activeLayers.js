@@ -163,6 +163,28 @@ export function updateActiveLayersPanel() {
         list.appendChild(row);
     };
 
+    // 0. Active Layer Groups
+    if (state.activeLayerGroupIds && state.activeLayerGroupIds.length > 0) {
+        state.activeLayerGroupIds.forEach(id => {
+            const group = state.layerGroups.find(g => g.id === id);
+            if (group) {
+                const color = state.layerGroupAssignedColors[id] || '#666';
+                addRow(`📁 ${group.name}`, color, async () => {
+                    const { toggleLayerGroup } = await import('./layerGroupMenu.js');
+                    toggleLayerGroup(group);
+                });
+            }
+        });
+        // Add a separator if there are more layers
+        const hasOtherLayers = (state.activeOsmFeatures?.length > 0) || (state.osmSelectedIds?.length > 0) || (state.digiroadOverlayLayers?.length > 0) || (state.genericOverlayLayers?.length > 0);
+        if (hasOtherLayers) {
+            const sep = document.createElement('div');
+            sep.style.borderBottom = '1px solid #eee';
+            sep.style.margin = '8px 0';
+            list.appendChild(sep);
+        }
+    }
+
     // 1. Dynamic OSM Layers
     if (state.activeOsmFeatures && state.activeOsmFeatures.length > 0) {
         state.activeOsmFeatures.forEach(f => {

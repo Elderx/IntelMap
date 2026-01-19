@@ -330,7 +330,29 @@ function hexToRgba(hex, alpha) {
  * Manage active dynamic layers
  */
 export function updateOsmDynamicLayers() {
-    const activeFeatures = state.activeOsmFeatures || [];
+    let activeFeatures = [...(state.activeOsmFeatures || [])];
+
+    // Merge features from active layer groups
+    (state.activeLayerGroupIds || []).forEach(groupId => {
+        const group = state.layerGroups.find(g => g.id === groupId);
+        if (!group || !group.config || !group.config.activeOsmFeatures) return;
+
+        const groupColor = state.layerGroupAssignedColors[groupId] || '#e6194b';
+
+        group.config.activeOsmFeatures.forEach(f => {
+            // Add as a separate entry or override color if already present?
+            // User said "layer on top of eachother" and "color differently".
+            // So we add them as unique features for this group.
+            activeFeatures.push({
+                ...f,
+                id: `${groupId}_${f.key}_${f.value}`,
+                groupId: groupId,
+                color: groupColor, // Override with group color
+                visible: true
+            });
+        });
+    });
+
     const mapGroups = ['main', 'left', 'right'];
 
     if (!state.osmDynamicLayerObjects) state.osmDynamicLayerObjects = { main: [], left: [], right: [] };

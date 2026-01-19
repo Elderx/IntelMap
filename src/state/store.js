@@ -101,6 +101,8 @@ export const state = {
 
   // Layer Groups saved by user
   layerGroups: [], // Array of { id, name, config, created_at }
+  activeLayerGroupIds: [], // IDs of currently active groups
+  layerGroupAssignedColors: {}, // Maps groupId to color
 };
 
 

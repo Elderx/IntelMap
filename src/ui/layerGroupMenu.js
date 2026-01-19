@@ -5,51 +5,70 @@ import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
 import { updateOSMLegend } from './osmLegend.js';
 
 /**
- * Apply a layer group configuration to the current session
+ * Toggle a layer group in the current session
  */
-export function applyLayerGroup(config) {
-    if (!config) return;
+export function toggleLayerGroup(group) {
+    if (!group || !group.id) return;
 
-    console.log('[LayerGroups] Applying config:', config);
+    const idx = state.activeLayerGroupIds.indexOf(group.id);
+    const isActivating = idx === -1;
 
-    // 1. Basemap
-    if (config.basemapId) {
-        const selector = document.getElementById('baseLayerSelector');
-        if (selector) {
-            selector.value = config.basemapId;
-            selector.dispatchEvent(new Event('change'));
+    if (isActivating) {
+        state.activeLayerGroupIds.push(group.id);
+
+        // Assign color if not present
+        if (!state.layerGroupAssignedColors[group.id]) {
+            const usedColors = Object.values(state.layerGroupAssignedColors);
+            const availableColor = state.osmColorPalette.find(c => !usedColors.includes(c));
+            state.layerGroupAssignedColors[group.id] = availableColor || state.osmColorPalette[Object.keys(state.layerGroupAssignedColors).length % state.osmColorPalette.length];
         }
+
+        // Apply basemap if present in config (last selected group wins for basemap)
+        if (group.config && group.config.basemapId) {
+            const selector = document.getElementById('baseLayerSelector');
+            if (selector) {
+                selector.value = group.config.basemapId;
+                selector.dispatchEvent(new Event('change'));
+            }
+        }
+    } else {
+        state.activeLayerGroupIds.splice(idx, 1);
+        // We keep the color assignment for consistency if they re-enable it?
+        // Or we could delete it. Let's keep it for now.
     }
 
-    // 2. Overlays
-    state.digiroadOverlayLayers = config.activeOverlays || [];
-    state.genericOverlayLayers = config.genericOverlayLayers || [];
-    state.osmSelectedIds = config.activeOsmDatasets || [];
-
-    // 3. Dynamic OSM Features
-    state.activeOsmFeatures = (config.activeOsmFeatures || []).map(f => ({
-        ...f,
-        visible: f.visible !== false // handle case where field might be missing
-    }));
+    console.log('[LayerGroups] Toggled:', group.name, 'Active:', state.activeLayerGroupIds);
 
     // Trigger updates
     updateAllOverlays();
     updateOsmDynamicLayers();
     updateOSMLegend();
 
-    // Refresh dropdown labels if elements exist
+    // Update the Active Layers panel (it will show the groups now)
+    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+
+    // Refresh labels in dropdowns (to show checked items from group)
     refreshOverlayDropdowns();
 }
 
+/**
+ * Apply a layer group configuration (Lecagy support if needed, but we now use toggle)
+ */
+export function applyLayerGroup(config) {
+    // This is now handled via toggleLayerGroup for individual groups.
+    // If we want to support "bulk application" we can implement it.
+}
+
 function refreshOverlayDropdowns() {
-    // This is a bit hacky but works since we don't have a full UI framework
-    // We rely on the button text update logic in overlayDropdown.js
-    const buttons = document.querySelectorAll('.overlay-dropdown-btn');
-    buttons.forEach(btn => {
-        // Triggering a fake click or just let the user see it on next open?
-        // Better to find a way to update the text. 
-        // For now, updateAllOverlays handles the layer visibility.
-    });
+    // Trigger UI refresh for dropdown summaries and checkboxes
+    // Since we don't have a state-driven UI framework, we might need a hack.
+    // However, the dropdowns re-render checkboxes on next open.
+    // To update the BUTTON TEXT (summary), we search for buttons.
+    const container = document.querySelector('.ui-column-container');
+    if (!container) return;
+
+    // This is hard without re-running createOverlayDropdown logic or having it listen to state.
+    // For now, let's at least update the Active Layers panel which is more important.
 }
 
 /**
@@ -123,6 +142,9 @@ export async function createLayerGroupMenu() {
     container.appendChild(button);
     container.appendChild(panel);
 
+    // Initial fetch to populate state.layerGroups
+    fetchLayerGroups().then(groups => state.layerGroups = groups || []);
+
     button.onclick = async (e) => {
         e.stopPropagation();
         const isVisible = panel.style.display === 'block';
@@ -148,6 +170,7 @@ async function refreshGroupList(panel) {
     panel.innerHTML = '<div style="font-weight:bold;margin-bottom:8px;">Saved Groups:</div>';
 
     const groups = await fetchLayerGroups();
+    state.layerGroups = groups || [];
     if (!groups || groups.length === 0) {
         panel.innerHTML += '<div style="color:#666;font-size:0.9em;">No saved groups</div>';
         return;
@@ -161,13 +184,32 @@ async function refreshGroupList(panel) {
         item.style.padding = '6px 0';
         item.style.borderBottom = '1px solid #eee';
 
+        const left = document.createElement('div');
+        left.style.display = 'flex';
+        left.style.alignItems = 'center';
+        left.style.flex = '1';
+        left.style.cursor = 'pointer';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = state.activeLayerGroupIds.includes(group.id);
+        checkbox.style.marginRight = '10px';
+        checkbox.onclick = (e) => {
+            e.stopPropagation(); // Prevent triggering parent's onclick
+        };
+        checkbox.onchange = (e) => {
+            toggleLayerGroup(group);
+        };
+        left.appendChild(checkbox);
+
         const name = document.createElement('span');
         name.textContent = group.name;
-        name.style.cursor = 'pointer';
-        name.style.flex = '1';
-        name.onclick = () => {
-            applyLayerGroup(group.config);
-            panel.style.display = 'none';
+        name.style.fontSize = '0.95em';
+        left.appendChild(name);
+
+        left.onclick = (e) => {
+            checkbox.checked = !checkbox.checked;
+            toggleLayerGroup(group);
         };
 
         const delBtn = document.createElement('button');
@@ -182,11 +224,19 @@ async function refreshGroupList(panel) {
             e.stopPropagation();
             if (confirm(`Delete group "${group.name}"?`)) {
                 await deleteLayerGroup(group.id);
+                // Remove from active if was active
+                const idx = state.activeLayerGroupIds.indexOf(group.id);
+                if (idx > -1) {
+                    state.activeLayerGroupIds.splice(idx, 1);
+                    updateAllOverlays();
+                    updateOsmDynamicLayers();
+                    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+                }
                 refreshGroupList(panel);
             }
         };
 
-        item.appendChild(name);
+        item.appendChild(left);
         item.appendChild(delBtn);
         panel.appendChild(item);
     });
