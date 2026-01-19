@@ -32,6 +32,7 @@ docker compose up -d
 ```
 
 Access the application at: **[http://localhost:8080](http://localhost:8080)**
+Default credentials are -> admin:admin
 
 To view logs:
 ```bash
