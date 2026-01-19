@@ -55,6 +55,9 @@ export function parseInitialFromParams(params) {
     const idx = hardcodedLayers.findIndex(l => l.id === params.layer);
     if (idx !== -1) state.initialLayerIdx = idx;
   }
+  if (params.groups) {
+    state.activeLayerGroupIds = params.groups.split(';').filter(Boolean).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+  }
   state.leftLayerId = initialLeftLayerId;
   state.rightLayerId = initialRightLayerId;
   state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;

@@ -40,6 +40,10 @@ export function updatePermalinkWithFeatures() {
   if (state.osmSelectedIds && state.osmSelectedIds.length > 0) {
     osmStr = `&osm=${state.osmSelectedIds.join(';')}`;
   }
+  let groupsStr = '';
+  if (state.activeLayerGroupIds && state.activeLayerGroupIds.length > 0) {
+    groupsStr = `&groups=${state.activeLayerGroupIds.join(';')}`;
+  }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();
   const center = view.getCenter();
@@ -49,7 +53,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr;
   window.history.replaceState({}, '', params);
 }
 

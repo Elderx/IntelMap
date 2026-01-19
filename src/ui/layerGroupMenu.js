@@ -2,7 +2,23 @@ import { state } from '../state/store.js';
 import { createLayerGroup, fetchLayerGroups, deleteLayerGroup } from '../api/client.js';
 import { updateAllOverlays } from '../map/overlays.js';
 import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
+import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { updateOSMLegend } from './osmLegend.js';
+
+/**
+ * Ensure all active layer groups have a color assigned
+ */
+export function ensureLayerGroupColors() {
+    state.activeLayerGroupIds.forEach(idInput => {
+        const groupId = parseInt(idInput, 10);
+        if (isNaN(groupId)) return;
+        if (!state.layerGroupAssignedColors[groupId]) {
+            const usedColors = Object.values(state.layerGroupAssignedColors);
+            const availableColor = state.osmColorPalette.find(c => !usedColors.includes(c));
+            state.layerGroupAssignedColors[groupId] = availableColor || state.osmColorPalette[Object.keys(state.layerGroupAssignedColors).length % state.osmColorPalette.length];
+        }
+    });
+}
 
 /**
  * Toggle a layer group in the current session
@@ -10,18 +26,13 @@ import { updateOSMLegend } from './osmLegend.js';
 export function toggleLayerGroup(group) {
     if (!group || !group.id) return;
 
-    const idx = state.activeLayerGroupIds.indexOf(group.id);
+    const groupId = parseInt(group.id, 10);
+    const idx = state.activeLayerGroupIds.indexOf(groupId);
     const isActivating = idx === -1;
 
     if (isActivating) {
-        state.activeLayerGroupIds.push(group.id);
-
-        // Assign color if not present
-        if (!state.layerGroupAssignedColors[group.id]) {
-            const usedColors = Object.values(state.layerGroupAssignedColors);
-            const availableColor = state.osmColorPalette.find(c => !usedColors.includes(c));
-            state.layerGroupAssignedColors[group.id] = availableColor || state.osmColorPalette[Object.keys(state.layerGroupAssignedColors).length % state.osmColorPalette.length];
-        }
+        state.activeLayerGroupIds.push(groupId);
+        ensureLayerGroupColors();
 
         // Apply basemap if present in config (last selected group wins for basemap)
         if (group.config && group.config.basemapId) {
@@ -43,6 +54,7 @@ export function toggleLayerGroup(group) {
     updateAllOverlays();
     updateOsmDynamicLayers();
     updateOSMLegend();
+    updatePermalinkWithFeatures();
 
     // Update the Active Layers panel (it will show the groups now)
     import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
@@ -142,8 +154,7 @@ export async function createLayerGroupMenu() {
     container.appendChild(button);
     container.appendChild(panel);
 
-    // Initial fetch to populate state.layerGroups
-    fetchLayerGroups().then(groups => state.layerGroups = groups || []);
+    // Initial fetch handled by bootstrap in main.js
 
     button.onclick = async (e) => {
         e.stopPropagation();
@@ -192,7 +203,7 @@ async function refreshGroupList(panel) {
 
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
-        checkbox.checked = state.activeLayerGroupIds.includes(group.id);
+        checkbox.checked = state.activeLayerGroupIds.includes(parseInt(group.id, 10));
         checkbox.style.marginRight = '10px';
         checkbox.onclick = (e) => {
             e.stopPropagation(); // Prevent triggering parent's onclick

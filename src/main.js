@@ -34,6 +34,10 @@ async function bootstrap() {
   const { initialCenter, initialZoom, initialIsSplit } = parseInitialFromParams(params);
   const result = await loadCapabilities();
 
+  // Pre-fetch layer groups so they are available for restoration
+  const { fetchLayerGroups } = await import('./api/client.js');
+  state.layerGroups = await fetchLayerGroups() || [];
+
   const mainMapDiv = document.getElementById('map');
   const splitToggle = document.getElementById('split-toggle');
   const splitMapsContainer = document.getElementById('split-maps-container');
@@ -205,9 +209,9 @@ async function bootstrap() {
   function deactivateSplitScreenWrapped() { _deactivateSplitScreen(); enableOverlayInfoClickHandlers(); showAllDrawables(showClickMarker); }
 
   if (initialIsSplit) {
-    setTimeout(() => { activateSplitScreenWrapped(); splitToggle.textContent = 'Single screen'; restoreFeaturesFromURL(params); }, 0);
+    setTimeout(async () => { activateSplitScreenWrapped(); splitToggle.textContent = 'Single screen'; await restoreFeaturesFromURL(params); }, 0);
   } else {
-    restoreFeaturesFromURL(params);
+    await restoreFeaturesFromURL(params);
   }
 
   // Load persisted user features
@@ -241,7 +245,7 @@ async function bootstrap() {
   enableOverlayInfoClickHandlers();
   setupOSMInteractions(state.map);
 
-  function restoreFeaturesFromURL(params) {
+  async function restoreFeaturesFromURL(params) {
     state.restoringFromPermalink = true;
     state.drawingMode = null;
     // Deprecated: do not restore user markers/polygons from URL
@@ -259,6 +263,17 @@ async function bootstrap() {
       const ids = params.osm.split(';').filter(Boolean);
       state.osmSelectedIds = ids.filter(id => state.osmItems.some(i => i.id === id));
       updateAllOverlays();
+    }
+    if (params.groups) {
+      const groupIds = params.groups.split(';').filter(Boolean).map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      state.activeLayerGroupIds = Array.from(new Set([...state.activeLayerGroupIds, ...groupIds]));
+
+      // Ensure colors are assigned for restored groups
+      const { ensureLayerGroupColors } = await import('./ui/layerGroupMenu.js');
+      ensureLayerGroupColors();
+
+      updateAllOverlays();
+      updateOsmDynamicLayers();
     }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;

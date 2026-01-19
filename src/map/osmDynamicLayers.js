@@ -334,10 +334,17 @@ export function updateOsmDynamicLayers() {
 
     // Merge features from active layer groups
     (state.activeLayerGroupIds || []).forEach(groupId => {
-        const group = state.layerGroups.find(g => g.id === groupId);
+        const id = parseInt(groupId, 10);
+        const group = state.layerGroups.find(g => g.id === id);
         if (!group || !group.config || !group.config.activeOsmFeatures) return;
 
-        const groupColor = state.layerGroupAssignedColors[groupId] || '#e6194b';
+        // Self-healing: Ensure color is assigned if missing
+        if (!state.layerGroupAssignedColors[id]) {
+            const usedColors = Object.values(state.layerGroupAssignedColors);
+            const availableColor = state.osmColorPalette.find(c => !usedColors.includes(c));
+            state.layerGroupAssignedColors[id] = availableColor || state.osmColorPalette[Object.keys(state.layerGroupAssignedColors).length % state.osmColorPalette.length];
+        }
+        const groupColor = state.layerGroupAssignedColors[id];
 
         group.config.activeOsmFeatures.forEach(f => {
             // Add as a separate entry or override color if already present?
@@ -345,8 +352,8 @@ export function updateOsmDynamicLayers() {
             // So we add them as unique features for this group.
             activeFeatures.push({
                 ...f,
-                id: `${groupId}_${f.key}_${f.value}`,
-                groupId: groupId,
+                id: `${id}_${f.key}_${f.value}`,
+                groupId: id,
                 color: groupColor, // Override with group color
                 visible: true
             });
