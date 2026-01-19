@@ -1,4 +1,7 @@
-# MML Map (OpenLayers WMTS/WMS)
+# IntelMap
+<img width="276" height="266" alt="screenshot-2026-01-19_02-42-56" src="https://github.com/user-attachments/assets/54514eff-bbca-4e3c-9c64-5480094c8e2f" />
+
+
 
 A modern, modular OpenLayers application for viewing different WMTS/WMS tile/vector based maps. Supports split-screen view, drawing tools, and dynamic data overlays.
 
