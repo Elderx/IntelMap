@@ -27,9 +27,32 @@ export function createOpenSeaMapOverlayLayer() {
     opacity: 1,
     source: new XYZ({
       url: openSeaMapUrl,
-      attributions: 'Map data: &copy; <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
+      attributions: 'Map data: &copy; <a href="http://www.openseamap.org">OpenSeaMap</a> contributors',
+      crossOrigin: 'anonymous'
     }),
     zIndex: 55, // Higher than WMS overlays
+  });
+}
+
+export function createXYZOverlayLayer(layerInfo) {
+  let url = layerInfo.url;
+  if (tileCacheUrl) {
+    if (url.includes('basemaps.cartocdn.com')) {
+      url = url.replace('https://{a-c}.basemaps.cartocdn.com', `${tileCacheUrl}/tiles/carto/{a-c}`);
+    } else if (url.includes('tiles.openrailwaymap.org')) {
+      url = url.replace('https://{a-c}.tiles.openrailwaymap.org', `${tileCacheUrl}/tiles/openrailway/{a-c}`);
+    } else if (url.includes('tile.waymarkedtrails.org')) {
+      url = url.replace('https://tile.waymarkedtrails.org', `${tileCacheUrl}/tiles/waymarked`);
+    }
+  }
+  return new TileLayer({
+    opacity: 1,
+    source: new XYZ({
+      url: url,
+      attributions: layerInfo.attributions,
+      crossOrigin: 'anonymous'
+    }),
+    zIndex: 55,
   });
 }
 
@@ -88,16 +111,23 @@ export function updateAllOverlays() {
     let layer;
     if (layerInfo && layerInfo.type === 'openseamap') {
       layer = createOpenSeaMapOverlayLayer();
+    } else if (layerInfo && layerInfo.type === 'xyz_overlay') {
+      layer = createXYZOverlayLayer(layerInfo);
     } else {
       layer = createWMSOverlayLayer(layerId);
     }
     state.genericOverlayLayerObjects.main.push(layer);
     if (state.map) state.map.addLayer(layer);
     if (state.isSplit) {
-      const leftLayer = layerInfo && layerInfo.type === 'openseamap' ? createOpenSeaMapOverlayLayer() : createWMSOverlayLayer(layerId);
+      const getLayer = (info, id) => {
+        if (info && info.type === 'openseamap') return createOpenSeaMapOverlayLayer();
+        if (info && info.type === 'xyz_overlay') return createXYZOverlayLayer(info);
+        return createWMSOverlayLayer(id);
+      };
+      const leftLayer = getLayer(layerInfo, layerId);
       state.genericOverlayLayerObjects.left.push(leftLayer);
       if (state.leftMap) state.leftMap.addLayer(leftLayer);
-      const rightLayer = layerInfo && layerInfo.type === 'openseamap' ? createOpenSeaMapOverlayLayer() : createWMSOverlayLayer(layerId);
+      const rightLayer = getLayer(layerInfo, layerId);
       state.genericOverlayLayerObjects.right.push(rightLayer);
       if (state.rightMap) state.rightMap.addLayer(rightLayer);
     }

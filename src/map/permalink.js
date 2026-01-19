@@ -47,14 +47,7 @@ export function updatePermalinkWithFeatures() {
   if (state.isSplit) {
     params += `&split=1&leftLayer=${state.leftLayerId}&rightLayer=${state.rightLayerId}`;
   } else {
-    let layerId;
-    const baseLayer = state.map.getLayers().item(0);
-    if (baseLayer && baseLayer.getSource() && baseLayer.getSource().getLayer) {
-      layerId = baseLayer.getSource().getLayer();
-    } else {
-      layerId = hardcodedLayers[state.initialLayerIdx].id;
-    }
-    params += `&layer=${layerId}`;
+    params += `&layer=${state.currentLayerId}`;
   }
   params += lineStr + measureStr + overlaysStr + osmStr;
   window.history.replaceState({}, '', params);

@@ -14,7 +14,8 @@ export async function loadCapabilities() {
 }
 
 export function createBaseMap(result, initialCenter, initialZoom, initialLayerIdx) {
-  const currentLayer = createTileLayerFromList(result, hardcodedLayers[initialLayerIdx].id, function() {
+  state.currentLayerId = hardcodedLayers[initialLayerIdx].id;
+  const currentLayer = createTileLayerFromList(result, state.currentLayerId, function () {
     alert('Failed to load tiles for layer: ' + hardcodedLayers[initialLayerIdx].name);
   }, mapboxAccessToken);
   state.map = new Map({
@@ -56,6 +57,7 @@ export function parseInitialFromParams(params) {
   }
   state.leftLayerId = initialLeftLayerId;
   state.rightLayerId = initialRightLayerId;
+  state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;
   return { initialCenter, initialZoom, initialIsSplit };
 }
 

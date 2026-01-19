@@ -24,7 +24,7 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
       : undefined; // Use default OSM source
     return new TileLayer({
       opacity: 1,
-      source: osmUrl ? new XYZ({ url: osmUrl, attributions: '© OpenStreetMap contributors' }) : new OSM()
+      source: osmUrl ? new XYZ({ url: osmUrl, attributions: '© OpenStreetMap contributors', crossOrigin: 'anonymous' }) : new OSM()
     });
   }
 
@@ -43,7 +43,7 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
       : 'https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
     return new TileLayer({
       opacity: 1,
-      source: new XYZ({ url: esriUrl, attributions: 'Tiles © Esri' })
+      source: new XYZ({ url: esriUrl, attributions: 'Tiles © Esri', crossOrigin: 'anonymous' })
     });
   }
 
@@ -55,7 +55,7 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
       : 'https://{a-c}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
     return new TileLayer({
       opacity: 1,
-      source: new XYZ({ url: cartoUrl, attributions: '© OpenStreetMap contributors © CARTO' })
+      source: new XYZ({ url: cartoUrl, attributions: '© OpenStreetMap contributors © CARTO', crossOrigin: 'anonymous' })
     });
   }
 
@@ -74,8 +74,54 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
       source: new XYZ({
         url: mapantUrl,
         attributions: 'Map &copy; <a href="http://www.mapant.fi/">MapAnt.fi</a>',
-        maxZoom: 19
+        maxZoom: 19,
+        crossOrigin: 'anonymous'
       })
+    });
+  }
+
+  if (layerInfo && layerInfo.type === 'opentopomap') {
+    const otmUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/opentopomap/{a-c}/{z}/{x}/{y}.png`
+      : 'https://{a-c}.tile.opentopomap.org/{z}/{x}/{y}.png';
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({ url: otmUrl, attributions: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)', crossOrigin: 'anonymous' })
+    });
+  }
+
+  if (layerInfo && layerInfo.type === 'thunderforest') {
+    const tfType = layerInfo.tfLayer;
+    const tfApiKey = 'f6e10770b1e34e0daa69648cb1f81026';
+    const tfUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/thunderforest/${tfType}/{z}/{x}/{y}.png?apikey=${tfApiKey}`
+      : `https://tile.thunderforest.com/${tfType}/{z}/{x}/{y}.png?apikey=${tfApiKey}`;
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({ url: tfUrl, attributions: '&copy; <a href="http://www.thunderforest.com/">Thunderforest</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', crossOrigin: 'anonymous' })
+    });
+  }
+
+  if (layerInfo && layerInfo.type === 'jawg') {
+    const jawgType = layerInfo.jawgLayer;
+    const jawgAccessToken = 'Epqxpit9ZWC0b2s9gnPGvZeXzcrSdmDuX7QBiCfp6PTaMyCh0cXi5H1dL7OH9qMi';
+    const jawgUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/jawg/${jawgType}/{z}/{x}/{y}.png?access-token=${jawgAccessToken}`
+      : `https://tile.jawg.io/${jawgType}/{z}/{x}/{y}.png?access-token=${jawgAccessToken}`;
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({ url: jawgUrl, attributions: '&copy; <a href="http://www.jawg.io/">Jawg</a>, &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors', crossOrigin: 'anonymous' })
+    });
+  }
+
+  if (layerInfo && layerInfo.type === 'arcgis_xyz') {
+    const service = layerInfo.arcgisService;
+    const arcgisUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/arcgis/ArcGIS/rest/services/${service}/MapServer/tile/{z}/{y}/{x}`
+      : `https://server.arcgisonline.com/ArcGIS/rest/services/${service}/MapServer/tile/{z}/{y}/{x}`;
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({ url: arcgisUrl, attributions: 'Tiles © Esri', crossOrigin: 'anonymous' })
     });
   }
 
@@ -100,7 +146,8 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
       source: new XYZ({
         url: nasaUrl,
         attributions: 'Imagery © <a href="https://earthdata.nasa.gov">NASA GIBS</a>',
-        maxZoom: matrixSet.endsWith('Level9') ? 9 : 8
+        maxZoom: matrixSet.endsWith('Level9') ? 9 : 8,
+        crossOrigin: 'anonymous'
       })
     });
   }

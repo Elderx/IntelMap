@@ -51,7 +51,16 @@ export const hardcodedLayers = [
   { id: 'cartodb_dark', name: 'CartoDB Dark', type: 'cartodb_dark' },
   { id: 'nasa_blue_marble', name: 'NASA Blue Marble', type: 'nasa', nasaLayerId: 'BlueMarble_ShadedRelief_Bathymetry', format: 'jpeg', matrixSet: 'GoogleMapsCompatible_Level8' },
   { id: 'nasa_night_lights', name: 'NASA Night Lights', type: 'nasa', nasaLayerId: 'VIIRS_SNPP_DayNightBand_ENCC', date: '2023-07-07', format: 'png', matrixSet: 'GoogleMapsCompatible_Level8', hasTime: true },
-  { id: 'nasa_clouds', name: 'NASA Daily Clouds', type: 'nasa', nasaLayerId: 'MODIS_Terra_CorrectedReflectance_TrueColor', date: '2024-01-15', format: 'jpeg', matrixSet: 'GoogleMapsCompatible_Level9', hasTime: true }
+  { id: 'nasa_clouds', name: 'NASA Daily Clouds', type: 'nasa', nasaLayerId: 'MODIS_Terra_CorrectedReflectance_TrueColor', date: '2024-01-15', format: 'jpeg', matrixSet: 'GoogleMapsCompatible_Level9', hasTime: true },
+  { id: 'opentopomap', name: 'OpenTopoMap', type: 'opentopomap' },
+  { id: 'tf_outdoors', name: 'Thunderforest Outdoors', type: 'thunderforest', tfLayer: 'outdoors' },
+  { id: 'tf_transport_dark', name: 'Thunderforest Transport Dark', type: 'thunderforest', tfLayer: 'transport-dark' },
+  { id: 'tf_mobile_atlas', name: 'Thunderforest Mobile Atlas', type: 'thunderforest', tfLayer: 'mobile-atlas' },
+  { id: 'tf_landscape', name: 'Thunderforest Landscape', type: 'thunderforest', tfLayer: 'landscape' },
+  { id: 'jawg_dark', name: 'Jawg Dark', type: 'jawg', jawgLayer: 'jawg-dark' },
+  { id: 'jawg_streets', name: 'Jawg Streets', type: 'jawg', jawgLayer: 'jawg-streets' },
+  { id: 'arcgis_natgeo', name: 'ArcGIS NatGeo World Map', type: 'arcgis_xyz', arcgisService: 'NatGeo_World_Map' },
+  { id: 'arcgis_light_gray', name: 'ArcGIS World Light Gray Base', type: 'arcgis_xyz', arcgisService: 'Canvas/World_Light_Gray_Base' }
 ];
 
 

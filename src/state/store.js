@@ -37,7 +37,11 @@ export const state = {
   digiroadOverlayList: [],
   digiroadOverlayLayers: [],
   genericOverlayList: [
-    { name: 'openseamap', title: 'OpenSeaMap', type: 'openseamap' }
+    { name: 'openseamap', title: 'OpenSeaMap', type: 'openseamap' },
+    { name: 'carto_dark_labels', title: 'Carto Dark Labels', type: 'xyz_overlay', url: 'https://{a-c}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' },
+    { name: 'carto_light_labels', title: 'Carto Light Labels', type: 'xyz_overlay', url: 'https://{a-c}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png', attributions: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>' },
+    { name: 'openrailwaymap', title: 'OpenRailwayMap', type: 'xyz_overlay', url: 'https://{a-c}.tiles.openrailwaymap.org/standard/{z}/{x}/{y}.png', attributions: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Map style: &copy; <a href="https://www.OpenRailwayMap.org">OpenRailwayMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)' },
+    { name: 'waymarked_hiking', title: 'Waymarked Hiking', type: 'xyz_overlay', url: 'https://tile.waymarkedtrails.org/hiking/{z}/{x}/{y}.png', attributions: 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | Map style: &copy; <a href="https://waymarkedtrails.org">Waymarked Trails</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)' }
   ],
   genericOverlayLayers: [],
   genericOverlayLayerObjects: { main: [], left: [], right: [] },
