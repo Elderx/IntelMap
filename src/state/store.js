@@ -36,7 +36,9 @@ export const state = {
   wmsOverlayLegends: {},
   digiroadOverlayList: [],
   digiroadOverlayLayers: [],
-  genericOverlayList: [],
+  genericOverlayList: [
+    { name: 'openseamap', title: 'OpenSeaMap', type: 'openseamap' }
+  ],
   genericOverlayLayers: [],
   genericOverlayLayerObjects: { main: [], left: [], right: [] },
 

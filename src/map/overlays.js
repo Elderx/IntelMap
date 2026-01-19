@@ -7,7 +7,8 @@ import Style from 'ol/style/Style.js';
 import Stroke from 'ol/style/Stroke.js';
 import Fill from 'ol/style/Fill.js';
 import CircleStyle from 'ol/style/Circle.js';
-import { wmsUrl } from '../config/constants.js';
+import XYZ from 'ol/source/XYZ.js';
+import { wmsUrl, tileCacheUrl } from '../config/constants.js';
 import { state } from '../state/store.js';
 
 export function createWMSOverlayLayer(layerName) {
@@ -15,6 +16,20 @@ export function createWMSOverlayLayer(layerName) {
     opacity: 0.7,
     source: new TileWMS({ url: wmsUrl, params: { LAYERS: layerName, TRANSPARENT: true, VERSION: '1.3.0' }, crossOrigin: 'anonymous' }),
     zIndex: 50,
+  });
+}
+
+export function createOpenSeaMapOverlayLayer() {
+  const openSeaMapUrl = tileCacheUrl
+    ? `${tileCacheUrl}/tiles/openseamap/seamark/{z}/{x}/{y}.png`
+    : 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
+  return new TileLayer({
+    opacity: 1,
+    source: new XYZ({
+      url: openSeaMapUrl,
+      attributions: 'Map data: &copy; <a href="http://www.openseamap.org">OpenSeaMap</a> contributors'
+    }),
+    zIndex: 55, // Higher than WMS overlays
   });
 }
 
@@ -52,15 +67,21 @@ export function updateAllOverlays() {
       if (state.rightMap) state.rightMap.addLayer(rightLayer);
     }
   });
-  state.genericOverlayLayers.forEach(layerName => {
-    const layer = createWMSOverlayLayer(layerName);
+  state.genericOverlayLayers.forEach(layerId => {
+    const layerInfo = state.genericOverlayList.find(l => l.name === layerId);
+    let layer;
+    if (layerInfo && layerInfo.type === 'openseamap') {
+      layer = createOpenSeaMapOverlayLayer();
+    } else {
+      layer = createWMSOverlayLayer(layerId);
+    }
     state.genericOverlayLayerObjects.main.push(layer);
     if (state.map) state.map.addLayer(layer);
     if (state.isSplit) {
-      const leftLayer = createWMSOverlayLayer(layerName);
+      const leftLayer = layerInfo && layerInfo.type === 'openseamap' ? createOpenSeaMapOverlayLayer() : createWMSOverlayLayer(layerId);
       state.genericOverlayLayerObjects.left.push(leftLayer);
       if (state.leftMap) state.leftMap.addLayer(leftLayer);
-      const rightLayer = createWMSOverlayLayer(layerName);
+      const rightLayer = layerInfo && layerInfo.type === 'openseamap' ? createOpenSeaMapOverlayLayer() : createWMSOverlayLayer(layerId);
       state.genericOverlayLayerObjects.right.push(rightLayer);
       if (state.rightMap) state.rightMap.addLayer(rightLayer);
     }
