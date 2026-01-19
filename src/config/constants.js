@@ -60,7 +60,9 @@ export const hardcodedLayers = [
   { id: 'jawg_dark', name: 'Jawg Dark', type: 'jawg', jawgLayer: 'jawg-dark' },
   { id: 'jawg_streets', name: 'Jawg Streets', type: 'jawg', jawgLayer: 'jawg-streets' },
   { id: 'arcgis_natgeo', name: 'ArcGIS NatGeo World Map', type: 'arcgis_xyz', arcgisService: 'NatGeo_World_Map' },
-  { id: 'arcgis_light_gray', name: 'ArcGIS World Light Gray Base', type: 'arcgis_xyz', arcgisService: 'Canvas/World_Light_Gray_Base' }
+  { id: 'arcgis_light_gray', name: 'ArcGIS World Light Gray Base', type: 'arcgis_xyz', arcgisService: 'Canvas/World_Light_Gray_Base' },
+  { id: 'stadia_alidade_satellite', name: 'Stadia Alidade Satellite', type: 'stadia', stadiaLayer: 'alidade_satellite' },
+  { id: 'stadia_alidade_smooth_dark', name: 'Stadia Alidade Smooth Dark', type: 'stadia', stadiaLayer: 'alidade_smooth_dark' }
 ];
 
 

@@ -125,6 +125,18 @@ export function createTileLayerFromList(result, layerId, onError, mapboxAccessTo
     });
   }
 
+  if (layerInfo && layerInfo.type === 'stadia') {
+    const stadiaType = layerInfo.stadiaLayer;
+    const extension = stadiaType === 'alidade_satellite' ? 'jpg' : 'png';
+    const stadiaUrl = tileCacheUrl
+      ? `${tileCacheUrl}/tiles/stadiamaps/tiles/${stadiaType}/{z}/{x}/{y}.${extension}`
+      : `https://tiles.stadiamaps.com/tiles/${stadiaType}/{z}/{x}/{y}.${extension}`;
+    return new TileLayer({
+      opacity: 1,
+      source: new XYZ({ url: stadiaUrl, attributions: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org/copyright">OpenStreetMap</a> contributors', crossOrigin: 'anonymous' })
+    });
+  }
+
   if (layerInfo && layerInfo.type === 'nasa') {
     // NASA GIBS Layers - route through cache proxy if available
     const date = overrideDate || layerInfo.date; // Use override date if provided, otherwise default
