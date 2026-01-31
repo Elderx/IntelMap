@@ -734,22 +734,23 @@
 /* ============================================
    THEME TOGGLE BUTTON
    ============================================ */
+
+/* Theme toggle button - background for both modes */
+#theme-toggle {
+  background: var(--header-bg-elevated);
+  border: 1px solid var(--header-border);
+  transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease;
+}
+
+#theme-toggle:hover {
+  background: var(--header-bg-elevated);
+  border-color: var(--header-text-muted);
+}
+
 /* Theme Toggle Button Icon - ensure visibility in both themes */
 .header-btn-icon .theme-icon {
   color: var(--header-text);
   stroke: currentColor;
-}
-
-/* In dark mode, ensure icon is bright enough */
-[data-theme="dark"] .header-btn-icon .theme-icon {
-  color: #e0e0e0;
-  stroke: #e0e0e0;
-}
-
-.theme-icon {
-  width: 20px;
-  height: 20px;
-  transition: transform 0.3s ease;
 }
 
 /* Sun icon - visible in light mode only */
@@ -761,14 +762,21 @@
   display: none;
 }
 
-/* Moon icon - visible in dark mode only */
+/* Moon icon - visible in dark mode only, light blue color */
 .moon-icon {
   display: none;
-  stroke: #e0e0e0;
+  stroke: #42a5f5;
+  stroke-width: 2;
 }
 
 [data-theme="dark"] .moon-icon {
   display: block;
+}
+
+.theme-icon {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.3s ease;
 }
 
 /* Smooth theme transitions for header elements */
