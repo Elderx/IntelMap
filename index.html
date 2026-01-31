@@ -2,42 +2,175 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <title>The Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IntelMap</title>
+    <!-- Google Fonts: Roboto -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
     <style>
       .map {
-        position: absolute; top: 0; right: 0; bottom: 0; left: 0;
+        position: absolute;
+        top: 64px;
+        right: 0;
+        bottom: 0;
+        left: 0;
+      }
+      #split-maps-container {
+        position: absolute;
+        top: 64px;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        display: none;
+        z-index: 2;
+      }
+      #map-left, #map-right {
+        width: 50%;
+        height: 100%;
+        float: left;
+        position: relative;
       }
     </style>
-    <script type="module" crossorigin src="/mml-map/assets/index-LDQwM5C6.js"></script>
-    <link rel="stylesheet" crossorigin href="/mml-map/assets/index-BKOqNeqz.css">
+    <script type="module" crossorigin src="/mml-map/assets/index-B9fWtQii.js"></script>
+    <link rel="stylesheet" crossorigin href="/mml-map/assets/index-44zL8Z-U.css">
   </head>
   <body>
-    <div id="split-toggle-container" style="position:absolute;bottom:20px;left:20px;z-index:10;">
-      <button id="split-toggle" style="padding:8px 16px;font-size:1em;border-radius:8px;border:none;background:#1976d2;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.13);">Split screen</button>
-    </div>
-    <div id="remove-features-container" style="position:absolute;bottom:70px;left:20px;z-index:11;">
-      <button id="remove-features-btn" style="padding:8px 16px;font-size:1em;border-radius:8px;border:none;background:#e53935;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.13);">Remove features</button>
-    </div>
-    <!-- Search bar container -->
-    <div id="search-bar-container" style="position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:20;">
-      <input id="search-bar" type="text" placeholder="Search for a place..." style="width:320px;padding:10px 16px;font-size:1em;border-radius:8px;border:1px solid #ccc;box-shadow:0 2px 8px rgba(0,0,0,0.13);outline:none;" />
-    </div>
-    <div id="map" class="map"></div>
-    <div id="split-maps-container" style="display:none;width:100vw;height:100vh;position:absolute;top:0;left:0;z-index:2;">
-      <div id="map-left" style="width:50vw;height:100vh;float:left;position:relative;"></div>
-      <div id="map-right" style="width:50vw;height:100vh;float:left;position:relative;"></div>
-    </div>
-    <!-- Drawing menu (bottom right) -->
-    <div id="draw-menu-container" style="position:absolute;bottom:20px;right:20px;z-index:20;">
-      <button id="draw-menu-toggle" style="padding:8px 16px;font-size:1em;border-radius:8px 8px 0 0;border:none;background:#1976d2;color:white;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.13);">Draw</button>
-      <div id="draw-menu" style="display:none;background:white;border-radius:0 0 8px 8px;box-shadow:0 2px 8px rgba(0,0,0,0.13);padding:10px 12px 8px 12px;min-width:120px;">
-        <div style="margin-bottom:8px;font-weight:bold;">Draw:</div>
-        <button id="draw-marker-btn" style="width:100%;margin-bottom:6px;padding:8px;border-radius:6px;border:1px solid #1976d2;background:#e3f2fd;color:#1976d2;cursor:pointer;">Marker</button>
-        <button id="draw-line-btn" style="width:100%;margin-bottom:6px;padding:8px;border-radius:6px;border:1px solid #1976d2;background:#e3f2fd;color:#1976d2;cursor:pointer;">Line</button>
-        <button id="draw-polygon-btn" style="width:100%;padding:8px;border-radius:6px;border:1px solid #1976d2;background:#e3f2fd;color:#1976d2;cursor:pointer;">Polygon</button>
-        <button id="draw-radius-btn" style="width:100%;margin-top:6px;padding:8px;border-radius:6px;border:1px solid #1976d2;background:#e3f2fd;color:#1976d2;cursor:pointer;">Radius</button>
-        <button id="draw-measure-btn" style="width:100%;margin-top:6px;padding:8px;border-radius:6px;border:1px solid #ffa500;background:#fff8e1;color:#d2691e;cursor:pointer;font-weight:bold;">Measure</button>
+    <!-- Unified Header -->
+    <header class="header">
+      <!-- Left Section: Logo -->
+      <div class="header-section header-section-left">
+        <a href="#" class="header-logo" id="header-logo" title="Reset map view">
+          <div class="header-logo-icon">IM</div>
+          <span>IntelMap</span>
+        </a>
+      </div>
+
+      <!-- Center Section: Search -->
+      <div class="header-section header-section-center">
+        <div class="header-search">
+          <input id="search-bar" type="text" class="header-search-input" placeholder="Search for a place..." autocomplete="off">
+          <svg class="header-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+          <div id="search-dropdown" class="header-search-dropdown"></div>
+        </div>
+      </div>
+
+      <!-- Right Section: Tools, Actions, Layers -->
+      <div class="header-section header-section-right">
+        <!-- Theme Toggle -->
+        <button class="header-btn header-btn-icon" id="theme-toggle" title="Toggle dark/light mode">
+          <svg class="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Sun icon -->
+            <circle class="sun-icon" cx="12" cy="12" r="5"></circle>
+            <line class="sun-icon" x1="12" y1="1" x2="12" y2="3"></line>
+            <line class="sun-icon" x1="12" y1="21" x2="12" y2="23"></line>
+            <line class="sun-icon" x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+            <line class="sun-icon" x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+            <line class="sun-icon" x1="1" y1="12" x2="3" y2="12"></line>
+            <line class="sun-icon" x1="21" y1="12" x2="23" y2="12"></line>
+            <line class="sun-icon" x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+            <line class="sun-icon" x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+            <!-- Moon icon (hidden by default) -->
+            <path class="moon-icon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" style="display: none;"></path>
+          </svg>
+        </button>
+
+        <!-- Draw Tools Dropdown -->
+        <button class="header-btn header-btn-dropdown" id="draw-menu-toggle" title="Drawing tools">
+          <span>Draw</span>
+        </button>
+
+        <!-- Split Screen Toggle -->
+        <button class="header-btn header-btn-split" id="split-toggle" title="Toggle split screen view">
+          <span>Split</span>
+        </button>
+
+        <!-- Add OSM Feature -->
+        <button class="header-btn header-btn-success" id="osm-search-trigger" title="Add OSM feature layer">
+          <span>Add OSM</span>
+        </button>
+
+        <!-- Remove Features (hidden by default) -->
+        <button class="header-btn header-btn-danger header-hidden" id="remove-features-btn" title="Remove drawn features">
+          <span>Remove</span>
+        </button>
+
+        <!-- Left Map Button (only in split mode) -->
+        <button class="header-btn header-btn-dropdown header-hidden" id="left-map-toggle" title="Left map layers">
+          <span>Left</span>
+        </button>
+
+        <!-- Right Map Button (only in split mode) -->
+        <button class="header-btn header-btn-dropdown header-hidden" id="right-map-toggle" title="Right map layers">
+          <span>Right</span>
+        </button>
+
+        <!-- Layers Dropdown with Badge -->
+        <button class="header-btn header-btn-dropdown" id="layers-toggle" title="Manage layers">
+          <span>Layers</span>
+          <span class="header-badge" id="layers-badge" style="display: none;">0</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Draw Dropdown Panel -->
+    <div class="header-dropdown header-dropdown-draw" id="draw-dropdown">
+      <div class="header-dropdown-section">
+        <div class="header-dropdown-title">Drawing Tools</div>
+        <div class="header-dropdown-grid">
+          <button class="header-dropdown-item" id="draw-marker-btn" title="Place a marker">
+            Marker
+          </button>
+          <button class="header-dropdown-item" id="draw-line-btn" title="Draw a line">
+            Line
+          </button>
+          <button class="header-dropdown-item" id="draw-polygon-btn" title="Draw a polygon">
+            Polygon
+          </button>
+          <button class="header-dropdown-item" id="draw-radius-btn" title="Draw a radius">
+            Radius
+          </button>
+        </div>
+      </div>
+      <div class="header-dropdown-section">
+        <div class="header-dropdown-title">Measurement</div>
+        <div class="header-dropdown-grid">
+          <button class="header-dropdown-item measure" id="draw-measure-btn" title="Measure distance">
+            📏 Measure
+          </button>
+        </div>
       </div>
     </div>
+
+    <!-- Left Map Dropdown Panel -->
+    <div class="header-dropdown" id="left-map-dropdown">
+      <div id="left-map-layer-manager"></div>
+    </div>
+
+    <!-- Right Map Dropdown Panel -->
+    <div class="header-dropdown" id="right-map-dropdown">
+      <div id="right-map-layer-manager"></div>
+    </div>
+
+    <!-- Layers Dropdown Panel (single mode) -->
+    <div class="header-dropdown header-dropdown-layers" id="layers-dropdown">
+      <div id="header-layer-manager">
+        <!-- Layer manager content will be mounted here -->
+      </div>
+    </div>
+
+    <!-- Backdrop -->
+    <div class="header-backdrop" id="header-backdrop"></div>
+
+    <!-- Maps -->
+    <div id="map" class="map"></div>
+    <div id="split-maps-container">
+      <div id="map-left"></div>
+      <div id="map-right"></div>
+    </div>
+
   </body>
 </html>
