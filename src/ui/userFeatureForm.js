@@ -25,7 +25,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   panel.style.maxWidth = '420px';
 
   const title = document.createElement('div');
-  title.textContent = kind === 'marker' ? 'Add Marker' : 'Add Polygon';
+  title.textContent = kind === 'marker' ? 'Add Marker' : kind === 'circle' ? 'Add Circle' : 'Add Polygon';
   title.style.fontWeight = 'bold';
   title.style.fontSize = '1.1em';
   title.style.marginBottom = '10px';
@@ -62,9 +62,34 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   colorLabel.style.marginRight = '8px';
   const inputColor = document.createElement('input');
   inputColor.type = 'color';
-  inputColor.value = initial.color || (kind === 'marker' ? '#00bcd4' : '#ff9800');
+  inputColor.value = initial.color || (kind === 'marker' ? '#00bcd4' : kind === 'circle' ? '#2196f3' : '#ff9800');
   colorLabel.appendChild(inputColor);
   panel.appendChild(colorLabel);
+
+  // Opacity input (only for circles)
+  let inputOpacity = null;
+  if (kind === 'circle') {
+    const opacityWrap = document.createElement('div');
+    opacityWrap.style.marginTop = '8px';
+    const opacityLabel = document.createElement('label');
+    opacityLabel.textContent = 'Opacity: ';
+    opacityLabel.style.marginRight = '8px';
+    inputOpacity = document.createElement('input');
+    inputOpacity.type = 'range';
+    inputOpacity.min = '0';
+    inputOpacity.max = '1';
+    inputOpacity.step = '0.1';
+    inputOpacity.value = initial.opacity !== undefined ? initial.opacity : 0.3;
+    inputOpacity.style.width = '150px';
+    opacityLabel.appendChild(inputOpacity);
+    const opacityValue = document.createElement('span');
+    opacityValue.textContent = inputOpacity.value;
+    opacityValue.style.marginLeft = '8px';
+    inputOpacity.oninput = () => { opacityValue.textContent = inputOpacity.value; };
+    opacityWrap.appendChild(opacityLabel);
+    opacityWrap.appendChild(opacityValue);
+    panel.appendChild(opacityWrap);
+  }
 
   // Share dropdown (multi-select)
   const shareWrap = document.createElement('div');
@@ -136,6 +161,9 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
       description: inputDesc.value.trim(),
       color: inputColor.value,
     };
+    if (kind === 'circle' && inputOpacity) {
+      payload.opacity = parseFloat(inputOpacity.value);
+    }
     if (panel.__shareSelect) {
       const ids = Array.from(panel.__shareSelect.selectedOptions).map(o => parseInt(o.value, 10)).filter(n => Number.isFinite(n));
       payload.sharedUserIds = ids;

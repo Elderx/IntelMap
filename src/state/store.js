@@ -10,6 +10,7 @@ export const state = {
   markerCoords: null,
   lineCoords: null,
   polygonCoords: null,
+  circleCoords: null, // { center: [lon, lat], radius: number }
   measureCoords: null,
   drawingMode: null,
   lastClickCoords: null,
@@ -26,6 +27,8 @@ export const state = {
   drawnLineFeature: { main: null, left: null, right: null },
   drawnPolygonLayer: { main: null, left: null, right: null },
   drawnPolygonFeature: { main: null, left: null, right: null },
+  drawnCircleLayer: { main: null, left: null, right: null },
+  drawnCircleFeature: { main: null, left: null, right: null },
   measureLineLayer: { main: null, left: null, right: null },
   measureLineFeature: { main: null, left: null, right: null },
   measureLabelOverlay: { main: null, left: null, right: null },
@@ -100,8 +103,10 @@ export const state = {
   // User-created features persisted to server
   userMarkers: [], // { id, lon, lat, title, description, color }
   userPolygons: [], // { id, coordinates:[[lon,lat],...], title, description, color }
+  userCircles: [], // { id, center:[lon,lat], radius:number, title, description, color, opacity }
   userMarkerLayer: { main: null, left: null, right: null },
   userPolygonLayer: { main: null, left: null, right: null },
+  userCircleLayer: { main: null, left: null, right: null },
 
   // Layer Groups saved by user
   layerGroups: [], // Array of { id, name, config, created_at }

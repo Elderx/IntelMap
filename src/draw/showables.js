@@ -1,5 +1,5 @@
 import { state } from '../state/store.js';
-import { createLineLayer, createPolygonLayer, createMeasureLineLayer, createMeasureLabelOverlay, formatLength } from './helpers.js';
+import { createLineLayer, createPolygonLayer, createCircleLayer, createMeasureLineLayer, createMeasureLabelOverlay, formatLength } from './helpers.js';
 
 export function showLine(coords) {
   state.lineCoords = coords && coords.length >= 2 ? coords : null;
@@ -49,6 +49,32 @@ export function showPolygon(coords) {
       state.drawnPolygonLayer.left = layerLeft; state.drawnPolygonFeature.left = featureLeft; state.leftMap.addLayer(layerLeft);
       const { layer: layerRight, feature: featureRight } = createPolygonLayer(coords);
       state.drawnPolygonLayer.right = layerRight; state.drawnPolygonFeature.right = featureRight; state.rightMap.addLayer(layerRight);
+    }
+  }
+}
+
+export function showCircle(center, radius) {
+  state.circleCoords = center && radius ? { center, radius } : null;
+  if (!state.isSplit) {
+    if (state.drawnCircleLayer.main && state.map) state.map.removeLayer(state.drawnCircleLayer.main);
+    state.drawnCircleLayer.main = null;
+    state.drawnCircleFeature.main = null;
+    if (center && radius) {
+      const { layer, feature } = createCircleLayer(center, radius);
+      state.drawnCircleLayer.main = layer;
+      state.drawnCircleFeature.main = feature;
+      state.map.addLayer(layer);
+    }
+  } else {
+    if (state.drawnCircleLayer.left && state.leftMap) state.leftMap.removeLayer(state.drawnCircleLayer.left);
+    if (state.drawnCircleLayer.right && state.rightMap) state.rightMap.removeLayer(state.drawnCircleLayer.right);
+    state.drawnCircleLayer.left = state.drawnCircleLayer.right = null;
+    state.drawnCircleFeature.left = state.drawnCircleFeature.right = null;
+    if (center && radius) {
+      const { layer: layerLeft, feature: featureLeft } = createCircleLayer(center, radius);
+      state.drawnCircleLayer.left = layerLeft; state.drawnCircleFeature.left = featureLeft; state.leftMap.addLayer(layerLeft);
+      const { layer: layerRight, feature: featureRight } = createCircleLayer(center, radius);
+      state.drawnCircleLayer.right = layerRight; state.drawnCircleFeature.right = featureRight; state.rightMap.addLayer(layerRight);
     }
   }
 }
@@ -119,6 +145,15 @@ export function copyDrawnFeatures(from, to, mapFrom, mapTo) {
     const { layer, feature } = createPolygonLayer(coords);
     state.drawnPolygonLayer[to] = layer; state.drawnPolygonFeature[to] = feature; if (mapTo) mapTo.addLayer(layer);
   }
+  if (state.drawnCircleLayer[to] && mapTo) mapTo.removeLayer(state.drawnCircleLayer[to]);
+  state.drawnCircleLayer[to] = null; state.drawnCircleFeature[to] = null;
+  if (state.drawnCircleFeature[from]) {
+    const geom = state.drawnCircleFeature[from].getGeometry();
+    const center = geom.getCenter();
+    const radius = geom.getRadius();
+    const { layer, feature } = createCircleLayer(center, radius);
+    state.drawnCircleLayer[to] = layer; state.drawnCircleFeature[to] = feature; if (mapTo) mapTo.addLayer(layer);
+  }
   if (state.measureLineLayer[to] && mapTo) mapTo.removeLayer(state.measureLineLayer[to]);
   if (state.measureLabelOverlay[to] && mapTo) mapTo.removeOverlay(state.measureLabelOverlay[to]);
   state.measureLineLayer[to] = null; state.measureLineFeature[to] = null; state.measureLabelOverlay[to] = null;
@@ -138,6 +173,8 @@ export function clearDrawnFeatures(mapKey, mapObj) {
   state.drawnLineLayer[mapKey] = null; state.drawnLineFeature[mapKey] = null;
   if (state.drawnPolygonLayer[mapKey] && mapObj) mapObj.removeLayer(state.drawnPolygonLayer[mapKey]);
   state.drawnPolygonLayer[mapKey] = null; state.drawnPolygonFeature[mapKey] = null;
+  if (state.drawnCircleLayer[mapKey] && mapObj) mapObj.removeLayer(state.drawnCircleLayer[mapKey]);
+  state.drawnCircleLayer[mapKey] = null; state.drawnCircleFeature[mapKey] = null;
   clearMeasureLine(mapKey, mapObj);
 }
 
@@ -151,6 +188,9 @@ export function showAllDrawables(showClickMarkerFn) {
   }
   showLine(state.lineCoords);
   showPolygon(state.polygonCoords);
+  if (state.circleCoords) {
+    showCircle(state.circleCoords.center, state.circleCoords.radius);
+  }
   showMeasureLine(state.measureCoords);
 }
 

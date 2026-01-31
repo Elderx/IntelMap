@@ -4,18 +4,22 @@ import VectorSource from 'ol/source/Vector.js';
 import Style from 'ol/style/Style.js';
 import Stroke from 'ol/style/Stroke.js';
 import Fill from 'ol/style/Fill.js';
+import CircleStyle from 'ol/style/Circle.js';
+import Text from 'ol/style/Text.js';
 import Feature from 'ol/Feature.js';
+import Point from 'ol/geom/Point.js';
 import LineString from 'ol/geom/LineString.js';
+import Circle from 'ol/geom/Circle.js';
 import { fromLonLat, toLonLat } from 'ol/proj';
 import { state } from '../state/store.js';
 import { disableOverlayInfoClickHandlers, enableOverlayInfoClickHandlers } from '../map/overlayInfoClick.js';
 import { showClickMarker, clearAllMarkers } from './markers.js';
-import { showLine, showPolygon, showMeasureLine, clearDrawnFeatures } from './showables.js';
-import { createMeasureLabelOverlay, formatLength } from './helpers.js';
+import { showLine, showPolygon, showCircle, showMeasureLine, clearDrawnFeatures } from './showables.js';
+import { createMeasureLabelOverlay, formatLength, createCircleLayer } from './helpers.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { openUserFeatureForm } from '../ui/userFeatureForm.js';
-import { addUserMarkerToMaps, addUserPolygonToMaps } from '../user/userLayers.js';
-import { createMarker, createPolygon } from '../api/client.js';
+import { addUserMarkerToMaps, addUserPolygonToMaps, addUserCircleToMaps } from '../user/userLayers.js';
+import { createMarker, createPolygon, createCircle } from '../api/client.js';
 
 export function enableMarkerClickHandler() {
   if (!state.isSplit) {
@@ -85,6 +89,7 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
   const drawMarkerBtn = document.getElementById('draw-marker-btn');
   const drawLineBtn = document.getElementById('draw-line-btn');
   const drawPolygonBtn = document.getElementById('draw-polygon-btn');
+  const drawRadiusBtn = document.getElementById('draw-radius-btn');
   const drawMeasureBtn = document.getElementById('draw-measure-btn');
 
   drawMenuToggle.addEventListener('click', function () {
@@ -259,6 +264,218 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
     }
   });
 
+  drawRadiusBtn.addEventListener('click', function () {
+    state.drawingMode = 'radius';
+    clearAllMarkers();
+    disableOverlayInfoClickHandlers();
+    if (!state.isSplit) {
+      clearDrawInteraction();
+      clearDrawnFeatures('main', state.map);
+      drawMenu.style.display = 'none';
+      disableMarkerClickHandler();
+      const vectorSource = new VectorSource();
+      state.drawnCircleLayer.main = new VectorLayer({ source: vectorSource, zIndex: 102, style: new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }) });
+      state.map.addLayer(state.drawnCircleLayer.main);
+
+      let centerCoords = null;
+      let previewCircle = null;
+      let previewLine = null;
+      let previewText = null;
+      let pointerMoveHandler = null;
+
+      state.map.on('singleclick', function onFirstClick(evt) {
+        if (state.drawingMode !== 'radius') return;
+        if (!centerCoords) {
+          centerCoords = evt.coordinate;
+          const centerFeature = new Feature({ geometry: new Point(centerCoords) });
+          centerFeature.setStyle(new Style({ image: new CircleStyle({ radius: 4, fill: new Fill({ color: '#2196f3' }), stroke: new Stroke({ color: '#fff', width: 2 }) }) }));
+          vectorSource.addFeature(centerFeature);
+
+          pointerMoveHandler = function(evt) {
+            if (state.drawingMode !== 'radius' || !centerCoords) return;
+            const radius = Math.sqrt(
+              Math.pow(evt.coordinate[0] - centerCoords[0], 2) +
+              Math.pow(evt.coordinate[1] - centerCoords[1], 2)
+            );
+
+            // Remove old preview features
+            if (previewCircle) vectorSource.removeFeature(previewCircle);
+            if (previewLine) vectorSource.removeFeature(previewLine);
+            if (previewText) vectorSource.removeFeature(previewText);
+
+            // Create circle preview
+            previewCircle = new Feature({ geometry: new Circle(centerCoords, radius) });
+            previewCircle.setStyle(new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }));
+            vectorSource.addFeature(previewCircle);
+
+            // Create radius line preview
+            const rightEdge = [centerCoords[0] + radius, centerCoords[1]];
+            previewLine = new Feature({ geometry: new LineString([centerCoords, rightEdge]) });
+            previewLine.setStyle(new Style({ stroke: new Stroke({ color: '#2196f3', width: 2, lineDash: [4, 4] }) }));
+            vectorSource.addFeature(previewLine);
+
+            // Create text label preview
+            const radiusInMeters = Math.round(radius);
+            const labelText = radiusInMeters > 1000
+              ? (radiusInMeters / 1000).toFixed(2) + ' km'
+              : radiusInMeters + ' m';
+            previewText = new Feature({ geometry: new LineString([centerCoords, rightEdge]) });
+            previewText.setStyle(new Style({
+              text: new Text({
+                text: labelText,
+                font: 'bold 16px sans-serif',
+                fill: new Fill({ color: '#FFFFFF' }),
+                //stroke: new Stroke({ color: 'white', width: 4 }),
+                offsetY: -12,
+                textAlign: 'center'
+              }),
+              stroke: new Stroke({ color: 'rgba(0,0,0,0)', width: 0 })
+            }));
+            vectorSource.addFeature(previewText);
+          };
+          state.map.on('pointermove', pointerMoveHandler);
+        } else {
+          if (pointerMoveHandler) {
+            state.map.un('pointermove', pointerMoveHandler);
+          }
+          const radius = Math.sqrt(
+            Math.pow(evt.coordinate[0] - centerCoords[0], 2) +
+            Math.pow(evt.coordinate[1] - centerCoords[1], 2)
+          );
+          const centerLonLat = toLonLat(centerCoords);
+          showCircle(centerCoords, radius);
+          state.map.un('singleclick', onFirstClick);
+          state.drawingMode = null;
+          enableOverlayInfoClickHandlers();
+          updatePermalinkWithFeaturesFn();
+
+          import('../api/client.js').then(async ({ fetchUsers }) => {
+            const response = await fetchUsers();
+            const users = Array.isArray(response) ? response : [];
+            openUserFeatureForm('circle', { title: '', description: '', color: '#2196f3', opacity: 0.3 }, async (meta) => {
+              const payload = { center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, sharedUserIds: meta.sharedUserIds || [] };
+              const saved = await createCircle(payload);
+              const circle = saved ? { id: saved.properties?.id, center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
+              addUserCircleToMaps(circle);
+            }, () => { }, { users, ownerUsername: null });
+          });
+        }
+      });
+    } else {
+      clearDrawInteraction();
+      clearDrawnFeatures('left', state.leftMap);
+      clearDrawnFeatures('right', state.rightMap);
+      drawMenu.style.display = 'none';
+      disableMarkerClickHandler();
+      const vectorSourceLeft = new VectorSource();
+      state.drawnCircleLayer.left = new VectorLayer({ source: vectorSourceLeft, zIndex: 102, style: new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }) });
+      state.leftMap.addLayer(state.drawnCircleLayer.left);
+      const vectorSourceRight = new VectorSource();
+      state.drawnCircleLayer.right = new VectorLayer({ source: vectorSourceRight, zIndex: 102, style: new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }) });
+      state.rightMap.addLayer(state.drawnCircleLayer.right);
+
+      let centerCoords = null;
+      let previewCircleLeft = null;
+      let previewLineLeft = null;
+      let previewTextLeft = null;
+      let previewCircleRight = null;
+      let previewLineRight = null;
+      let previewTextRight = null;
+      let pointerMoveHandlerLeft = null;
+
+      state.leftMap.on('singleclick', function onFirstClick(evt) {
+        if (state.drawingMode !== 'radius') return;
+        if (!centerCoords) {
+          centerCoords = evt.coordinate;
+          const centerFeature = new Feature({ geometry: new Point(centerCoords) });
+          centerFeature.setStyle(new Style({ image: new CircleStyle({ radius: 4, fill: new Fill({ color: '#2196f3' }), stroke: new Stroke({ color: '#fff', width: 2 }) }) }));
+          vectorSourceLeft.addFeature(centerFeature);
+          vectorSourceRight.addFeature(centerFeature.clone());
+
+          pointerMoveHandlerLeft = function(evt) {
+            if (state.drawingMode !== 'radius' || !centerCoords) return;
+            const radius = Math.sqrt(
+              Math.pow(evt.coordinate[0] - centerCoords[0], 2) +
+              Math.pow(evt.coordinate[1] - centerCoords[1], 2)
+            );
+
+            // Remove old preview features from left map
+            if (previewCircleLeft) vectorSourceLeft.removeFeature(previewCircleLeft);
+            if (previewLineLeft) vectorSourceLeft.removeFeature(previewLineLeft);
+            if (previewTextLeft) vectorSourceLeft.removeFeature(previewTextLeft);
+            // Remove old preview features from right map
+            if (previewCircleRight) vectorSourceRight.removeFeature(previewCircleRight);
+            if (previewLineRight) vectorSourceRight.removeFeature(previewLineRight);
+            if (previewTextRight) vectorSourceRight.removeFeature(previewTextRight);
+
+            const rightEdge = [centerCoords[0] + radius, centerCoords[1]];
+            const radiusInMeters = Math.round(radius);
+            const labelText = radiusInMeters > 1000
+              ? (radiusInMeters / 1000).toFixed(2) + ' km'
+              : radiusInMeters + ' m';
+
+            // Create circle preview
+            previewCircleLeft = new Feature({ geometry: new Circle(centerCoords, radius) });
+            previewCircleLeft.setStyle(new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }));
+            vectorSourceLeft.addFeature(previewCircleLeft);
+            previewCircleRight = previewCircleLeft.clone();
+            vectorSourceRight.addFeature(previewCircleRight);
+
+            // Create radius line preview
+            previewLineLeft = new Feature({ geometry: new LineString([centerCoords, rightEdge]) });
+            previewLineLeft.setStyle(new Style({ stroke: new Stroke({ color: '#2196f3', width: 2, lineDash: [4, 4] }) }));
+            vectorSourceLeft.addFeature(previewLineLeft);
+            previewLineRight = previewLineLeft.clone();
+            vectorSourceRight.addFeature(previewLineRight);
+
+            // Create text label preview
+            previewTextLeft = new Feature({ geometry: new LineString([centerCoords, rightEdge]) });
+            previewTextLeft.setStyle(new Style({
+              text: new Text({
+                text: labelText,
+                font: 'bold 16px sans-serif',
+                fill: new Fill({ color: '#2196f3' }),
+                stroke: new Stroke({ color: 'white', width: 4 }),
+                offsetY: -12,
+                textAlign: 'center'
+              }),
+              stroke: new Stroke({ color: 'rgba(0,0,0,0)', width: 0 })
+            }));
+            vectorSourceLeft.addFeature(previewTextLeft);
+            previewTextRight = previewTextLeft.clone();
+            vectorSourceRight.addFeature(previewTextRight);
+          };
+          state.leftMap.on('pointermove', pointerMoveHandlerLeft);
+        } else {
+          if (pointerMoveHandlerLeft) {
+            state.leftMap.un('pointermove', pointerMoveHandlerLeft);
+          }
+          const radius = Math.sqrt(
+            Math.pow(evt.coordinate[0] - centerCoords[0], 2) +
+            Math.pow(evt.coordinate[1] - centerCoords[1], 2)
+          );
+          const centerLonLat = toLonLat(centerCoords);
+          showCircle(centerCoords, radius);
+          state.leftMap.un('singleclick', onFirstClick);
+          state.drawingMode = null;
+          enableOverlayInfoClickHandlers();
+          updatePermalinkWithFeaturesFn();
+
+          import('../api/client.js').then(async ({ fetchUsers }) => {
+            const response = await fetchUsers();
+            const users = Array.isArray(response) ? response : [];
+            openUserFeatureForm('circle', { title: '', description: '', color: '#2196f3', opacity: 0.3 }, async (meta) => {
+              const payload = { center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, sharedUserIds: meta.sharedUserIds || [] };
+              const saved = await createCircle(payload);
+              const circle = saved ? { id: saved.properties?.id, center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, ownerUsername: saved.properties?.owner_username || null, sharedUserIds: saved.properties?.shared_user_ids || [] } : { center: centerLonLat, radius, title: meta.title, description: meta.description, color: meta.color, opacity: meta.opacity, ownerUsername: null, sharedUserIds: payload.sharedUserIds };
+              addUserCircleToMaps(circle);
+            }, () => { }, { users, ownerUsername: null });
+          });
+        }
+      });
+    }
+  });
+
   drawMeasureBtn.addEventListener('click', function () {
     state.drawingMode = 'measure';
     clearAllMarkers();
@@ -410,7 +627,7 @@ export function wireRemoveFeaturesButton(updatePermalinkWithFeaturesFn) {
       if (state.leftSearchMarkerLayer && state.leftMap) state.leftMap.removeLayer(state.leftSearchMarkerLayer);
       if (state.rightSearchMarkerLayer && state.rightMap) state.rightMap.removeLayer(state.rightSearchMarkerLayer);
       state.clickMarkerLayer = null; state.searchMarkerLayer = null; state.leftClickMarkerLayer = null; state.rightClickMarkerLayer = null; state.leftSearchMarkerLayer = null; state.rightSearchMarkerLayer = null;
-      state.markerCoords = null; state.lineCoords = null; state.polygonCoords = null; state.measureCoords = null;
+      state.markerCoords = null; state.lineCoords = null; state.polygonCoords = null; state.circleCoords = null; state.measureCoords = null;
       updatePermalinkWithFeaturesFn();
     });
   }

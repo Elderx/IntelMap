@@ -26,6 +26,7 @@ export function updatePermalinkWithFeatures() {
     lineStr = `&line=${coords.map(pair => pair.join(",")).join(';')}`;
   }
   // Do not encode user polygons in permalink
+  // Do not encode user circles in permalink
   let measureStr = '';
   if (state.measureCoords && state.measureCoords.length >= 2) {
     const coords = state.measureCoords.map(c => toLonLat(c).map(n => n.toFixed(7)));

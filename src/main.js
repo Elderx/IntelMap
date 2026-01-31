@@ -22,8 +22,8 @@ import { createOSMLegend, updateOSMLegend } from './ui/osmLegend.js';
 import { setupOSMInteractions } from './map/osmInteractions.js';
 import { fromLonLat } from 'ol/proj';
 import 'ol/ol.css';
-import { fetchMarkers, fetchPolygons, createMarker, createPolygon, fetchUsers } from './api/client.js';
-import { ensureUserLayers, addUserMarkerToMaps, addUserPolygonToMaps, rebuildUserLayersAllMaps } from './user/userLayers.js';
+import { fetchMarkers, fetchPolygons, fetchCircles, createMarker, createPolygon, createCircle, fetchUsers } from './api/client.js';
+import { ensureUserLayers, addUserMarkerToMaps, addUserPolygonToMaps, addUserCircleToMaps, rebuildUserLayersAllMaps } from './user/userLayers.js';
 import { setupUserFeatureHover, setupUserFeatureClick } from './user/userInteractions.js';
 import { openUserFeatureForm } from './ui/userFeatureForm.js';
 import { getSession } from './auth/session.js';
@@ -112,9 +112,10 @@ async function bootstrap() {
 
   async function loadUserFeaturesFromServer() {
     try {
-      const [markersFC, polygonsFC] = await Promise.all([
+      const [markersFC, polygonsFC, circlesFC] = await Promise.all([
         fetchMarkers(),
         fetchPolygons(),
+        fetchCircles(),
       ]);
       if (markersFC && Array.isArray(markersFC.features)) {
         markersFC.features.forEach(f => {
@@ -126,6 +127,13 @@ async function bootstrap() {
         polygonsFC.features.forEach(f => {
           const coords = (f.geometry.coordinates[0] || []).map(([lon, lat]) => [lon, lat]);
           addUserPolygonToMaps({ id: f.properties?.id, coordinates: coords, title: f.properties?.title || '', description: f.properties?.description || '', color: f.properties?.color || '#ff9800', ownerUsername: f.properties?.owner_username || null, sharedUserIds: f.properties?.shared_user_ids || [] });
+        });
+      }
+      if (circlesFC && Array.isArray(circlesFC.features)) {
+        circlesFC.features.forEach(f => {
+          const center = f.properties?.center || f.geometry.coordinates;
+          const radius = f.properties?.radius || 0;
+          addUserCircleToMaps({ id: f.properties?.id, center, radius, title: f.properties?.title || '', description: f.properties?.description || '', color: f.properties?.color || '#2196f3', opacity: f.properties?.opacity, ownerUsername: f.properties?.owner_username || null, sharedUserIds: f.properties?.shared_user_ids || [] });
         });
       }
     } catch (e) {

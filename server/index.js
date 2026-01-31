@@ -42,6 +42,16 @@ async function initDb() {
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS circles (
+      id SERIAL PRIMARY KEY,
+      center geometry(Point, 4326) NOT NULL,
+      radius_meters DOUBLE PRECISION NOT NULL,
+      properties JSONB DEFAULT '{}'::jsonb,
+      owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+    );
+  `);
 
   // Backfill schema for existing deployments
   await pool.query(`
@@ -93,6 +103,13 @@ async function initDb() {
       polygon_id INTEGER REFERENCES polygons(id) ON DELETE CASCADE,
       user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
       PRIMARY KEY (polygon_id, user_id)
+    );
+  `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS circle_shares (
+      circle_id INTEGER REFERENCES circles(id) ON DELETE CASCADE,
+      user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+      PRIMARY KEY (circle_id, user_id)
     );
   `);
   await pool.query(`
@@ -370,6 +387,142 @@ app.delete('/api/polygons/:id', ensureAuth, async (req, res) => {
     const own = await pool.query('SELECT id FROM polygons WHERE id = $1 AND owner_user_id = $2', [id, req.user.id]);
     if (!own.rows[0]) return res.status(403).json({ error: 'forbidden' });
     const { rowCount } = await pool.query('DELETE FROM polygons WHERE id = $1', [id]);
+    if (rowCount === 0) return res.status(404).json({ error: 'not_found' });
+    res.status(204).end();
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// Circles
+app.get('/api/circles', ensureAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(`
+      SELECT c.id, c.properties, ST_AsGeoJSON(c.center) AS center_json, c.radius_meters, c.created_at,
+             u.username AS owner_username,
+             COALESCE(array_remove(array_agg(cs.user_id), NULL), '{}') AS shared_user_ids
+      FROM circles c
+      LEFT JOIN users u ON u.id = c.owner_user_id
+      LEFT JOIN circle_shares cs ON cs.circle_id = c.id
+      WHERE c.owner_user_id = $1 OR cs.user_id = $1
+      GROUP BY c.id, u.username
+      ORDER BY c.id ASC
+    `, [req.user.id]);
+    const features = rows.map(r => {
+      const center = JSON.parse(r.center_json);
+      const properties = r.properties || {};
+      properties.id = r.id;
+      properties.created_at = r.created_at;
+      properties._type = 'circle';
+      properties.owner_username = r.owner_username || null;
+      properties.shared_user_ids = r.shared_user_ids || [];
+      return {
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: center.coordinates },
+        properties: {
+          ...properties,
+          radius: r.radius_meters,
+          center: center.coordinates
+        }
+      };
+    });
+    res.json({ type: 'FeatureCollection', features });
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.post('/api/circles', ensureAuth, async (req, res) => {
+  try {
+    const { center, radius, title, description, color, opacity, sharedUserIds } = req.body || {};
+    if (!Array.isArray(center) || center.length !== 2) return res.status(400).json({ error: 'invalid_center' });
+    if (typeof radius !== 'number' || !Number.isFinite(radius)) return res.status(400).json({ error: 'invalid_radius' });
+    const props = { title: title || '', description: description || '', color: color || '#2196f3', opacity: opacity !== undefined ? opacity : 0.3 };
+    const { rows } = await pool.query(
+      `INSERT INTO circles (center, radius_meters, properties, owner_user_id) VALUES (ST_SetSRID(ST_Point($1, $2), 4326), $3, $4::jsonb, $5) RETURNING id, properties, ST_AsGeoJSON(center) as center_json, radius_meters, created_at`,
+      [center[0], center[1], radius, JSON.stringify(props), req.user.id]
+    );
+    const circleId = rows[0].id;
+    if (Array.isArray(sharedUserIds) && sharedUserIds.length) {
+      const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
+      await pool.query(`INSERT INTO circle_shares (circle_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [circleId, ...sharedUserIds]);
+    }
+    const enriched = { ...rows[0], owner_username: req.user.username, shared_user_ids: sharedUserIds || [] };
+    const centerJson = JSON.parse(enriched.center_json);
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: centerJson.coordinates },
+      properties: {
+        id: enriched.id,
+        title: props.title,
+        description: props.description,
+        color: props.color,
+        opacity: props.opacity,
+        center: centerJson.coordinates,
+        radius: enriched.radius_meters,
+        created_at: enriched.created_at,
+        _type: 'circle',
+        owner_username: enriched.owner_username,
+        shared_user_ids: enriched.shared_user_ids
+      }
+    };
+    res.status(201).json(feature);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.patch('/api/circles/:id', ensureAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
+    const own = await pool.query('SELECT id FROM circles WHERE id = $1 AND owner_user_id = $2', [id, req.user.id]);
+    if (!own.rows[0]) return res.status(403).json({ error: 'forbidden' });
+    const { title, description, color, opacity, sharedUserIds } = req.body || {};
+    const props = { title: title || '', description: description || '', color: color || '#2196f3', opacity: opacity !== undefined ? opacity : 0.3 };
+    const { rows } = await pool.query(
+      `UPDATE circles SET properties = $2::jsonb WHERE id = $1 RETURNING id, properties, ST_AsGeoJSON(center) as center_json, radius_meters, created_at`,
+      [id, JSON.stringify(props)]
+    );
+    if (Array.isArray(sharedUserIds)) {
+      await pool.query('DELETE FROM circle_shares WHERE circle_id = $1', [id]);
+      if (sharedUserIds.length) {
+        const values = sharedUserIds.map((uid, i) => `($1, $${i + 2})`).join(',');
+        await pool.query(`INSERT INTO circle_shares (circle_id, user_id) VALUES ${values} ON CONFLICT DO NOTHING`, [id, ...sharedUserIds]);
+      }
+    }
+    const enriched = { ...rows[0], owner_username: req.user.username, shared_user_ids: Array.isArray(sharedUserIds) ? sharedUserIds : undefined };
+    const centerJson = JSON.parse(enriched.center_json);
+    const feature = {
+      type: 'Feature',
+      geometry: { type: 'Point', coordinates: centerJson.coordinates },
+      properties: {
+        id: enriched.id,
+        title: props.title,
+        description: props.description,
+        color: props.color,
+        opacity: props.opacity,
+        center: centerJson.coordinates,
+        radius: enriched.radius_meters,
+        created_at: enriched.created_at,
+        _type: 'circle',
+        owner_username: enriched.owner_username,
+        shared_user_ids: Array.isArray(sharedUserIds) ? sharedUserIds : undefined
+      }
+    };
+    res.json(feature);
+  } catch (e) {
+    console.error(e); res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.delete('/api/circles/:id', ensureAuth, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id, 10);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: 'invalid_id' });
+    const own = await pool.query('SELECT id FROM circles WHERE id = $1 AND owner_user_id = $2', [id, req.user.id]);
+    if (!own.rows[0]) return res.status(403).json({ error: 'forbidden' });
+    const { rowCount } = await pool.query('DELETE FROM circles WHERE id = $1', [id]);
     if (rowCount === 0) return res.status(404).json({ error: 'not_found' });
     res.status(204).end();
   } catch (e) {

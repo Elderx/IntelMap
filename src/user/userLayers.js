@@ -3,10 +3,13 @@ import VectorLayer from 'ol/layer/Vector.js';
 import Feature from 'ol/Feature.js';
 import Point from 'ol/geom/Point.js';
 import Polygon from 'ol/geom/Polygon.js';
+import Circle from 'ol/geom/Circle.js';
+import LineString from 'ol/geom/LineString.js';
 import Style from 'ol/style/Style.js';
 import Stroke from 'ol/style/Stroke.js';
 import Fill from 'ol/style/Fill.js';
 import CircleStyle from 'ol/style/Circle.js';
+import Text from 'ol/style/Text.js';
 import { fromLonLat } from 'ol/proj';
 import { state } from '../state/store.js';
 
@@ -19,6 +22,10 @@ function ensureLayersForMap(mapKey, mapObj) {
   if (!state.userPolygonLayer[mapKey]) {
     state.userPolygonLayer[mapKey] = new VectorLayer({ source: new VectorSource(), zIndex: 190 });
     mapObj.addLayer(state.userPolygonLayer[mapKey]);
+  }
+  if (!state.userCircleLayer[mapKey]) {
+    state.userCircleLayer[mapKey] = new VectorLayer({ source: new VectorSource(), zIndex: 195 });
+    mapObj.addLayer(state.userCircleLayer[mapKey]);
   }
 }
 
@@ -47,6 +54,13 @@ function polygonStyle(color) {
   return new Style({
     stroke: new Stroke({ color, width: 2 }),
     fill: new Fill({ color: hexToRgba(color, 0.2) })
+  });
+}
+
+function circleStyle(color, opacity) {
+  return new Style({
+    stroke: new Stroke({ color, width: 2 }),
+    fill: new Fill({ color: hexToRgba(color, opacity !== undefined ? opacity : 0.3) })
   });
 }
 
@@ -84,6 +98,56 @@ function drawPolygonOnMapKey(poly, key) {
   state.userPolygonLayer[key].getSource().addFeature(feat);
 }
 
+function drawCircleOnMapKey(circle, key) {
+  const mapObj = key === 'main' ? state.map : key === 'left' ? state.leftMap : state.rightMap;
+  if (!mapObj) return;
+  ensureLayersForMap(key, mapObj);
+  const center = fromLonLat(circle.center);
+  const color = circle.color || '#2196f3';
+  const opacity = circle.opacity !== undefined ? circle.opacity : 0.3;
+
+  // Main circle feature
+  const feat = new Feature({ geometry: new Circle(center, circle.radius) });
+  feat.set('userType', 'circle');
+  feat.set('dbId', circle.id);
+  feat.set('title', circle.title || '');
+  feat.set('description', circle.description || '');
+  feat.set('color', color);
+  feat.set('opacity', opacity);
+  if (circle.ownerUsername) feat.set('ownerUsername', circle.ownerUsername);
+  if (Array.isArray(circle.sharedUserIds)) feat.set('sharedUserIds', circle.sharedUserIds);
+  feat.setStyle(circleStyle(color, opacity));
+  state.userCircleLayer[key].getSource().addFeature(feat);
+
+  // Radius line from center to right edge
+  const rightEdge = [center[0] + circle.radius, center[1]];
+  const radiusLineFeature = new Feature({ geometry: new LineString([center, rightEdge]) });
+  radiusLineFeature.setStyle(new Style({
+    stroke: new Stroke({ color: color, width: 2, lineDash: [4, 4] })
+  }));
+  state.userCircleLayer[key].getSource().addFeature(radiusLineFeature);
+
+  // Text label for radius
+  const radiusInMeters = Math.round(circle.radius);
+  const labelText = radiusInMeters > 1000
+    ? (radiusInMeters / 1000).toFixed(2) + ' km'
+    : radiusInMeters + ' m';
+
+  const textFeature = new Feature({ geometry: new LineString([center, rightEdge]) });
+  textFeature.setStyle(new Style({
+    text: new Text({
+      text: labelText,
+      font: 'bold 16px sans-serif',
+      fill: new Fill({ color: '#ffffff' }),
+      //stroke: new Stroke({ color: 'white', width: 4 }),
+      offsetY: -12,
+      textAlign: 'center'
+    }),
+    stroke: new Stroke({ color: 'rgba(0,0,0,0)', width: 0 })
+  }));
+  state.userCircleLayer[key].getSource().addFeature(textFeature);
+}
+
 export function addUserMarkerToMaps(marker) {
   state.userMarkers.push(marker);
   ['main','left','right'].forEach(key => drawMarkerOnMapKey(marker, key));
@@ -92,6 +156,11 @@ export function addUserMarkerToMaps(marker) {
 export function addUserPolygonToMaps(poly) {
   state.userPolygons.push(poly);
   ['main','left','right'].forEach(key => drawPolygonOnMapKey(poly, key));
+}
+
+export function addUserCircleToMaps(circle) {
+  state.userCircles.push(circle);
+  ['main','left','right'].forEach(key => drawCircleOnMapKey(circle, key));
 }
 
 export function updateUserMarkerById(id, changes) {
@@ -114,6 +183,16 @@ export function removeUserPolygonById(id) {
   rebuildUserLayersAllMaps();
 }
 
+export function updateUserCircleById(id, changes) {
+  state.userCircles = state.userCircles.map(c => c.id === id ? { ...c, ...changes } : c);
+  rebuildUserLayersAllMaps();
+}
+
+export function removeUserCircleById(id) {
+  state.userCircles = state.userCircles.filter(c => c.id !== id);
+  rebuildUserLayersAllMaps();
+}
+
 export function rebuildUserLayersAllMaps() {
   ['main','left','right'].forEach(key => {
     const mapObj = key === 'main' ? state.map : key === 'left' ? state.leftMap : state.rightMap;
@@ -121,7 +200,9 @@ export function rebuildUserLayersAllMaps() {
     ensureLayersForMap(key, mapObj);
     state.userMarkerLayer[key].getSource().clear();
     state.userPolygonLayer[key].getSource().clear();
+    state.userCircleLayer[key].getSource().clear();
   });
   state.userMarkers.forEach(m => ['main','left','right'].forEach(k => drawMarkerOnMapKey(m, k)));
   state.userPolygons.forEach(p => ['main','left','right'].forEach(k => drawPolygonOnMapKey(p, k)));
+  state.userCircles.forEach(c => ['main','left','right'].forEach(k => drawCircleOnMapKey(c, k)));
 }

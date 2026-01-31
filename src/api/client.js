@@ -33,12 +33,20 @@ export async function fetchPolygons() {
   return await apiGet('/api/polygons');
 }
 
+export async function fetchCircles() {
+  return await apiGet('/api/circles');
+}
+
 export async function createMarker(marker) {
   return await apiPost('/api/markers', marker);
 }
 
 export async function createPolygon(poly) {
   return await apiPost('/api/polygons', poly);
+}
+
+export async function createCircle(circle) {
+  return await apiPost('/api/circles', circle);
 }
 
 export async function fetchUsers() {
@@ -63,6 +71,14 @@ export async function updatePolygon(id, poly) {
 
 export async function deletePolygon(id) {
   return await apiDelete(`/api/polygons/${id}`);
+}
+
+export async function updateCircle(id, circle) {
+  return await apiPatch(`/api/circles/${id}`, circle);
+}
+
+export async function deleteCircle(id) {
+  return await apiDelete(`/api/circles/${id}`);
 }
 
 export async function fetchLayerGroups() {
