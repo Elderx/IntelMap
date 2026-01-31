@@ -1,9 +1,11 @@
 import { state } from '../state/store.js';
+import { getThemeColor } from './themeHelpers.js';
 
 export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options = {}) {
   // Remove existing form if present
   if (window.__userFeatureForm) window.__userFeatureForm.remove();
 
+  const c = getThemeColor();
   const overlay = document.createElement('div');
   overlay.style.position = 'fixed';
   overlay.style.top = '0';
@@ -17,7 +19,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   overlay.style.justifyContent = 'center';
 
   const panel = document.createElement('div');
-  panel.style.background = 'white';
+  panel.style.background = c.bgElevated;
   panel.style.borderRadius = '10px';
   panel.style.boxShadow = '0 8px 24px rgba(0,0,0,0.2)';
   panel.style.padding = '16px';
@@ -28,6 +30,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   title.textContent = kind === 'marker' ? 'Add Marker' : kind === 'circle' ? 'Add Circle' : 'Add Polygon';
   title.style.fontWeight = 'bold';
   title.style.fontSize = '1.1em';
+  title.style.color = c.text;
   title.style.marginBottom = '10px';
   panel.appendChild(title);
 
@@ -36,7 +39,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
     const owner = document.createElement('div');
     owner.textContent = `Owner: ${options.ownerUsername}`;
     owner.style.fontSize = '0.9em';
-    owner.style.color = '#666';
+    owner.style.color = c.textMuted;
     owner.style.marginBottom = '8px';
     panel.appendChild(owner);
   }
@@ -46,6 +49,12 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   inputTitle.placeholder = 'Title (optional)';
   inputTitle.style.width = '100%';
   inputTitle.style.marginBottom = '8px';
+  inputTitle.style.background = c.bg;
+  inputTitle.style.border = `1px solid ${c.border}`;
+  inputTitle.style.color = c.text;
+  inputTitle.style.borderRadius = '4px';
+  inputTitle.style.padding = '8px';
+  inputTitle.style.boxSizing = 'border-box';
   inputTitle.value = initial.title || '';
   panel.appendChild(inputTitle);
 
@@ -54,12 +63,19 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   inputDesc.style.width = '100%';
   inputDesc.style.height = '80px';
   inputDesc.style.marginBottom = '8px';
+  inputDesc.style.background = c.bg;
+  inputDesc.style.border = `1px solid ${c.border}`;
+  inputDesc.style.color = c.text;
+  inputDesc.style.borderRadius = '4px';
+  inputDesc.style.padding = '8px';
+  inputDesc.style.boxSizing = 'border-box';
   inputDesc.value = initial.description || '';
   panel.appendChild(inputDesc);
 
   const colorLabel = document.createElement('label');
   colorLabel.textContent = 'Color: ';
   colorLabel.style.marginRight = '8px';
+  colorLabel.style.color = c.text;
   const inputColor = document.createElement('input');
   inputColor.type = 'color';
   inputColor.value = initial.color || (kind === 'marker' ? '#00bcd4' : kind === 'circle' ? '#2196f3' : '#ff9800');
@@ -71,6 +87,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
   if (kind === 'circle') {
     const opacityWrap = document.createElement('div');
     opacityWrap.style.marginTop = '8px';
+    opacityWrap.style.color = c.text;
     const opacityLabel = document.createElement('label');
     opacityLabel.textContent = 'Opacity: ';
     opacityLabel.style.marginRight = '8px';
@@ -85,6 +102,7 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
     const opacityValue = document.createElement('span');
     opacityValue.textContent = inputOpacity.value;
     opacityValue.style.marginLeft = '8px';
+    opacityValue.style.color = c.text;
     inputOpacity.oninput = () => { opacityValue.textContent = inputOpacity.value; };
     opacityWrap.appendChild(opacityLabel);
     opacityWrap.appendChild(opacityValue);
@@ -98,6 +116,8 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
     const shareLabel = document.createElement('div');
     shareLabel.textContent = 'Share with users:';
     shareLabel.style.fontSize = '0.9em';
+    shareLabel.style.color = c.text;
+    shareLabel.style.color = c.text;
     shareLabel.style.marginBottom = '4px';
     const multi = document.createElement('select');
     multi.multiple = true;
@@ -105,7 +125,9 @@ export function openUserFeatureForm(kind, initial, onSubmit, onCancel, options =
     multi.style.width = '100%';
     multi.style.padding = '6px';
     multi.style.borderRadius = '6px';
-    multi.style.border = '1px solid #ccc';
+    multi.style.border = `1px solid ${c.border}`;
+    multi.style.background = c.bg;
+    multi.style.color = c.text;
     const selectedSet = new Set(options.selectedSharedIds || []);
     options.users.forEach(u => {
       const opt = document.createElement('option');

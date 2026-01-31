@@ -2,6 +2,8 @@ import { state } from '../state/store.js';
 import { updateAllOverlays } from '../map/overlays.js';
 import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
+import { refreshDynamicOsmFeatures, updateAllLayerCheckboxes } from './headerLayerManager.js';
+import { getThemeColor } from './themeHelpers.js';
 
 /**
  * Creates the "Active Layers" panel (bottom-right)
@@ -12,11 +14,12 @@ export function createActiveLayersPanel() {
 
     const panel = document.createElement('div');
     panel.className = 'active-layers-panel';
+    const c = getThemeColor();
     panel.style.position = 'absolute';
     panel.style.bottom = '20px';
     panel.style.right = '20px';
-    panel.style.background = 'rgba(255,255,255,0.95)';
-    panel.style.border = '1px solid #ccc';
+    panel.style.background = c.bg;
+    panel.style.border = `1px solid ${c.border}`;
     panel.style.borderRadius = '8px';
     panel.style.padding = '12px 16px';
     panel.style.boxShadow = '0 2px 12px rgba(0,0,0,0.1)';
@@ -30,8 +33,8 @@ export function createActiveLayersPanel() {
     title.textContent = 'Active Layers';
     title.style.fontWeight = 'bold';
     title.style.marginBottom = '8px';
-    title.style.color = '#333';
-    title.style.borderBottom = '1px solid #eee';
+    title.style.color = c.text;
+    title.style.borderBottom = `1px solid ${c.bgLighter}`;
     title.style.paddingBottom = '6px';
     title.style.display = 'flex';
     title.style.justifyContent = 'space-between';
@@ -45,9 +48,9 @@ export function createActiveLayersPanel() {
     saveBtn.style.marginBottom = '10px';
     saveBtn.style.padding = '6px';
     saveBtn.style.borderRadius = '4px';
-    saveBtn.style.border = '1px solid #1976d2';
-    saveBtn.style.background = '#e3f2fd';
-    saveBtn.style.color = '#1976d2';
+    saveBtn.style.border = `1px solid ${c.primary}`;
+    saveBtn.style.background = c.bgLight;
+    saveBtn.style.color = c.primary;
     saveBtn.style.cursor = 'pointer';
     saveBtn.style.fontSize = '0.9em';
     saveBtn.style.fontWeight = 'bold';
@@ -72,6 +75,7 @@ export function createActiveLayersPanel() {
     toggleBtn.style.fontSize = '1.2em';
     toggleBtn.style.cursor = 'pointer';
     toggleBtn.style.padding = '0 5px';
+    toggleBtn.style.color = c.text;
     toggleBtn.onclick = () => {
         const content = panel.querySelector('.layers-list');
         if (content.style.display === 'none') {
@@ -110,12 +114,13 @@ export function updateActiveLayersPanel() {
     // Helper to add row
     const addRow = (title, color, onRemove) => {
         hasLayers = true;
+        const c = getThemeColor();
         const row = document.createElement('div');
         row.style.display = 'flex';
         row.style.alignItems = 'center';
         row.style.marginBottom = '6px';
         row.style.justifyContent = 'space-between';
-        row.style.background = 'rgba(0,0,0,0.02)';
+        row.style.background = c.bgLight;
         row.style.padding = '4px 6px';
         row.style.borderRadius = '4px';
 
@@ -143,19 +148,20 @@ export function updateActiveLayersPanel() {
         label.style.textOverflow = 'ellipsis';
         label.style.maxWidth = '140px';
         label.style.fontSize = '0.85em';
+        label.style.color = c.text;
         left.appendChild(label);
 
         const removeBtn = document.createElement('button');
         removeBtn.innerHTML = '&times;';
         removeBtn.style.background = 'none';
         removeBtn.style.border = 'none';
-        removeBtn.style.color = '#999';
+        removeBtn.style.color = c.textLight;
         removeBtn.style.fontSize = '1.2em';
         removeBtn.style.cursor = 'pointer';
         removeBtn.style.marginLeft = '8px';
         removeBtn.style.padding = '0 4px';
-        removeBtn.onmouseenter = () => removeBtn.style.color = 'red';
-        removeBtn.onmouseleave = () => removeBtn.style.color = '#999';
+        removeBtn.onmouseenter = () => removeBtn.style.color = c.danger;
+        removeBtn.onmouseleave = () => removeBtn.style.color = c.textLight;
         removeBtn.onclick = onRemove;
 
         row.appendChild(left);
@@ -178,8 +184,9 @@ export function updateActiveLayersPanel() {
         // Add a separator if there are more layers
         const hasOtherLayers = (state.activeOsmFeatures?.length > 0) || (state.osmSelectedIds?.length > 0) || (state.digiroadOverlayLayers?.length > 0) || (state.genericOverlayLayers?.length > 0);
         if (hasOtherLayers) {
+            const c = getThemeColor();
             const sep = document.createElement('div');
-            sep.style.borderBottom = '1px solid #eee';
+            sep.style.borderBottom = `1px solid ${c.bgLighter}`;
             sep.style.margin = '8px 0';
             list.appendChild(sep);
         }
@@ -206,19 +213,9 @@ export function updateActiveLayersPanel() {
             addRow(title, color, () => {
                 state.osmSelectedIds = state.osmSelectedIds.filter(x => x !== id);
                 updateAllOverlays();
-                // Dropdown update handled via state sync or manually refreshing UI not needed if dropdown reads state on render
-                // But we need to update the checkboxes in dropdown if visible.
-                // The dropdown re-renders on its own next open, but live update is tricky.
-                // We'll rely on permalink or just map update.
                 updateActiveLayersPanel();
                 updatePermalinkWithFeatures();
-                // Re-render dropdowns if possible? 
-                // In mountOverlaySelectors we pass a callback, but here we modify state directly.
-                // Ideally we should dispatch an event or rebuild dropdowns.
-                if (window.osmOverlaySelectorDiv) {
-                    // Trigger click on matching checkbox? Or just trust user to reopen.
-                    // We will just update map.
-                }
+                updateAllLayerCheckboxes();  // Sync checkboxes in header dropdown
             });
         });
     }
@@ -233,6 +230,7 @@ export function updateActiveLayersPanel() {
                 updateAllOverlays();
                 updateActiveLayersPanel();
                 updatePermalinkWithFeatures();
+                updateAllLayerCheckboxes();  // Sync checkboxes in header dropdown
             });
         });
     }
@@ -247,9 +245,13 @@ export function updateActiveLayersPanel() {
                 updateAllOverlays();
                 updateActiveLayersPanel();
                 updatePermalinkWithFeatures();
+                updateAllLayerCheckboxes();  // Sync checkboxes in header dropdown
             });
         });
     }
 
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
+
+    // Refresh dynamic OSM features in header dropdown
+    refreshDynamicOsmFeatures();
 }

@@ -16,7 +16,7 @@
     "build": "node scripts/generate-osm-manifest.mjs && vite build",
     "dev": "vite",
     "predev": "node scripts/generate-osm-manifest.mjs",
-    "test:e2e": "playwright test",
+    "test:e2e": "playwright test && nyc report --reporter=text --reporter=html",
     "coverage": "nyc report --reporter=html --reporter=text-summary"
   }
 }

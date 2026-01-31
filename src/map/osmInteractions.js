@@ -42,7 +42,7 @@ export function setupOSMInteractions(mapObj) {
         hoveredLayers = features.map(f => f.layer);
 
         console.log(`[OSM Interact] Showing popup for ${features.length} features`);
-        showOSMPopup(features, evt.pixel, false);
+        showOSMPopup(features, evt.pixel, false, mapObj);
       }
     } else {
       // Hide hover popup
@@ -76,7 +76,7 @@ export function setupOSMInteractions(mapObj) {
 
     if (features.length > 0) {
       console.log(`[OSM Interact] Clicked ${features.length} features`);
-      showOSMPopup(features, evt.pixel, true);
+      showOSMPopup(features, evt.pixel, true, mapObj);
     }
   });
 

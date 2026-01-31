@@ -4,6 +4,8 @@ import { updateAllOverlays } from '../map/overlays.js';
 import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { updateOSMLegend } from './osmLegend.js';
+import { updateLayerGroupCheckboxes } from './headerLayerManager.js';
+import { getThemeColor } from './themeHelpers.js';
 
 /**
  * Ensure all active layer groups have a color assigned
@@ -61,6 +63,9 @@ export function toggleLayerGroup(group) {
 
     // Refresh labels in dropdowns (to show checked items from group)
     refreshOverlayDropdowns();
+
+    // Sync checkboxes in header dropdown
+    updateLayerGroupCheckboxes();
 }
 
 /**
@@ -106,6 +111,7 @@ export function captureCurrentConfig() {
  * UI Component for Layer Group Selection
  */
 export async function createLayerGroupMenu() {
+    const c = getThemeColor();
     const container = document.createElement('div');
     container.id = 'layer-group-menu-container';
     container.style.position = 'relative';
@@ -118,11 +124,11 @@ export async function createLayerGroupMenu() {
     button.style.textAlign = 'left';
     button.style.padding = '10px 12px';
     button.style.borderRadius = '8px';
-    button.style.border = '1px solid #ccc';
-    button.style.background = '#e3f2fd'; // Light blue highlight for groups
+    button.style.border = `1px solid ${c.primary}`;
+    button.style.background = c.bgLight;
     button.style.cursor = 'pointer';
     button.style.fontWeight = 'bold';
-    button.style.color = '#1976d2';
+    button.style.color = c.primary;
     button.style.fontSize = '0.95em';
     button.style.display = 'flex';
     button.style.justifyContent = 'space-between';
@@ -134,7 +140,7 @@ export async function createLayerGroupMenu() {
 
     const arrowSpan = document.createElement('span');
     arrowSpan.textContent = '▾';
-    arrowSpan.style.color = '#1976d2';
+    arrowSpan.style.color = c.primary;
     button.appendChild(arrowSpan);
 
     const panel = document.createElement('div');
@@ -143,10 +149,10 @@ export async function createLayerGroupMenu() {
     panel.style.position = 'relative';
     panel.style.marginTop = '4px';
     panel.style.width = '100%';
-    panel.style.background = 'white';
+    panel.style.background = c.bgElevated;
     panel.style.padding = '10px 12px';
     panel.style.borderRadius = '10px';
-    panel.style.border = '1px solid #eee';
+    panel.style.border = `1px solid ${c.bgLighter}`;
     panel.style.boxSizing = 'border-box';
     panel.style.maxHeight = '300px';
     panel.style.overflowY = 'auto';
@@ -178,12 +184,13 @@ export async function createLayerGroupMenu() {
 }
 
 async function refreshGroupList(panel) {
-    panel.innerHTML = '<div style="font-weight:bold;margin-bottom:8px;">Saved Groups:</div>';
+    const c = getThemeColor();
+    panel.innerHTML = `<div style="font-weight:bold;margin-bottom:8px;color:${c.text};">Saved Groups:</div>`;
 
     const groups = await fetchLayerGroups();
     state.layerGroups = groups || [];
     if (!groups || groups.length === 0) {
-        panel.innerHTML += '<div style="color:#666;font-size:0.9em;">No saved groups</div>';
+        panel.innerHTML += `<div style="color:${c.textMuted};font-size:0.9em;">No saved groups</div>`;
         return;
     }
 
@@ -193,7 +200,7 @@ async function refreshGroupList(panel) {
         item.style.justifyContent = 'space-between';
         item.style.alignItems = 'center';
         item.style.padding = '6px 0';
-        item.style.borderBottom = '1px solid #eee';
+        item.style.borderBottom = `1px solid ${c.bgLighter}`;
 
         const left = document.createElement('div');
         left.style.display = 'flex';
@@ -216,6 +223,7 @@ async function refreshGroupList(panel) {
         const name = document.createElement('span');
         name.textContent = group.name;
         name.style.fontSize = '0.95em';
+        name.style.color = c.text;
         left.appendChild(name);
 
         left.onclick = (e) => {
@@ -227,7 +235,7 @@ async function refreshGroupList(panel) {
         delBtn.textContent = '×';
         delBtn.style.border = 'none';
         delBtn.style.background = 'none';
-        delBtn.style.color = '#ff5252';
+        delBtn.style.color = c.danger;
         delBtn.style.cursor = 'pointer';
         delBtn.style.fontSize = '1.2em';
         delBtn.style.padding = '0 5px';

@@ -1,6 +1,7 @@
 import { fromLonLat } from 'ol/proj';
 import { state } from '../state/store.js';
 import { showSearchMarker } from '../draw/markers.js';
+import { getThemeColor } from '../ui/themeHelpers.js';
 
 // Nominatim API endpoint (public OSM instance, or set VITE_NOMINATIM_URL env var)
 const NOMINATIM_URL = import.meta.env.VITE_NOMINATIM_URL || 'https://nominatim.openstreetmap.org';
@@ -89,13 +90,14 @@ function navigateToLocation(lon, lat, zoom = 14) {
 function createDropdown() {
     const dropdown = document.createElement('div');
     dropdown.id = 'search-dropdown';
+    const c = getThemeColor();
     dropdown.style.cssText = `
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    background: white;
-    border: 1px solid #ccc;
+    background: ${c.bgElevated};
+    border: 1px solid ${c.border};
     border-top: none;
     border-radius: 0 0 8px 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
@@ -111,6 +113,7 @@ function createDropdown() {
  * Show search results in the dropdown
  */
 function showResults(dropdown, results, onSelect) {
+    const c = getThemeColor();
     dropdown.innerHTML = '';
 
     if (results.length === 0) {
@@ -123,21 +126,22 @@ function showResults(dropdown, results, onSelect) {
         item.style.cssText = `
       padding: 10px 16px;
       cursor: pointer;
-      border-bottom: 1px solid #eee;
+      border-bottom: 1px solid ${c.bgLighter};
       transition: background 0.15s;
+      color: ${c.text};
     `;
         item.innerHTML = `
-      <div style="font-weight: 500; color: #333;">${result.display_name.split(',')[0]}</div>
-      <div style="font-size: 0.85em; color: #666; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+      <div style="font-weight: 500; color: ${c.text};">${result.display_name.split(',')[0]}</div>
+      <div style="font-size: 0.85em; color: ${c.textMuted}; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
         ${result.display_name}
       </div>
     `;
 
         item.addEventListener('mouseenter', () => {
-            item.style.background = '#f5f5f5';
+            item.style.background = c.hover;
         });
         item.addEventListener('mouseleave', () => {
-            item.style.background = 'white';
+            item.style.background = 'transparent';
         });
         item.addEventListener('click', () => {
             onSelect(result);

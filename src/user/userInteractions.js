@@ -3,6 +3,7 @@ import { showOSMPopup, hideOSMPopup, formatOSMFeatureInfo } from '../ui/osmPopup
 import { openUserFeatureForm } from '../ui/userFeatureForm.js';
 import { openFeaturePicker } from '../ui/featurePicker.js';
 import { updateMarker, deleteMarker, updatePolygon, deletePolygon, updateCircle, deleteCircle } from '../api/client.js';
+import { getThemeColor } from '../ui/themeHelpers.js';
 import { updateUserMarkerById, updateUserPolygonById, updateUserCircleById, removeUserMarkerById, removeUserPolygonById, removeUserCircleById } from './userLayers.js';
 import { disableOverlayInfoClickHandlers, enableOverlayInfoClickHandlers } from '../map/overlayInfoClick.js';
 
@@ -29,13 +30,14 @@ export function setupUserFeatureHover(mapObj) {
       const title = hit.get('title') || (userType === 'marker' ? 'Marker' : userType === 'polygon' ? 'Polygon' : 'Circle');
       const color = hit.get('color') || '#1976d2';
       const desc = hit.get('description') || '';
+      const c = getThemeColor();
 
       // We pass HTML content for user features
       const html = `
         <div style="margin-bottom:6px;font-weight:bold;color:${color}">${title}</div>
-        ${desc ? `<div style="font-size:0.9em;color:#555">${desc}</div>` : ''}
+        ${desc ? `<div style="font-size:0.9em;color:${c.textMuted}">${desc}</div>` : ''}
       `;
-      showOSMPopup(html, evt.pixel, false);
+      showOSMPopup(html, evt.pixel, false, mapObj);
       mapObj.getTargetElement().style.cursor = 'pointer';
     } else {
       // ONLY hide if we were previously hovering a user feature

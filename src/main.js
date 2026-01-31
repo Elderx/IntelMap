@@ -2,8 +2,6 @@ import { hardcodedLayers, mapboxAccessToken } from './config/constants.js';
 import { state } from './state/store.js';
 import { loadCapabilities, createBaseMap, createSplitMaps, parseInitialFromParams } from './map/init.js';
 import { createTileLayerFromList } from './map/layers.js';
-import { createAllOverlayDropdowns, mountOverlaySelectors } from './ui/overlayDropdown.js';
-import { enableOverlayInfoClickHandlers, disableOverlayInfoClickHandlers } from './map/overlayInfoClick.js';
 import { showClickMarker } from './draw/markers.js';
 import { showAllDrawables, copyDrawnFeatures, clearDrawnFeatures } from './draw/showables.js';
 import { wireDrawButtons, wireRemoveFeaturesButton, enableMarkerClickHandler } from './draw/tools.js';
@@ -14,9 +12,6 @@ import { fetchOverlayCapabilities } from './overlays/fetchCapabilities.js';
 import { getQueryParams } from './utils/query.js';
 import { updatePermalinkWithFeatures, updatePermalink } from './map/permalink.js';
 import { syncViews } from './map/sync.js';
-import { createLayerSelectorDropdown } from './ui/layerSelector.js';
-import { createLayerGroupMenu } from './ui/layerGroupMenu.js';
-import { updateAllOverlays } from './map/overlays.js';
 import { createOSMPopup } from './ui/osmPopup.js';
 import { createOSMLegend, updateOSMLegend } from './ui/osmLegend.js';
 import { setupOSMInteractions } from './map/osmInteractions.js';
@@ -28,6 +23,10 @@ import { setupUserFeatureHover, setupUserFeatureClick } from './user/userInterac
 import { openUserFeatureForm } from './ui/userFeatureForm.js';
 import { getSession } from './auth/session.js';
 import { showLoginOverlay } from './ui/loginOverlay.js';
+import { initHeader, updateSplitToggleText, updateRemoveFeaturesButton, closeAllDropdowns, updateHeaderButtonVisibility } from './ui/header.js';
+import { mountHeaderLayerManager, mountSplitModeLayerManagers, updateHeaderActiveLayers, refreshDynamicOsmFeatures } from './ui/headerLayerManager.js';
+import { updateAllOverlays } from './map/overlays.js';
+import './ui/mobileMenu.js'; // Initialize mobile menu (auto-runs)
 
 async function bootstrap() {
   const params = getQueryParams();
@@ -47,68 +46,9 @@ async function bootstrap() {
   setupUserFeatureHover(state.map);
   setupUserFeatureClick(state.map);
 
-  async function mountUnifiedLayerManager(parentDiv, mapKey, initialLayerId, onLayerChange, onDateChange) {
-    // 1. Create/Find column
-    let column = parentDiv.querySelector('.ui-column-container');
-    if (column) column.remove();
-
-    column = document.createElement('div');
-    column.className = 'ui-column-container';
-    column.style.position = 'absolute';
-    column.style.top = '60px';
-    column.style.right = '10px';
-    column.style.zIndex = '10';
-    column.style.maxWidth = '320px';
-    column.style.minWidth = '220px';
-    column.style.boxSizing = 'border-box';
-    column.style.maxHeight = 'calc(100vh - 80px)';
-    column.style.overflowY = 'auto';
-    column.style.scrollbarWidth = 'none';
-    column.style.msOverflowStyle = 'none';
-    parentDiv.appendChild(column);
-
-    // 2. Basemap Selector
-    const basemapSelector = createLayerSelectorDropdown(initialLayerId,
-      function (newId) {
-        onLayerChange(newId);
-      },
-      function (newDate) {
-        onDateChange(newDate);
-      }
-    );
-    column.appendChild(basemapSelector);
-
-    // 3. Overlays
-    const overlayDropdowns = createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures);
-    overlayDropdowns.forEach(d => {
-      d.container.style.marginTop = '8px';
-      column.appendChild(d.container);
-    });
-
-    // 4. Layer Groups
-    const groupMenu = await createLayerGroupMenu();
-    groupMenu.style.marginTop = '8px';
-    column.appendChild(groupMenu);
-
-    return column;
-  }
-
-  function addSingleLayerSelectorToMap() {
-    mountUnifiedLayerManager(mainMapDiv, 'main', hardcodedLayers[state.initialLayerIdx].id,
-      function (newLayerId) {
-        state.currentLayerId = newLayerId;
-        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.selectedDate);
-        state.map.getLayers().setAt(0, newLayer);
-        const view = state.map.getView();
-        updatePermalink(view.getCenter(), view.getZoom(), newLayerId, false);
-      },
-      function (newDate) {
-        state.selectedDate = newDate;
-        const newLayer = createTileLayerFromList(result, state.currentLayerId, null, mapboxAccessToken, newDate);
-        state.map.getLayers().setAt(0, newLayer);
-      }
-    );
-  }
+  // Initialize header (for UI only - dropdowns, badges, etc.)
+  initHeader();
+  mountHeaderLayerManager(result); // Populate header layers dropdown (always available)
 
   async function loadUserFeaturesFromServer() {
     try {
@@ -145,7 +85,6 @@ async function bootstrap() {
     state.isSplit = true;
     document.getElementById('map').style.display = 'none';
     splitMapsContainer.style.display = 'block';
-    // showSingleLayerSelector(false); // No longer needed, mountUnifiedLayerManager handles removal
     if (state.leftMap) state.leftMap.setTarget(null);
     if (state.rightMap) state.rightMap.setTarget(null);
     const mainView = state.map.getView();
@@ -157,7 +96,7 @@ async function bootstrap() {
     setupUserFeatureClick(state.leftMap);
     setupUserFeatureHover(state.rightMap);
     setupUserFeatureClick(state.rightMap);
-    enableOverlayInfoClickHandlers();
+    import('./map/overlayInfoClick.js').then(({ enableOverlayInfoClickHandlers }) => enableOverlayInfoClickHandlers());
     setupOSMInteractions(state.leftMap);
     setupOSMInteractions(state.rightMap);
     state.leftMapMoveendListener = function () { if (!state.restoringFromPermalink && state.permalinkInitialized) updatePermalinkWithFeatures(); };
@@ -165,59 +104,61 @@ async function bootstrap() {
     state.leftMap.on('moveend', state.leftMapMoveendListener);
     state.rightMap.on('moveend', state.rightMapMoveendListener);
 
-    mountUnifiedLayerManager(document.getElementById('map-left'), 'left', state.leftLayerId,
-      function (newLayerId) {
-        state.leftLayerId = newLayerId;
-        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.leftDate);
-        state.leftMap.getLayers().setAt(0, newLayer);
-        updatePermalinkWithFeatures();
-      },
-      function (newDate) {
-        state.leftDate = newDate;
-        const newLayer = createTileLayerFromList(result, state.leftLayerId, null, mapboxAccessToken, newDate);
-        state.leftMap.getLayers().setAt(0, newLayer);
-      }
-    );
+    // Mount split mode layer managers and update header buttons
+    mountSplitModeLayerManagers(result);
+    updateHeaderButtonVisibility(true);
 
-    mountUnifiedLayerManager(document.getElementById('map-right'), 'right', state.rightLayerId,
-      function (newLayerId) {
-        state.rightLayerId = newLayerId;
-        const newLayer = createTileLayerFromList(result, newLayerId, null, mapboxAccessToken, state.rightDate);
-        state.rightMap.getLayers().setAt(0, newLayer);
-        updatePermalinkWithFeatures();
-      },
-      function (newDate) {
-        state.rightDate = newDate;
-        const newLayer = createTileLayerFromList(result, state.rightLayerId, null, mapboxAccessToken, newDate);
-        state.rightMap.getLayers().setAt(0, newLayer);
-      }
-    );
     copyDrawnFeatures('main', 'left', state.map, state.leftMap);
     copyDrawnFeatures('main', 'right', state.map, state.rightMap);
     clearDrawnFeatures('main', state.map);
     updateOsmDynamicLayers(); // Sync dynamic layers to split maps
   }
+
   function deactivateSplitScreen() {
     state.isSplit = false;
     splitMapsContainer.style.display = 'none';
     document.getElementById('map').style.display = 'block';
-    addSingleLayerSelectorToMap(); // Re-add single layer selector
     if (state.leftMap) state.leftMap.setTarget(null);
     if (state.rightMap) state.rightMap.setTarget(null);
     if (state.leftMap && state.leftMapMoveendListener) state.leftMap.un('moveend', state.leftMapMoveendListener);
     state.leftMapMoveendListener = null;
     if (state.rightMap && state.rightMapMoveendListener) state.rightMap.un('moveend', state.rightMapMoveendListener);
     state.rightMapMoveendListener = null;
+
+    // Update header buttons for single mode
+    updateHeaderButtonVisibility(false);
+
     copyDrawnFeatures('left', 'main', state.leftMap, state.map);
     clearDrawnFeatures('left', state.leftMap);
     clearDrawnFeatures('right', state.rightMap);
   }
-  const _activateSplitScreen = activateSplitScreen; const _deactivateSplitScreen = deactivateSplitScreen;
-  function activateSplitScreenWrapped() { _activateSplitScreen(); if (state.leftMap && state.rightMap) { syncViews(state.leftMap, state.rightMap); syncViews(state.rightMap, state.leftMap); } enableOverlayInfoClickHandlers(); showAllDrawables(showClickMarker); }
-  function deactivateSplitScreenWrapped() { _deactivateSplitScreen(); enableOverlayInfoClickHandlers(); showAllDrawables(showClickMarker); }
+
+  const _activateSplitScreen = activateSplitScreen;
+  const _deactivateSplitScreen = deactivateSplitScreen;
+
+  function activateSplitScreenWrapped() {
+    _activateSplitScreen();
+    if (state.leftMap && state.rightMap) {
+      syncViews(state.leftMap, state.rightMap);
+      syncViews(state.rightMap, state.leftMap);
+    }
+    import('./map/overlayInfoClick.js').then(({ enableOverlayInfoClickHandlers }) => enableOverlayInfoClickHandlers());
+    showAllDrawables(showClickMarker);
+    updateSplitToggleText(true);
+    updateHeaderButtonVisibility(true);
+    mountSplitModeLayerManagers(result);
+  }
+
+  function deactivateSplitScreenWrapped() {
+    _deactivateSplitScreen();
+    import('./map/overlayInfoClick.js').then(({ enableOverlayInfoClickHandlers }) => enableOverlayInfoClickHandlers());
+    showAllDrawables(showClickMarker);
+    updateSplitToggleText(false);
+    updateHeaderButtonVisibility(false);
+  }
 
   if (initialIsSplit) {
-    setTimeout(async () => { activateSplitScreenWrapped(); splitToggle.textContent = 'Single screen'; await restoreFeaturesFromURL(params); }, 0);
+    setTimeout(async () => { activateSplitScreenWrapped(); await restoreFeaturesFromURL(params); }, 0);
   } else {
     await restoreFeaturesFromURL(params);
   }
@@ -225,8 +166,15 @@ async function bootstrap() {
   // Load persisted user features
   loadUserFeaturesFromServer();
   splitToggle.addEventListener('click', function () {
-    if (!state.isSplit) { activateSplitScreenWrapped(); splitToggle.textContent = 'Single screen'; if (state.drawingMode === 'marker') { enableMarkerClickHandler(); } updatePermalinkWithFeatures(); }
-    else { deactivateSplitScreenWrapped(); splitToggle.textContent = 'Split screen'; if (state.drawingMode === 'marker') { enableMarkerClickHandler(); } updatePermalinkWithFeatures(); }
+    if (!state.isSplit) {
+      activateSplitScreenWrapped();
+      if (state.drawingMode === 'marker') { enableMarkerClickHandler(); }
+      updatePermalinkWithFeatures();
+    } else {
+      deactivateSplitScreenWrapped();
+      if (state.drawingMode === 'marker') { enableMarkerClickHandler(); }
+      updatePermalinkWithFeatures();
+    }
   });
 
   state.map.on('moveend', function () { if (!state.restoringFromPermalink && state.permalinkInitialized) { updatePermalinkWithFeatures(); } });
@@ -234,13 +182,25 @@ async function bootstrap() {
 
   initOsmFeatureSearch();
   setupNominatimSearch();
-  wireDrawButtons(updatePermalinkWithFeatures);
-  wireRemoveFeaturesButton(updatePermalinkWithFeatures);
+
+  // Wire drawing buttons with wrapped permalink update that also updates header UI
+  const permalinkUpdateWithHeader = () => {
+    updatePermalinkWithFeatures();
+    updateRemoveFeaturesButton();
+    refreshDynamicOsmFeatures();
+  };
+
+  wireDrawButtons(permalinkUpdateWithHeader);
+  wireRemoveFeaturesButton(permalinkUpdateWithHeader);
 
   await fetchOverlayCapabilities();
 
-  // Add Unified Layer Manager to main map
-  addSingleLayerSelectorToMap();
+  // Re-mount layer manager now that overlay data is loaded
+  if (!state.isSplit) {
+    mountHeaderLayerManager(result);
+  } else {
+    mountSplitModeLayerManagers(result);
+  }
 
   // Initialize OSM components
   createOSMPopup();
@@ -250,7 +210,7 @@ async function bootstrap() {
     updateActiveLayersPanel();
   });
 
-  enableOverlayInfoClickHandlers();
+  import('./map/overlayInfoClick.js').then(({ enableOverlayInfoClickHandlers }) => enableOverlayInfoClickHandlers());
   setupOSMInteractions(state.map);
 
   async function restoreFeaturesFromURL(params) {
@@ -259,9 +219,22 @@ async function bootstrap() {
     // Deprecated: do not restore user markers/polygons from URL
     state.markerCoords = null;
     state.polygonCoords = null;
-    state.lineCoords = null; if (params.line) { const coords = params.line.split(';').map(pair => pair.split(',').map(Number)); if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) { state.lineCoords = coords.map(pair => fromLonLat([pair[0], pair[1]])); } }
-    state.measureCoords = null; if (params.measure) { const coords = params.measure.split(';').map(pair => pair.split(',').map(Number)); if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) { state.measureCoords = coords.map(pair => fromLonLat([pair[0], pair[1]])); } }
-    state.overlayLayers = []; if (params.overlays) {
+    state.lineCoords = null;
+    if (params.line) {
+      const coords = params.line.split(';').map(pair => pair.split(',').map(Number));
+      if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) {
+        state.lineCoords = coords.map(pair => fromLonLat([pair[0], pair[1]]));
+      }
+    }
+    state.measureCoords = null;
+    if (params.measure) {
+      const coords = params.measure.split(';').map(pair => pair.split(',').map(Number));
+      if (coords.length >= 2 && coords.every(pair => pair.length === 2 && !isNaN(pair[0]) && !isNaN(pair[1]))) {
+        state.measureCoords = coords.map(pair => fromLonLat([pair[0], pair[1]]));
+      }
+    }
+    state.overlayLayers = [];
+    if (params.overlays) {
       state.overlayLayers = params.overlays.split(';').filter(Boolean);
       state.digiroadOverlayLayers = state.overlayLayers.filter(name => state.digiroadOverlayList.some(l => l.name === name));
       state.genericOverlayLayers = state.overlayLayers.filter(name => state.genericOverlayList.some(l => l.name === name));
@@ -270,6 +243,7 @@ async function bootstrap() {
     if (params.osm) {
       const ids = params.osm.split(';').filter(Boolean);
       state.osmSelectedIds = ids.filter(id => state.osmItems.some(i => i.id === id));
+      updateOSMLegend();
       updateAllOverlays();
     }
     if (params.groups) {
@@ -287,6 +261,7 @@ async function bootstrap() {
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;
     updatePermalinkWithFeatures();
+    updateHeaderActiveLayers();
   }
 
 }
@@ -300,5 +275,3 @@ async function bootstrap() {
     await bootstrap();
   }
 })();
-
-

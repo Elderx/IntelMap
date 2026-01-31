@@ -112,6 +112,9 @@ export const state = {
   layerGroups: [], // Array of { id, name, config, created_at }
   activeLayerGroupIds: [], // IDs of currently active groups
   layerGroupAssignedColors: {}, // Maps groupId to color
+
+  // Theme preference
+  theme: 'light', // 'light' | 'dark'
 };
 
 

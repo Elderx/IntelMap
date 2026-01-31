@@ -1,6 +1,7 @@
 import { searchOsmTags } from '../api/osm.js';
 import { state } from '../state/store.js';
 import { updateOsmDynamicLayers, clearAllTileCache } from '../map/osmDynamicLayers.js';
+import { getThemeColor } from './themeHelpers.js';
 
 let container = null;
 
@@ -12,35 +13,48 @@ const COLORS = [
     '#aaffc3', '#808000', '#ffd8b1', '#000075', '#808080'
 ];
 
+// Helper to get theme colors and apply styles
+function applyThemeStylesToElement(el, styles) {
+  const c = getThemeColor();
+  Object.assign(el.style, styles);
+}
+
 /**
  * Initialize the OSM Feature Search UI
  */
 export function initOsmFeatureSearch() {
     if (container) return; // Already initialized
 
-    // Button to toggle search
-    const triggerBtn = document.createElement('button');
-    triggerBtn.textContent = 'Add OSM Feature';
-    triggerBtn.title = 'Search and add specific OSM features to the map';
-    triggerBtn.style.cssText = `
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 10;
-    padding: 8px 16px;
-    font-size: 1em;
-    border-radius: 8px;
-    border: none;
-    background: #4caf50;
-    color: white;
-    cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    margin-bottom: 50px; /* Above the split toggle */
-  `;
-    triggerBtn.id = 'osm-search-trigger';
+    // Check if button already exists in header (new unified header)
+    let triggerBtn = document.getElementById('osm-search-trigger');
+
+    // If button doesn't exist in header, create the old floating button (legacy support)
+    if (!triggerBtn) {
+        triggerBtn = document.createElement('button');
+        triggerBtn.textContent = 'Add OSM Feature';
+        triggerBtn.title = 'Search and add specific OSM features to the map';
+        triggerBtn.style.cssText = `
+        position: absolute;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        padding: 8px 16px;
+        font-size: 1em;
+        border-radius: 8px;
+        border: none;
+        background: #4caf50;
+        color: white;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+        margin-bottom: 50px;
+      `;
+        triggerBtn.id = 'osm-search-trigger';
+        // Will append to body later if created
+    }
 
     // Panel container
+    const c = getThemeColor();
     const panel = document.createElement('div');
     panel.style.cssText = `
     position: absolute;
@@ -49,7 +63,7 @@ export function initOsmFeatureSearch() {
     transform: translate(-50%, -50%);
     width: 400px;
     max-width: 90vw;
-    background: white;
+    background: ${c.bgElevated};
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 5px 20px rgba(0,0,0,0.2);
@@ -60,23 +74,23 @@ export function initOsmFeatureSearch() {
 
     const header = document.createElement('div');
     header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;';
-    header.innerHTML = '<h3 style="margin:0">Add OSM Layer</h3>';
+    header.innerHTML = `<h3 style="margin:0;color:${c.text}">Add OSM Layer</h3>`;
 
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕';
-    closeBtn.style.cssText = 'background:none;border:none;font-size:1.2em;cursor:pointer;padding:4px;';
+    closeBtn.style.cssText = `background:none;border:none;font-size:1.2em;cursor:pointer;padding:4px;color:${c.text};`;
     closeBtn.onclick = () => { panel.style.display = 'none'; };
     header.appendChild(closeBtn);
     panel.appendChild(header);
 
     // === LOCAL ONLY MODE TOGGLE ===
     const localOnlyRow = document.createElement('div');
-    localOnlyRow.style.cssText = 'display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:10px;background:#f5f5f5;border-radius:8px;';
+    localOnlyRow.style.cssText = `display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;padding:10px;background:${c.bgLight};border-radius:8px;`;
 
     const localOnlyLabel = document.createElement('div');
     localOnlyLabel.innerHTML = `
-        <div style="font-weight:600;color:#333;">📦 Local Only Mode</div>
-        <div style="font-size:0.8em;color:#666;">Only show cached data (no network)</div>
+        <div style="font-weight:600;color:${c.text};">📦 Local Only Mode</div>
+        <div style="font-size:0.8em;color:${c.textMuted};">Only show cached data (no network)</div>
     `;
 
     const localOnlyToggle = document.createElement('label');
@@ -112,7 +126,7 @@ export function initOsmFeatureSearch() {
     const clearCacheBtn = document.createElement('button');
     clearCacheBtn.textContent = '🗑️ Clear Tile Cache';
     clearCacheBtn.title = 'Clear database records of cached tiles';
-    clearCacheBtn.style.cssText = 'width:100%;padding:8px;margin-bottom:16px;background:#ff5722;color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;';
+    clearCacheBtn.style.cssText = `width:100%;padding:8px;margin-bottom:16px;background:${c.warning};color:white;border:none;border-radius:6px;cursor:pointer;font-size:0.9em;`;
     clearCacheBtn.onclick = async () => {
         if (confirm('Clear OSM tile cache history? This will make the map forget which tiles are cached in Nginx.')) {
             await clearAllTileCache();
@@ -127,26 +141,29 @@ export function initOsmFeatureSearch() {
     const input = document.createElement('input');
     input.type = 'text';
     input.placeholder = 'Search e.g. "cafe", "highway"...';
-    input.style.cssText = 'width:100%;padding:10px;border:1px solid #ccc;border-radius:6px;box-sizing:border-box;font-size:1em;';
+    input.style.cssText = `width:100%;padding:10px;border:1px solid ${c.border};border-radius:6px;box-sizing:border-box;font-size:1em;background:${c.bgElevated};color:${c.text};`;
     inputGroup.appendChild(input);
     panel.appendChild(inputGroup);
 
     // Results list
     const resultsContainer = document.createElement('div');
-    resultsContainer.style.cssText = 'max-height:200px;overflow-y:auto;border:1px solid #eee;border-radius:6px;margin-bottom:16px;display:none;';
+    resultsContainer.style.cssText = `max-height:200px;overflow-y:auto;border:1px solid ${c.bgLighter};border-radius:6px;margin-bottom:16px;display:none;background:${c.bg};`;
     panel.appendChild(resultsContainer);
 
     // Active Layers List
     const activeLayersHeader = document.createElement('h4');
     activeLayersHeader.textContent = 'Active Layers';
-    activeLayersHeader.style.margin = '0 0 8px 0';
+    activeLayersHeader.style.cssText = `margin:0 0 8px 0;color:${c.text};`;
     panel.appendChild(activeLayersHeader);
 
     const activeLayersContainer = document.createElement('div');
     activeLayersContainer.style.cssText = 'max-height:150px;overflow-y:auto;';
     panel.appendChild(activeLayersContainer);
 
-    document.body.appendChild(triggerBtn);
+    // Only append triggerBtn to body if it was created (not found in header)
+    if (!document.getElementById('osm-search-trigger')) {
+        document.body.appendChild(triggerBtn);
+    }
     document.body.appendChild(panel);
     container = panel;
 
@@ -167,7 +184,8 @@ export function initOsmFeatureSearch() {
         }
         clearTimeout(timeout);
         timeout = setTimeout(async () => {
-            resultsContainer.innerHTML = '<div style="padding:10px;color:#666;">Searching Taginfo...</div>';
+            const c = getThemeColor();
+            resultsContainer.innerHTML = `<div style="padding:10px;color:${c.textMuted};">Searching Taginfo...</div>`;
             resultsContainer.style.display = 'block';
 
             const results = await searchOsmTags(q);
@@ -176,24 +194,25 @@ export function initOsmFeatureSearch() {
     });
 
     function renderResults(results) {
+        const c = getThemeColor();
         resultsContainer.innerHTML = '';
         if (results.length === 0) {
-            resultsContainer.innerHTML = '<div style="padding:10px;color:#666;">No results found.</div>';
+            resultsContainer.innerHTML = `<div style="padding:10px;color:${c.textMuted};">No results found.</div>`;
             return;
         }
 
         results.forEach(item => {
             const el = document.createElement('div');
-            el.style.cssText = 'padding:10px;border-bottom:1px solid #eee;cursor:pointer;display:flex;justify-content:space-between;align-items:center;';
+            el.style.cssText = `padding:10px;border-bottom:1px solid ${c.bgLighter};cursor:pointer;display:flex;justify-content:space-between;align-items:center;`;
             el.innerHTML = `
         <div>
-          <div style="font-weight:bold">${item.key}=${item.value}</div>
-          <div style="font-size:0.8em;color:#666;">Usage: ${item.count}</div>
+          <div style="font-weight:bold;color:${c.text};">${item.key}=${item.value}</div>
+          <div style="font-size:0.8em;color:${c.textMuted};">Usage: ${item.count}</div>
         </div>
-        <button style="background:#2196f3;color:white;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;">Add</button>
+        <button style="background:${c.primary};color:white;border:none;border-radius:4px;padding:4px 8px;cursor:pointer;">Add</button>
       `;
-            el.addEventListener('mouseover', () => el.style.background = '#f5f5f5');
-            el.addEventListener('mouseout', () => el.style.background = 'white');
+            el.addEventListener('mouseover', () => el.style.background = c.hover);
+            el.addEventListener('mouseout', () => el.style.background = 'transparent');
             el.onclick = () => addFeature(item);
             resultsContainer.appendChild(el);
         });
@@ -229,28 +248,29 @@ export function initOsmFeatureSearch() {
     }
 
     function renderActiveLayers() {
+        const c = getThemeColor();
         activeLayersContainer.innerHTML = '';
         const features = state.activeOsmFeatures || [];
 
         if (features.length === 0) {
-            activeLayersContainer.innerHTML = '<div style="padding:10px;color:#888;font-style:italic;">No active layers</div>';
+            activeLayersContainer.innerHTML = `<div style="padding:10px;color:${c.textLight};font-style:italic;">No active layers</div>`;
             return;
         }
 
         features.forEach(f => {
             const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;padding:8px;border-bottom:1px solid #eee;';
+            row.style.cssText = `display:flex;align-items:center;padding:8px;border-bottom:1px solid ${c.bgLighter};`;
 
             const colorDot = document.createElement('div');
             colorDot.style.cssText = `width:12px;height:12px;border-radius:50%;background:${f.color};margin-right:10px;flex-shrink:0;`;
 
             const title = document.createElement('span');
             title.textContent = f.title;
-            title.style.cssText = 'flex-grow:1;font-weight:500;';
+            title.style.cssText = `flex-grow:1;font-weight:500;color:${c.text};`;
 
             const removeBtn = document.createElement('button');
             removeBtn.innerHTML = '&times;';
-            removeBtn.style.cssText = 'background:none;border:none;color:#f44336;font-size:1.2em;cursor:pointer;padding:0 8px;';
+            removeBtn.style.cssText = `background:none;border:none;color:${c.danger};font-size:1.2em;cursor:pointer;padding:0 8px;`;
             removeBtn.onclick = () => removeFeature(f.id);
 
             row.appendChild(colorDot);

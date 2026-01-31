@@ -84,27 +84,24 @@ function clearDrawInteraction() {
 }
 
 export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
-  const drawMenuToggle = document.getElementById('draw-menu-toggle');
-  const drawMenu = document.getElementById('draw-menu');
   const drawMarkerBtn = document.getElementById('draw-marker-btn');
   const drawLineBtn = document.getElementById('draw-line-btn');
   const drawPolygonBtn = document.getElementById('draw-polygon-btn');
   const drawRadiusBtn = document.getElementById('draw-radius-btn');
   const drawMeasureBtn = document.getElementById('draw-measure-btn');
 
-  drawMenuToggle.addEventListener('click', function () {
-    const style = window.getComputedStyle(drawMenu);
-    drawMenu.style.display = style.display === 'none' ? 'block' : 'none';
-  });
-
   drawLineBtn.addEventListener('click', function () {
     state.drawingMode = 'line';
     clearAllMarkers();
     disableOverlayInfoClickHandlers();
+    import('../ui/header.js').then(({ closeAllDropdowns, updateActiveDrawTool }) => {
+      closeAllDropdowns();
+      updateActiveDrawTool('line');
+    });
     if (!state.isSplit) {
       clearDrawInteraction();
       clearDrawnFeatures('main', state.map);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSource = new VectorSource();
       state.drawnLineLayer.main = new VectorLayer({ source: vectorSource, zIndex: 102, style: new Style({ stroke: new Stroke({ color: 'blue', width: 3 }) }) });
@@ -117,6 +114,11 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();
         updatePermalinkWithFeaturesFn();
+        // Update remove features button visibility
+        import('../ui/header.js').then(({ updateRemoveFeaturesButton, updateActiveDrawTool }) => {
+          updateRemoveFeaturesButton();
+          updateActiveDrawTool(null);
+        });
       });
       state.map.addInteraction(drawInteraction);
       state.drawInteraction = drawInteraction;
@@ -124,7 +126,7 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
       clearDrawInteraction();
       clearDrawnFeatures('left', state.leftMap);
       clearDrawnFeatures('right', state.rightMap);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSourceLeft = new VectorSource();
       state.drawnLineLayer.left = new VectorLayer({ source: vectorSourceLeft, zIndex: 102, style: new Style({ stroke: new Stroke({ color: 'blue', width: 3 }) }) });
@@ -140,6 +142,10 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();
         updatePermalinkWithFeaturesFn();
+        import('../ui/header.js').then(({ updateRemoveFeaturesButton, updateActiveDrawTool }) => {
+          updateRemoveFeaturesButton();
+          updateActiveDrawTool(null);
+        });
       });
       state.leftMap.addInteraction(drawInteractionLeft);
       const drawInteractionRight = new Draw({ source: vectorSourceRight, type: 'LineString', maxPoints: 2 });
@@ -150,6 +156,10 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
         state.drawingMode = null;
         enableOverlayInfoClickHandlers();
         updatePermalinkWithFeaturesFn();
+        import('../ui/header.js').then(({ updateRemoveFeaturesButton, updateActiveDrawTool }) => {
+          updateRemoveFeaturesButton();
+          updateActiveDrawTool(null);
+        });
       });
       state.rightMap.addInteraction(drawInteractionRight);
       state.drawInteraction = { left: drawInteractionLeft, right: drawInteractionRight };
@@ -160,10 +170,14 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
     state.drawingMode = 'polygon';
     clearAllMarkers();
     disableOverlayInfoClickHandlers();
+    import('../ui/header.js').then(({ closeAllDropdowns, updateActiveDrawTool }) => {
+      closeAllDropdowns();
+      updateActiveDrawTool('polygon');
+    });
     if (!state.isSplit) {
       clearDrawInteraction();
       clearDrawnFeatures('main', state.map);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSource = new VectorSource();
       state.drawnPolygonLayer.main = new VectorLayer({ source: vectorSource, zIndex: 103, style: new Style({ fill: new Fill({ color: 'rgba(0,200,255,0.5)' }), stroke: new Stroke({ color: 'blue', width: 2 }) }) });
@@ -200,7 +214,7 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
       clearDrawInteraction();
       clearDrawnFeatures('left', state.leftMap);
       clearDrawnFeatures('right', state.rightMap);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSourceLeft = new VectorSource();
       state.drawnPolygonLayer.left = new VectorLayer({ source: vectorSourceLeft, zIndex: 103, style: new Style({ fill: new Fill({ color: 'rgba(0,200,255,0.5)' }), stroke: new Stroke({ color: 'blue', width: 2 }) }) });
@@ -268,10 +282,14 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
     state.drawingMode = 'radius';
     clearAllMarkers();
     disableOverlayInfoClickHandlers();
+    import('../ui/header.js').then(({ closeAllDropdowns, updateActiveDrawTool }) => {
+      closeAllDropdowns();
+      updateActiveDrawTool('radius');
+    });
     if (!state.isSplit) {
       clearDrawInteraction();
       clearDrawnFeatures('main', state.map);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSource = new VectorSource();
       state.drawnCircleLayer.main = new VectorLayer({ source: vectorSource, zIndex: 102, style: new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }) });
@@ -365,7 +383,7 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
       clearDrawInteraction();
       clearDrawnFeatures('left', state.leftMap);
       clearDrawnFeatures('right', state.rightMap);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSourceLeft = new VectorSource();
       state.drawnCircleLayer.left = new VectorLayer({ source: vectorSourceLeft, zIndex: 102, style: new Style({ stroke: new Stroke({ color: '#2196f3', width: 2 }), fill: new Fill({ color: 'rgba(33, 150, 243, 0.3)' }) }) });
@@ -480,10 +498,14 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
     state.drawingMode = 'measure';
     clearAllMarkers();
     disableOverlayInfoClickHandlers();
+    import('../ui/header.js').then(({ closeAllDropdowns, updateActiveDrawTool }) => {
+      closeAllDropdowns();
+      updateActiveDrawTool('measure');
+    });
     if (!state.isSplit) {
       clearDrawInteraction();
       clearDrawnFeatures('main', state.map);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSource = new VectorSource();
       state.measureLineLayer.main = new VectorLayer({ source: vectorSource, zIndex: 104, style: new Style({ stroke: new Stroke({ color: 'orange', width: 3, lineDash: [8, 8] }) }) });
@@ -521,7 +543,7 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
       clearDrawInteraction();
       clearDrawnFeatures('left', state.leftMap);
       clearDrawnFeatures('right', state.rightMap);
-      drawMenu.style.display = 'none';
+      // drawMenu.style.display = 'none'; // Removed - now using header dropdown
       disableMarkerClickHandler();
       const vectorSourceLeft = new VectorSource();
       state.measureLineLayer.left = new VectorLayer({ source: vectorSourceLeft, zIndex: 104, style: new Style({ stroke: new Stroke({ color: 'orange', width: 3, lineDash: [8, 8] }) }) });
@@ -601,7 +623,11 @@ export function wireDrawButtons(updatePermalinkWithFeaturesFn) {
     clearDrawnFeatures('main', state.map);
     if (state.leftMap) clearDrawnFeatures('left', state.leftMap);
     if (state.rightMap) clearDrawnFeatures('right', state.rightMap);
-    drawMenu.style.display = 'none';
+    // drawMenu.style.display = 'none'; // Removed - now using header dropdown
+    import('../ui/header.js').then(({ closeAllDropdowns, updateActiveDrawTool }) => {
+      closeAllDropdowns();
+      updateActiveDrawTool('marker');
+    });
     enableMarkerClickHandler();
     disableOverlayInfoClickHandlers();
   });
@@ -629,6 +655,10 @@ export function wireRemoveFeaturesButton(updatePermalinkWithFeaturesFn) {
       state.clickMarkerLayer = null; state.searchMarkerLayer = null; state.leftClickMarkerLayer = null; state.rightClickMarkerLayer = null; state.leftSearchMarkerLayer = null; state.rightSearchMarkerLayer = null;
       state.markerCoords = null; state.lineCoords = null; state.polygonCoords = null; state.circleCoords = null; state.measureCoords = null;
       updatePermalinkWithFeaturesFn();
+      // Update remove features button visibility
+      import('../ui/header.js').then(({ updateRemoveFeaturesButton }) => {
+        updateRemoveFeaturesButton();
+      });
     });
   }
 }
