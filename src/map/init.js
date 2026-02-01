@@ -6,6 +6,7 @@ import { hardcodedLayers, capsUrl, mapboxAccessToken } from '../config/constants
 import { state } from '../state/store.js';
 import { createTileLayerFromList } from './layers.js';
 import { setupAisInteractions } from '../ais/aisInteractions.js';
+import { setupWeatherInteractions } from '../weather/weatherInteractions.js';
 
 export async function loadCapabilities() {
   const parser = new WMTSCapabilities();
@@ -29,6 +30,9 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
   // Setup AIS interactions (will be active when AIS is enabled)
   setupAisInteractions(state.map, 'main');
 
+  // Setup weather interactions (will be active when weather is enabled)
+  setupWeatherInteractions(state.map, 'main');
+
   return state.map;
 }
 
@@ -39,6 +43,10 @@ export function createSplitMaps(result, center, zoom, rotation) {
   // Setup AIS interactions
   setupAisInteractions(state.leftMap, 'left');
   setupAisInteractions(state.rightMap, 'right');
+
+  // Setup weather interactions
+  setupWeatherInteractions(state.leftMap, 'left');
+  setupWeatherInteractions(state.rightMap, 'right');
 }
 
 export function parseInitialFromParams(params) {
