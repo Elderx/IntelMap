@@ -146,13 +146,6 @@ export function createOverlayDropdown(mapKey, selected, onChange, overlayList, l
   return { container, dropdownButton, dropdownPanel };
 }
 
-const AIRCRAFT_OVERLAY = {
-  id: 'aircraft',
-  name: 'Aircraft (OpenSky)',
-  type: 'aircraft',
-  enabled: false
-};
-
 export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
   const digiroad = createOverlayDropdown(mapKey, state.digiroadOverlayLayers, function (newSelected) {
     state.digiroadOverlayLayers = newSelected;
@@ -181,14 +174,22 @@ export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
   const aircraftList = [{ name: 'aircraft', title: 'Aircraft (OpenSky)', type: 'aircraft' }];
   const aircraft = createOverlayDropdown(mapKey, aircraftSelected, function (newSelected) {
     const enabled = newSelected.includes('aircraft');
-    if (enabled) {
-      import('../aircraft/aircraftManager.js').then(m => m.startAircraftUpdates());
-      import('../aircraft/aircraftInteractions.js').then(m => m.setupAircraftClickHandlers());
-    } else {
-      import('../aircraft/aircraftInteractions.js').then(m => m.cleanupAircraftInteractions());
-      import('../aircraft/aircraftManager.js').then(m => m.stopAircraftUpdates());
-    }
     state.aircraftEnabled = enabled;
+    if (enabled) {
+      import('../aircraft/aircraftManager.js')
+        .then(m => {
+          m.startAircraftUpdates();
+          return import('../aircraft/aircraftInteractions.js');
+        })
+        .then(m => m.setupAircraftClickHandlers());
+    } else {
+      import('../aircraft/aircraftInteractions.js')
+        .then(m => {
+          m.cleanupAircraftInteractions();
+          return import('../aircraft/aircraftManager.js');
+        })
+        .then(m => m.stopAircraftUpdates());
+    }
     import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
   }, aircraftList, 'Live Aircraft', { isAccordion: true });
 
