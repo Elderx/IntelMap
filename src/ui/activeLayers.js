@@ -250,6 +250,18 @@ export function updateActiveLayersPanel() {
         });
     }
 
+    // 5. Aircraft overlay
+    if (state.aircraftEnabled) {
+        const count = state.aircraftFeatures.length;
+        const title = `✈️ Aircraft (${count})${state.aircraftError ? ' ⚠️' : ''}`;
+        addRow(title, '#8B4513', async () => {
+            const { stopAircraftUpdates } = await import('../aircraft/aircraftManager.js');
+            const { cleanupAircraftInteractions } = await import('../aircraft/aircraftInteractions.js');
+            stopAircraftUpdates();
+            cleanupAircraftInteractions();
+        });
+    }
+
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
 
     // Refresh dynamic OSM features in header dropdown

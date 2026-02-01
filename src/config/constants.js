@@ -65,4 +65,13 @@ export const hardcodedLayers = [
   { id: 'stadia_alidade_smooth_dark', name: 'Stadia Alidade Smooth Dark', type: 'stadia', stadiaLayer: 'alidade_smooth_dark' }
 ];
 
+// OpenSky Network API configuration
+export const OPENSKY_CONFIG = {
+  baseUrl: 'https://opensky-network.org/api',
+  updateIntervalSeconds: 11,      // Default 11s, configurable via UI
+  minIntervalSeconds: 11,         // Minimum allowed (safety margin for API limits)
+  aircraftIconScale: 1,           // Icon size multiplier
+  aircraftIconColor: '#1e88e5',   // Default aircraft icon color (blue)
+};
+
 

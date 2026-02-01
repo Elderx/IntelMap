@@ -169,7 +169,31 @@ export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
     updatePermalinkWithFeatures();
   }, osmList, 'OSM Data', { isAccordion: true });
 
-  return [digiroad, generic, osm];
+  // Aircraft overlay dropdown
+  const aircraftSelected = state.aircraftEnabled ? ['aircraft'] : [];
+  const aircraftList = [{ name: 'aircraft', title: 'Aircraft (OpenSky)', type: 'aircraft' }];
+  const aircraft = createOverlayDropdown(mapKey, aircraftSelected, function (newSelected) {
+    const enabled = newSelected.includes('aircraft');
+    state.aircraftEnabled = enabled;
+    if (enabled) {
+      import('../aircraft/aircraftManager.js')
+        .then(m => {
+          m.startAircraftUpdates();
+          return import('../aircraft/aircraftInteractions.js');
+        })
+        .then(m => m.setupAircraftClickHandlers());
+    } else {
+      import('../aircraft/aircraftInteractions.js')
+        .then(m => {
+          m.cleanupAircraftInteractions();
+          return import('../aircraft/aircraftManager.js');
+        })
+        .then(m => m.stopAircraftUpdates());
+    }
+    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+  }, aircraftList, 'Live Aircraft', { isAccordion: true });
+
+  return [digiroad, generic, osm, aircraft];
 }
 
 export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {

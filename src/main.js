@@ -33,6 +33,16 @@ async function bootstrap() {
   const { initialCenter, initialZoom, initialIsSplit } = parseInitialFromParams(params);
   const result = await loadCapabilities();
 
+  // Load aircraft refresh interval preference
+  try {
+    const savedInterval = localStorage.getItem('intelmap_aircraft_interval');
+    if (savedInterval) {
+      state.aircraftRefreshInterval = parseInt(savedInterval, 10);
+    }
+  } catch (e) {
+    console.warn('Failed to load aircraft interval preference:', e);
+  }
+
   // Pre-fetch layer groups so they are available for restoration
   const { fetchLayerGroups } = await import('./api/client.js');
   state.layerGroups = await fetchLayerGroups() || [];
@@ -256,6 +266,14 @@ async function bootstrap() {
 
       updateAllOverlays();
       updateOsmDynamicLayers();
+    }
+    if (params.aircraft === '1') {
+      state.aircraftEnabled = true;
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./aircraft/aircraftManager.js').then(m => m.startAircraftUpdates());
+        import('./aircraft/aircraftInteractions.js').then(m => m.setupAircraftClickHandlers());
+      }, 100);
     }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
