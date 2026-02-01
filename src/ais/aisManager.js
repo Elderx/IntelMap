@@ -54,6 +54,16 @@ async function updateAisData() {
   const onVessel = (vessel) => {
     if (validateVesselData(vessel)) {
       vessels.set(vessel.mmsi, vessel);
+
+      // Save vessel position to database
+      fetch('/api/ais/save', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(vessel)
+      }).catch(err => {
+        // Silently fail - saving is optional
+        console.debug('[AIS] Failed to save vessel:', err.message);
+      });
     }
   };
 
