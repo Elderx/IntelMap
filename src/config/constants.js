@@ -74,4 +74,14 @@ export const OPENSKY_CONFIG = {
   aircraftIconColor: '#1e88e5',   // Default aircraft icon color (blue)
 };
 
+// AISStream WebSocket configuration
+export const AISSTREAM_CONFIG = {
+  wsUrl: 'wss://stream.aisstream.io/v0/stream',
+  minIntervalSeconds: 30,
+  defaultIntervalSeconds: 30,
+  maxIntervalSeconds: 300,
+  accumulationTimeout: 5000, // 5 seconds to accumulate vessels
+  reconnectDelay: 5000
+};
+
 
