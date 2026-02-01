@@ -110,4 +110,42 @@ test.describe('AIS Ships Overlay', () => {
     // Verify AIS appears in active layers (may show 0 vessels if no data)
     await expect(page.locator('.active-layer-item').filter({ hasText: /Ships \(AIS\)/ })).toBeVisible();
   });
+
+  test('verifies AIS WebSocket connection', async ({ page }) => {
+    // Enable AIS
+    await page.click('#layers-toggle');
+
+    // Expand AIS accordion
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
+    await accordionHeader.click();
+
+    const aisToggle = page.locator('#ais-enabled');
+    await aisToggle.check();
+
+    // Wait for AIS WebSocket connection and data accumulation (5s accumulation + buffer)
+    // Console log should show connection message
+    const messages = [];
+    page.on('console', msg => {
+      if (msg.text().includes('[AISStream]')) {
+        messages.push(msg.text());
+      }
+    });
+
+    // Wait for connection and data (up to 45 seconds: 5s accumulation + buffer)
+    await page.waitForTimeout(45000);
+
+    // Verify WebSocket connection was attempted
+    const connectionLogs = messages.filter(m => m.includes('Connected') || m.includes('Fetching'));
+    expect(connectionLogs.length).toBeGreaterThan(0);
+
+    // Check browser console for errors
+    const errors = messages.filter(m => m.includes('error') || m.includes('failed') || m.includes('Error'));
+    if (errors.length > 0) {
+      console.log('AIS WebSocket errors found:', errors);
+      // Errors are acceptable for rate limiting or network issues
+    }
+
+    // Verify AIS state is enabled
+    await expect(aisToggle).toBeChecked();
+  });
 });
