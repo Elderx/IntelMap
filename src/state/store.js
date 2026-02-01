@@ -133,6 +133,15 @@ export const state = {
   aisFeatures: [],
   aisError: null,
   aisLastUpdate: null,
+
+  // Weather overlay
+  weatherEnabled: false,
+  weatherWmsLayers: { main: null, left: null, right: null },
+  weatherStationLayer: { main: null, left: null, right: null },
+  weatherStationFeatures: [],
+  weatherActiveWmsLayers: ['temperature'], // Default: temperature layer enabled
+  weatherPollingTimer: null,
+  weatherError: null
 };
 
 
