@@ -1,0 +1,62 @@
+/* AIS Popup Styles */
+
+.ais-popup {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.ais-popup.pinned {
+  pointer-events: auto;
+  max-width: 300px;
+}
+
+.ais-popup .popup-close {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  color: #666;
+}
+
+.ais-popup .popup-close:hover {
+  color: #000;
+}
+
+.ais-popup h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.ais-popup .text-muted {
+  color: #666;
+  font-weight: normal;
+}
+
+.ais-popup table.popup-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12px;
+}
+
+.ais-popup table.popup-table td {
+  padding: 2px 4px;
+  border: none;
+}
+
+.ais-popup table.popup-table td:first-child {
+  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
+}
