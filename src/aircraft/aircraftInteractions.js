@@ -66,12 +66,13 @@ function buildPopupContent(stateVector) {
 }
 
 /**
- * Show popup for clicked aircraft
+ * Show popup for aircraft
  * @param {Feature} feature - Aircraft feature
  * @param {string} mapKey - 'main', 'left', or 'right'
- * @param {Array} coordinate - Click coordinate in EPSG:3857
+ * @param {Array} coordinate - Coordinate in EPSG:3857
+ * @param {boolean} pinned - Whether popup should be pinned
  */
-function showAircraftPopup(feature, mapKey, coordinate) {
+function showAircraftPopup(feature, mapKey, coordinate, pinned = false) {
   const map = mapKey === 'main' ? state.map : mapKey === 'left' ? state.leftMap : state.rightMap;
   if (!map) return;
 
@@ -93,6 +94,10 @@ function showAircraftPopup(feature, mapKey, coordinate) {
     }
   });
 
+  // Store pinned state on the overlay
+  popup.set('pinned', pinned);
+  popup.set('aircraftFeature', feature);
+
   map.addOverlay(popup);
   aircraftPopups[mapKey] = popup;
 
@@ -107,24 +112,74 @@ function showAircraftPopup(feature, mapKey, coordinate) {
 }
 
 /**
- * Setup click handlers for aircraft features
+ * Setup hover and click handlers for aircraft features
  */
 export function setupAircraftClickHandlers() {
   ['main', 'left', 'right'].forEach(key => {
     const map = key === 'main' ? state.map : key === 'left' ? state.leftMap : state.rightMap;
     if (!map) return;
 
-    map.on('click', (evt) => {
-      // Check if clicked feature is an aircraft
+    let hoveredFeature = null;
+
+    // Handle pointer move for hover preview
+    map.on('pointermove', (evt) => {
+      // Check if hovering over an aircraft
       const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f);
 
       if (feature && feature.get('isAircraft')) {
-        showAircraftPopup(feature, key, evt.coordinate);
+        // Only show popup if not already showing this feature or if it's not pinned
+        const currentPopup = aircraftPopups[key];
+        const shouldShow = !currentPopup ||
+                          !currentPopup.get('aircraftFeature') ||
+                          currentPopup.get('aircraftFeature') !== feature ||
+                          !currentPopup.get('pinned');
+
+        if (shouldShow) {
+          showAircraftPopup(feature, key, evt.coordinate, false);
+        }
+        hoveredFeature = feature;
+      } else if (hoveredFeature && (!feature || !feature.get('isAircraft'))) {
+        // Left the aircraft feature - close popup if not pinned
+        const currentPopup = aircraftPopups[key];
+        if (currentPopup && !currentPopup.get('pinned')) {
+          map.removeOverlay(currentPopup);
+          aircraftPopups[key] = null;
+        }
+        hoveredFeature = null;
+      }
+    });
+
+    // Handle pointer leave to close unpinned popups when leaving the map
+    map.getViewport().addEventListener('pointerleave', () => {
+      const currentPopup = aircraftPopups[key];
+      if (currentPopup && !currentPopup.get('pinned')) {
+        map.removeOverlay(currentPopup);
+        aircraftPopups[key] = null;
+      }
+      hoveredFeature = null;
+    });
+
+    // Handle click to pin popup
+    map.on('click', (evt) => {
+      const feature = map.forEachFeatureAtPixel(evt.pixel, (f) => f);
+
+      if (feature && feature.get('isAircraft')) {
+        // Pin the popup on click
+        showAircraftPopup(feature, key, evt.coordinate, true);
+        // Stop event from propagating to map click handler
+        evt.stopPropagation();
+      } else {
+        // Clicked outside - close pinned popup
+        const currentPopup = aircraftPopups[key];
+        if (currentPopup && currentPopup.get('pinned')) {
+          map.removeOverlay(currentPopup);
+          aircraftPopups[key] = null;
+        }
       }
     });
   });
 
-  console.log('[Aircraft] Click handlers installed');
+  console.log('[Aircraft] Hover and click handlers installed');
 }
 
 /**
