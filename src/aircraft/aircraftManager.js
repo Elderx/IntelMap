@@ -17,13 +17,25 @@ async function updateAircraftData() {
   // Check if we're in rate limit cooldown
   if (state.aircraftError && state.aircraftError.type === 'rate_limit') {
     const now = Date.now();
-    if (state.aircraftError.retryAfter && now < state.aircraftError.retryAfter) {
-      const remaining = Math.ceil((state.aircraftError.retryAfter - now) / 1000);
-      console.log(`[Aircraft] Rate limit cooldown. Retry in ${remaining}s`);
+    // Add 10-second safety buffer to avoid hitting rate limit again immediately
+    const bufferMs = 10000;
+    if (state.aircraftError.retryAfter && now < (state.aircraftError.retryAfter + bufferMs)) {
+      const remaining = Math.ceil((state.aircraftError.retryAfter + bufferMs - now) / 1000);
+      // Format remaining time in human-readable format
+      let timeStr = `${remaining}s`;
+      if (remaining > 60) {
+        const hours = Math.floor(remaining / 3600);
+        const minutes = Math.floor((remaining % 3600) / 60);
+        timeStr = `${hours}h ${minutes}m`;
+      } else if (remaining > 60) {
+        const minutes = Math.floor(remaining / 60);
+        timeStr = `${minutes}m`;
+      }
+      console.log(`[Aircraft] Rate limit cooldown. Retry in ${timeStr}`);
       return; // Skip this update cycle
     }
     // Cooldown expired, clear error and proceed
-    if (state.aircraftError.retryAfter && now >= state.aircraftError.retryAfter) {
+    if (state.aircraftError.retryAfter && now >= (state.aircraftError.retryAfter + bufferMs)) {
       console.log('[Aircraft] Rate limit cooldown expired. Resuming updates.');
       state.aircraftError = null;
     }
