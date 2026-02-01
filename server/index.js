@@ -5,6 +5,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
+const { getVesselHistory } = require('./routes/ais.js');
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/mmlmap';
@@ -663,6 +664,12 @@ app.delete('/api/osm-tiles', ensureAuth, async (req, res) => {
   } catch (e) {
     console.error(e); res.status(500).json({ error: 'db_error' });
   }
+});
+
+// AIS historical data
+app.get('/api/ais/history', (req, res) => {
+  req.pool = pool;
+  getVesselHistory(req, res);
 });
 
 app.listen(PORT, async () => {
