@@ -5,7 +5,7 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
-const { getVesselHistory } = require('./routes/ais.js');
+const { getVesselHistory, saveVesselPosition } = require('./routes/ais.js');
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/mmlmap';
@@ -670,6 +670,17 @@ app.delete('/api/osm-tiles', ensureAuth, async (req, res) => {
 app.get('/api/ais/history', (req, res) => {
   req.pool = pool;
   getVesselHistory(req, res);
+});
+
+// AIS save vessel position
+app.post('/api/ais/save', async (req, res) => {
+  try {
+    await saveVesselPosition(pool, req.body);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[AIS] Failed to save vessel position:', err);
+    res.status(500).json({ error: 'save_failed' });
+  }
 });
 
 app.listen(PORT, async () => {
