@@ -42,6 +42,10 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   const osmDataItem = createOsmDataAccordion();
   accordion.appendChild(osmDataItem);
 
+  // Aircraft Section
+  const aircraftItem = createAircraftAccordion();
+  accordion.appendChild(aircraftItem);
+
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
   accordion.appendChild(layerGroupsItem);
@@ -102,6 +106,10 @@ function createMapControlAccordion(mapKey) {
   // OSM Data Section
   const osmDataItem = createOsmDataAccordion();
   accordion.appendChild(osmDataItem);
+
+  // Aircraft Section
+  const aircraftItem = createAircraftAccordion();
+  accordion.appendChild(aircraftItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -339,6 +347,38 @@ function createOsmDataAccordion() {
   content.appendChild(dynamicSection);
 
   return createAccordionItem('📍 OSM Data', content, false);
+}
+
+/**
+ * Create Aircraft overlay accordion
+ */
+function createAircraftAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  const row = createCheckboxRow(
+    'Aircraft (OpenSky)',
+    state.aircraftEnabled,
+    async (checked) => {
+      state.aircraftEnabled = checked;
+      if (checked) {
+        const { startAircraftUpdates } = await import('../aircraft/aircraftManager.js');
+        startAircraftUpdates();
+        const { setupAircraftClickHandlers } = await import('../aircraft/aircraftInteractions.js');
+        setupAircraftClickHandlers();
+      } else {
+        const { cleanupAircraftInteractions } = await import('../aircraft/aircraftInteractions.js');
+        cleanupAircraftInteractions();
+        const { stopAircraftUpdates } = await import('../aircraft/aircraftManager.js');
+        stopAircraftUpdates();
+      }
+      updateHeaderActiveLayers();
+    },
+    'aircraft-enabled'
+  );
+
+  content.appendChild(row);
+  return createAccordionItem('✈️ Aircraft', content, false);
 }
 
 /**
