@@ -275,6 +275,13 @@ async function bootstrap() {
         import('./aircraft/aircraftInteractions.js').then(m => m.setupAircraftClickHandlers());
       }, 100);
     }
+    if (params.ais === '1') {
+      state.aisEnabled = true;
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./ais/aisManager.js').then(m => m.startAisUpdates());
+      }, 100);
+    }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;
