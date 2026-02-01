@@ -580,6 +580,7 @@ function createCheckboxRow(label, checked, onChange, id = null) {
   checkbox.checked = checked;
   // Add data attribute for identification
   if (id) {
+    checkbox.id = id;
     checkbox.dataset.layerId = id;
   }
   checkbox.addEventListener('change', (e) => {

@@ -3,14 +3,29 @@ import { test, expect } from '@playwright/test';
 test.describe('AIS Ships Overlay', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:8080');
+
+    // Handle authentication
+    const loginOverlay = page.locator('text=MML Map — Sign in');
+    await expect(loginOverlay).toBeVisible({ timeout: 10000 });
+    await page.fill('input[placeholder="Username"]', 'admin');
+    await page.fill('input[placeholder="Password"]', 'admin');
+    await page.click('button:has-text("Sign in")');
+    await expect(loginOverlay).toBeHidden();
+
+    // Wait for map to initialize
+    await page.waitForSelector('.ol-viewport');
   });
 
   test('toggle AIS overlay', async ({ page }) => {
     // Open base layer dropdown
-    await page.click('#layer-dropdown-btn');
+    await page.click('#layers-toggle');
+
+    // Expand AIS accordion
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
+    await accordionHeader.click();
 
     // Find and click AIS toggle
-    const aisToggle = page.locator('#ais-toggle');
+    const aisToggle = page.locator('#ais-enabled');
     await aisToggle.check();
 
     // Verify AIS layer is active
@@ -22,10 +37,10 @@ test.describe('AIS Ships Overlay', () => {
   });
 
   test('AIS accordion expands', async ({ page }) => {
-    await page.click('#layer-dropdown-btn');
+    await page.click('#layers-toggle');
 
     // Click AIS accordion header (not the toggle)
-    const accordionHeader = page.locator('.accordion-item').filter({ hasText: 'Ships (AIS)' });
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
     await accordionHeader.click();
 
     // Verify content is visible (interval control should be present)
@@ -33,10 +48,10 @@ test.describe('AIS Ships Overlay', () => {
   });
 
   test('adjust refresh interval', async ({ page }) => {
-    await page.click('#layer-dropdown-btn');
+    await page.click('#layers-toggle');
 
     // Expand AIS accordion
-    const accordionHeader = page.locator('.accordion-item').filter({ hasText: 'Ships (AIS)' });
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
     await accordionHeader.click();
 
     // Change interval to 60 seconds
@@ -50,8 +65,13 @@ test.describe('AIS Ships Overlay', () => {
 
   test('permalink encodes AIS state', async ({ page }) => {
     // Enable AIS
-    await page.click('#layer-dropdown-btn');
-    await page.check('#ais-toggle');
+    await page.click('#layers-toggle');
+
+    // Expand AIS accordion
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
+    await accordionHeader.click();
+
+    await page.check('#ais-enabled');
 
     // Wait a moment for URL to update
     await page.waitForTimeout(500);
@@ -69,15 +89,20 @@ test.describe('AIS Ships Overlay', () => {
     await page.waitForTimeout(1000);
 
     // Open dropdown and verify toggle is checked
-    await page.click('#layer-dropdown-btn');
-    const aisToggle = page.locator('#ais-toggle');
+    await page.click('#layers-toggle');
+    const aisToggle = page.locator('#ais-enabled');
     await expect(aisToggle).toBeChecked();
   });
 
   test('AIS displays in active layers panel', async ({ page }) => {
     // Enable AIS
-    await page.click('#layer-dropdown-btn');
-    await page.check('#ais-toggle');
+    await page.click('#layers-toggle');
+
+    // Expand AIS accordion
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: 'Ships (AIS)' });
+    await accordionHeader.click();
+
+    await page.check('#ais-enabled');
 
     // Open active layers panel
     await page.click('#active-layers-btn');
