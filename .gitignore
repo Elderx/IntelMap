@@ -111,3 +111,6 @@ test-results/
 
 # Git worktrees
 .worktrees/
+
+# Git worktrees
+.worktrees/
