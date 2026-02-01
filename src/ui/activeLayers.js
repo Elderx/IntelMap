@@ -262,6 +262,16 @@ export function updateActiveLayersPanel() {
         });
     }
 
+    // 6. AIS/Ships overlay
+    if (state.aisEnabled) {
+        const count = state.aisFeatures.length;
+        const title = `🚢 Ships (${count})${state.aisError ? ' ⚠️' : ''}`;
+        addRow(title, '#2196F3', async () => {
+            const { stopAisUpdates } = await import('../ais/aisManager.js');
+            stopAisUpdates();
+        });
+    }
+
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
 
     // Refresh dynamic OSM features in header dropdown
