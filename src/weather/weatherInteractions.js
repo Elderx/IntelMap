@@ -4,7 +4,7 @@
  */
 
 import { state } from '../state/store.js';
-import { Overlay } from 'ol/Overlay.js';
+import Overlay from 'ol/Overlay.js';
 
 let hoverPopup = null;
 let pinnedPopup = null;

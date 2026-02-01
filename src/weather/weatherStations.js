@@ -3,8 +3,8 @@
  * Fetches observation data from FMI WFS API
  */
 
-import { Feature } from 'ol/Feature.js';
-import { Point } from 'ol/geom.js';
+import Feature from 'ol/Feature.js';
+import Point from 'ol/geom/Point.js';
 import { Style, Circle, Fill, Stroke, Text } from 'ol/style.js';
 import { fromLonLat } from 'ol/proj.js';
 import { FMI_CONFIG } from '../config/constants.js';
