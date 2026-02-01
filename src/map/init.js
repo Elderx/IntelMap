@@ -5,6 +5,7 @@ import { fromLonLat } from 'ol/proj';
 import { hardcodedLayers, capsUrl, mapboxAccessToken } from '../config/constants.js';
 import { state } from '../state/store.js';
 import { createTileLayerFromList } from './layers.js';
+import { setupAisInteractions } from '../ais/aisInteractions.js';
 
 export async function loadCapabilities() {
   const parser = new WMTSCapabilities();
@@ -24,12 +25,20 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
     view: new View({ center: initialCenter, zoom: initialZoom }),
     controls: []
   });
+
+  // Setup AIS interactions (will be active when AIS is enabled)
+  setupAisInteractions(state.map, 'main');
+
   return state.map;
 }
 
 export function createSplitMaps(result, center, zoom, rotation) {
   state.leftMap = new Map({ target: 'map-left', layers: [createTileLayerFromList(result, state.leftLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
   state.rightMap = new Map({ target: 'map-right', layers: [createTileLayerFromList(result, state.rightLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
+
+  // Setup AIS interactions
+  setupAisInteractions(state.leftMap, 'left');
+  setupAisInteractions(state.rightMap, 'right');
 }
 
 export function parseInitialFromParams(params) {
