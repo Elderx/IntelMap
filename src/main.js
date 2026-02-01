@@ -257,6 +257,14 @@ async function bootstrap() {
       updateAllOverlays();
       updateOsmDynamicLayers();
     }
+    if (params.aircraft === '1') {
+      state.aircraftEnabled = true;
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./aircraft/aircraftManager.js').then(m => m.startAircraftUpdates());
+        import('./aircraft/aircraftInteractions.js').then(m => m.setupAircraftClickHandlers());
+      }, 100);
+    }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;

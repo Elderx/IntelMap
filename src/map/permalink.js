@@ -45,6 +45,10 @@ export function updatePermalinkWithFeatures() {
   if (state.activeLayerGroupIds && state.activeLayerGroupIds.length > 0) {
     groupsStr = `&groups=${state.activeLayerGroupIds.join(';')}`;
   }
+  let aircraftStr = '';
+  if (state.aircraftEnabled) {
+    aircraftStr = `&aircraft=1`;
+  }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();
   const center = view.getCenter();
@@ -54,7 +58,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr;
   window.history.replaceState({}, '', params);
 }
 
