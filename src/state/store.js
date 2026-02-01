@@ -124,6 +124,15 @@ export const state = {
   aircraftLastUpdate: null,          // Timestamp of last successful fetch
   aircraftError: null,               // { type, message, time }
   aircraftRefreshInterval: 11,       // User-configured interval (seconds)
+
+  // AIS/Ships overlay state
+  aisEnabled: false,
+  aisUpdateInterval: null,
+  aisRefreshInterval: 30,            // Default 30 seconds
+  aisLayer: { main: null, left: null, right: null },
+  aisFeatures: [],
+  aisError: null,
+  aisLastUpdate: null,
 };
 
 
