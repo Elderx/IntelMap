@@ -292,6 +292,17 @@ async function bootstrap() {
         import('./ais/aisManager.js').then(m => m.startAisUpdates());
       }, 100);
     }
+    if (params.weather === '1') {
+      state.weatherEnabled = true;
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());
+      }, 100);
+    }
+    // Parse weatherLayers parameter
+    if (params.weatherLayers) {
+      state.weatherActiveWmsLayers = params.weatherLayers.split(',').filter(Boolean);
+    }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;
