@@ -5,7 +5,7 @@
 
 import { Vector as VectorLayer } from 'ol/layer.js';
 import { Vector as VectorSource } from 'ol/source.js';
-import { Feature } from 'ol/Feature.js';
+import Feature from 'ol/Feature.js';
 import { Point, LineString } from 'ol/geom.js';
 import { Style, Icon, Fill, Stroke, Circle as CircleStyle, Text } from 'ol/style.js';
 import { fromLonLat } from 'ol/proj.js';
