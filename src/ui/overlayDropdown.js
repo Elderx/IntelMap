@@ -146,6 +146,13 @@ export function createOverlayDropdown(mapKey, selected, onChange, overlayList, l
   return { container, dropdownButton, dropdownPanel };
 }
 
+const AIRCRAFT_OVERLAY = {
+  id: 'aircraft',
+  name: 'Aircraft (OpenSky)',
+  type: 'aircraft',
+  enabled: false
+};
+
 export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
   const digiroad = createOverlayDropdown(mapKey, state.digiroadOverlayLayers, function (newSelected) {
     state.digiroadOverlayLayers = newSelected;
@@ -169,7 +176,23 @@ export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
     updatePermalinkWithFeatures();
   }, osmList, 'OSM Data', { isAccordion: true });
 
-  return [digiroad, generic, osm];
+  // Aircraft overlay dropdown
+  const aircraftSelected = state.aircraftEnabled ? ['aircraft'] : [];
+  const aircraftList = [{ name: 'aircraft', title: 'Aircraft (OpenSky)', type: 'aircraft' }];
+  const aircraft = createOverlayDropdown(mapKey, aircraftSelected, function (newSelected) {
+    const enabled = newSelected.includes('aircraft');
+    if (enabled) {
+      import('../aircraft/aircraftManager.js').then(m => m.startAircraftUpdates());
+      import('../aircraft/aircraftInteractions.js').then(m => m.setupAircraftClickHandlers());
+    } else {
+      import('../aircraft/aircraftInteractions.js').then(m => m.cleanupAircraftInteractions());
+      import('../aircraft/aircraftManager.js').then(m => m.stopAircraftUpdates());
+    }
+    state.aircraftEnabled = enabled;
+    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+  }, aircraftList, 'Live Aircraft', { isAccordion: true });
+
+  return [digiroad, generic, osm, aircraft];
 }
 
 export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
