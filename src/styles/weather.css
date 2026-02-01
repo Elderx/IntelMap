@@ -1,0 +1,44 @@
+/* Weather Popup Styles */
+
+.weather-popup {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 13px;
+  pointer-events: none;
+  user-select: none;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+
+.weather-popup.pinned {
+  pointer-events: auto;
+  max-width: 300px;
+}
+
+.weather-popup .popup-close {
+  position: absolute;
+  top: 5px;
+  right: 8px;
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+  color: #666;
+}
+
+.weather-popup .popup-close:hover {
+  color: #000;
+}
+
+.weather-popup strong {
+  font-weight: 600;
+  color: #333;
+}
+
+.weather-popup .text-muted {
+  color: #666;
+  font-weight: normal;
+}
