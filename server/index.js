@@ -53,6 +53,35 @@ async function initDb() {
     );
   `);
 
+  // Vessel positions for AIS historical tracking
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS vessel_positions (
+      id BIGSERIAL PRIMARY KEY,
+      mmsi VARCHAR(9) NOT NULL,
+      timestamp BIGINT NOT NULL,
+      geom GEOMETRY(POINT, 4326) NOT NULL,
+      speed REAL,
+      course REAL,
+      navigation_status VARCHAR(50),
+      raw_data JSONB,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `);
+
+  // Create indexes for vessel_positions
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_vessel_positions_mmsi_time
+      ON vessel_positions (mmsi, timestamp DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_vessel_positions_time
+      ON vessel_positions (timestamp DESC)
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_vessel_positions_geom
+      ON vessel_positions USING GIST (geom)
+  `);
+
   // Backfill schema for existing deployments
   await pool.query(`
   DO $$ BEGIN
