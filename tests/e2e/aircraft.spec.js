@@ -3,6 +3,16 @@ import { test, expect } from '@playwright/test';
 test.describe('Aircraft Overlay', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('http://localhost:8080');
+
+    // Handle authentication
+    const loginOverlay = page.locator('text=MML Map — Sign in');
+    await expect(loginOverlay).toBeVisible({ timeout: 10000 });
+    await page.fill('input[placeholder="Username"]', 'admin');
+    await page.fill('input[placeholder="Password"]', 'admin');
+    await page.click('button:has-text("Sign in")');
+    await expect(loginOverlay).toBeHidden();
+
+    // Wait for map to initialize
     await page.waitForSelector('.ol-viewport');
   });
 
