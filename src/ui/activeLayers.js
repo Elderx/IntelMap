@@ -272,6 +272,15 @@ export function updateActiveLayersPanel() {
         });
     }
 
+    // 7. Weather overlay
+    if (state.weatherEnabled && state.weatherStationFeatures.length > 0) {
+        const stationCount = state.weatherStationFeatures.length;
+        addRow(`🌤️ Weather (${stationCount})`, '#FF9800', async () => {
+            const { stopWeatherUpdates } = await import('../weather/weatherManager.js');
+            stopWeatherUpdates();
+        });
+    }
+
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
 
     // Refresh dynamic OSM features in header dropdown
