@@ -84,4 +84,36 @@ export const AISSTREAM_CONFIG = {
   reconnectDelay: 5000
 };
 
+// FMI (Finnish Meteorological Institute) API configuration
+export const FMI_CONFIG = {
+  // WMS Service (pre-rendered weather maps)
+  wmsBaseUrl: 'https://openwms.fmi.fi/geoserver/wms',
+  wmsVersion: '1.3.0',
+  wmsFormat: 'image/png',
+  wmsTransparent: true,
+
+  // WFS Service (weather station observations)
+  wfsBaseUrl: 'https://opendata.fmi.fi/wfs',
+  storedQueryId: 'fmi::observations::weather::simple',
+
+  // Layer names for WMS
+  layers: {
+    temperature: 'flash:temperature',
+    wind: 'flash:windspeed',
+    precipitation: 'flash:precipitation'
+  },
+
+  // Polling interval (10 minutes)
+  pollingIntervalMs: 600000,
+  pollingIntervalSec: 600,
+
+  // Z-index for layer stacking
+  zIndex: {
+    temperature: 55,
+    wind: 56,
+    precipitation: 57,
+    stations: 106
+  }
+};
+
 
