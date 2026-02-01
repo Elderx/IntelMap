@@ -115,6 +115,15 @@ export const state = {
 
   // Theme preference
   theme: 'light', // 'light' | 'dark'
+
+  // Aircraft overlay state
+  aircraftLayer: { main: null, left: null, right: null },
+  aircraftFeatures: [],              // Latest OpenSky state vectors
+  aircraftUpdateInterval: null,      // setInterval reference
+  aircraftEnabled: false,            // Master toggle
+  aircraftLastUpdate: null,          // Timestamp of last successful fetch
+  aircraftError: null,               // { type, message, time }
+  aircraftRefreshInterval: 11,       // User-configured interval (seconds)
 };
 
 
