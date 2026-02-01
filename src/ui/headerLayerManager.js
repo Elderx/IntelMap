@@ -14,6 +14,10 @@ import { toggleLayerGroup } from './layerGroupMenu.js';
 import { startAisUpdates, stopAisUpdates, setUpdateInterval as setAisUpdateInterval } from '../ais/aisManager.js';
 import '../styles/ais.css';
 
+// Weather imports
+import { startWeatherUpdates, stopWeatherUpdates, toggleWmsLayer } from '../weather/weatherManager.js';
+import '../styles/weather.css';
+
 /**
  * Mount the header layer manager for single map mode
  */
@@ -53,6 +57,10 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   // AIS Section
   const aisItem = createAisAccordion();
   accordion.appendChild(aisItem);
+
+  // Weather Section
+  const weatherItem = createWeatherAccordion();
+  accordion.appendChild(weatherItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -122,6 +130,10 @@ function createMapControlAccordion(mapKey) {
   // AIS Section
   const aisItem = createAisAccordion();
   accordion.appendChild(aisItem);
+
+  // Weather Section
+  const weatherItem = createWeatherAccordion();
+  accordion.appendChild(weatherItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -483,6 +495,79 @@ function createAisAccordion() {
   content.appendChild(historyDiv);
 
   return createAccordionItem('🚢 Ships', content, false);
+}
+
+/**
+ * Create weather overlay accordion
+ * @returns {HTMLElement} Accordion element
+ */
+function createWeatherAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  // Main enable/disable toggle
+  const mainRow = createCheckboxRow(
+    '🌤️ Weather',
+    state.weatherEnabled,
+    async (checked) => {
+      state.weatherEnabled = checked;
+      if (checked) {
+        startWeatherUpdates();
+      } else {
+        stopWeatherUpdates();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+
+      // Show/hide WMS layer toggles
+      const wmsToggles = content.querySelector('.weather-wms-toggles');
+      if (wmsToggles) {
+        wmsToggles.style.display = checked ? 'block' : 'none';
+      }
+    },
+    'weather-enabled'
+  );
+
+  content.appendChild(mainRow);
+
+  // WMS layer toggles
+  const wmsToggles = document.createElement('div');
+  wmsToggles.className = 'weather-wms-toggles';
+  wmsToggles.style.marginTop = '8px';
+  wmsToggles.style.paddingTop = '8px';
+  wmsToggles.style.borderTop = '1px solid #eee';
+  wmsToggles.style.display = state.weatherEnabled ? 'block' : 'none';
+
+  // Temperature layer
+  const tempRow = createCheckboxRow(
+    'Temperature',
+    state.weatherActiveWmsLayers.includes('temperature'),
+    (checked) => toggleWmsLayer('temperature', checked),
+    'weather-temperature'
+  );
+  wmsToggles.appendChild(tempRow);
+
+  // Wind layer
+  const windRow = createCheckboxRow(
+    'Wind',
+    state.weatherActiveWmsLayers.includes('wind'),
+    (checked) => toggleWmsLayer('wind', checked),
+    'weather-wind'
+  );
+  wmsToggles.appendChild(windRow);
+
+  // Precipitation layer
+  const precipRow = createCheckboxRow(
+    'Precipitation',
+    state.weatherActiveWmsLayers.includes('precipitation'),
+    (checked) => toggleWmsLayer('precipitation', checked),
+    'weather-precipitation'
+  );
+  wmsToggles.appendChild(precipRow);
+
+  content.appendChild(wmsToggles);
+
+  return createAccordionItem('🌤️ Weather', content, false);
 }
 
 /**
