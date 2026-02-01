@@ -14,6 +14,21 @@ import { createAircraftLayer, stateToFeature } from './aircraftLayer.js';
 async function updateAircraftData() {
   if (!state.aircraftEnabled) return;
 
+  // Check if we're in rate limit cooldown
+  if (state.aircraftError && state.aircraftError.type === 'rate_limit') {
+    const now = Date.now();
+    if (state.aircraftError.retryAfter && now < state.aircraftError.retryAfter) {
+      const remaining = Math.ceil((state.aircraftError.retryAfter - now) / 1000);
+      console.log(`[Aircraft] Rate limit cooldown. Retry in ${remaining}s`);
+      return; // Skip this update cycle
+    }
+    // Cooldown expired, clear error and proceed
+    if (state.aircraftError.retryAfter && now >= state.aircraftError.retryAfter) {
+      console.log('[Aircraft] Rate limit cooldown expired. Resuming updates.');
+      state.aircraftError = null;
+    }
+  }
+
   // Determine which map's extent to use
   let map;
   if (state.isSplit) {

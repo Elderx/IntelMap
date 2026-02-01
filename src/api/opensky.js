@@ -48,12 +48,16 @@ export async function fetchAircraftStates(bbox) {
 
     // Handle rate limiting
     if (response.status === 429) {
+      const retryAfter = response.headers.get('X-Rate-Limit-Retry-After-Seconds');
+      const retryAfterSeconds = retryAfter ? parseInt(retryAfter, 10) : 60; // Default 60s if header missing
+
       state.aircraftError = {
         type: 'rate_limit',
-        message: 'OpenSky rate limit exceeded. Try again later.',
-        time: Date.now()
+        message: `OpenSky rate limit exceeded. Retry in ${retryAfterSeconds} seconds.`,
+        time: Date.now(),
+        retryAfter: Date.now() + (retryAfterSeconds * 1000) // Store when we can retry
       };
-      console.warn('[OpenSky] Rate limit exceeded');
+      console.warn(`[OpenSky] Rate limit exceeded. Retry after ${retryAfterSeconds} seconds`);
       return null;
     }
 
