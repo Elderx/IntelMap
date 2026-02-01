@@ -43,6 +43,16 @@ async function bootstrap() {
     console.warn('Failed to load aircraft interval preference:', e);
   }
 
+  // Load AIS refresh interval preference
+  try {
+    const savedInterval = localStorage.getItem('intelmap_ais_interval');
+    if (savedInterval) {
+      state.aisRefreshInterval = parseInt(savedInterval, 10);
+    }
+  } catch (e) {
+    console.warn('Failed to load AIS interval preference:', e);
+  }
+
   // Pre-fetch layer groups so they are available for restoration
   const { fetchLayerGroups } = await import('./api/client.js');
   state.layerGroups = await fetchLayerGroups() || [];
