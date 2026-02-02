@@ -39,6 +39,10 @@ test.describe('Weather Overlay', () => {
   test('WMS layers toggle independently', async ({ page }) => {
     await page.click('#layers-toggle');
 
+    // Expand weather accordion
+    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: '🌤️ Weather' }).locator('.header-accordion-header');
+    await accordionHeader.click();
+
     // Enable weather first
     const weatherToggle = page.locator('#weather-enabled');
     await weatherToggle.check();

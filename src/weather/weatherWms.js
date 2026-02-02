@@ -22,7 +22,7 @@ export function createWeatherWmsLayer(layerType) {
 
   return new TileLayer({
     source: new TileWMS({
-      url: FMI_CONFIG.wmsBaseUrl,
+      url: FMI_CONFIG.wmsUrl,
       params: {
         'LAYERS': layerName,
         'TILED': true,

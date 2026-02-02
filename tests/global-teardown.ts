@@ -8,7 +8,7 @@ export default async () => {
   console.log('[Global Teardown] Starting test data cleanup...');
 
   const context = await request.newContext({
-    baseURL: 'http://localhost:5173',
+    baseURL: 'http://localhost:3000',
   });
 
   try {
