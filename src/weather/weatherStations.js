@@ -67,7 +67,7 @@ export async function fetchWeatherStations(bbox) {
     request: 'getFeature',
     storedquery_id: 'fmi::observations::weather::simple',
     bbox: `${minLon},${minLat},${maxLon},${maxLat}`,
-    parameters: 't2m,ws_10min,wd_10min,r_1h',
+    parameters: 't2m,ws_10min,wd_10min,r_1h,rh,snow_aws,p_sea',
     starttime: twentyMinsAgo,
     crs: 'EPSG:4326'
   });
@@ -127,6 +127,10 @@ function parseFmiXml(xmlText) {
     // Create unique key for this location
     const locationKey = `${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
 
+    // Extract observation time
+    const timeElem = bsWfsElem.getElementsByTagName('BsWfs:Time')[0];
+    const observationTime = timeElem?.textContent ? new Date(timeElem.textContent) : new Date();
+
     // Extract parameter and value
     const paramName = bsWfsElem.getElementsByTagName('BsWfs:ParameterName')[0]?.textContent;
     const paramValue = bsWfsElem.getElementsByTagName('BsWfs:ParameterValue')[0]?.textContent;
@@ -137,19 +141,27 @@ function parseFmiXml(xmlText) {
     const value = parseFloat(paramValue);
     if (isNaN(value)) continue;
 
-    // Initialize station if not exists
-    if (!stationMap.has(locationKey)) {
-      stationMap.set(locationKey, {
-        location: [longitude, latitude], // lon, lat order for OpenLayers
-        temperature: null,
-        windSpeed: null,
-        windDirection: null,
-        precipitation: null,
-        timestamp: new Date().toISOString()
-      });
+    // Initialize or update station, keeping only the most recent observation
+    if (!stationMap.has(locationKey) || observationTime > stationMap.get(locationKey).timestamp) {
+      if (!stationMap.has(locationKey)) {
+        stationMap.set(locationKey, {
+          location: [longitude, latitude], // lon, lat order for OpenLayers
+          temperature: null,
+          windSpeed: null,
+          windDirection: null,
+          precipitation: null,
+          humidity: null,
+          snowDepth: null,
+          pressure: null,
+          timestamp: observationTime
+        });
+      } else {
+        // Update timestamp for existing station
+        stationMap.get(locationKey).timestamp = observationTime;
+      }
     }
 
-    // Assign value to correct parameter
+    // Assign value to correct parameter (always update from most recent observation)
     const station = stationMap.get(locationKey);
     if (paramName === 't2m') {
       station.temperature = value;
@@ -159,6 +171,12 @@ function parseFmiXml(xmlText) {
       station.windDirection = value;
     } else if (paramName === 'r_1h') {
       station.precipitation = value;
+    } else if (paramName === 'rh') {
+      station.humidity = value;
+    } else if (paramName === 'snow_aws') {
+      station.snowDepth = value;
+    } else if (paramName === 'p_sea') {
+      station.pressure = value;
     }
   }
 
@@ -176,7 +194,7 @@ function parseFmiXml(xmlText) {
  * @returns {Feature|null} OpenLayers Feature or null if invalid
  */
 export function stationToFeature(station) {
-  const { location, temperature, windSpeed, windDirection, precipitation, name, stationId } = station;
+  const { location, temperature, windSpeed, windDirection, precipitation, humidity, snowDepth, pressure, name, stationId } = station;
 
   if (!location || location.length !== 2) return null;
 
@@ -189,7 +207,10 @@ export function stationToFeature(station) {
     temperature: temperature ?? null,
     windSpeed: windSpeed ?? null,
     windDirection: windDirection ?? null,
-    precipitation: precipitation ?? null
+    precipitation: precipitation ?? null,
+    humidity: humidity ?? null,
+    snowDepth: snowDepth ?? null,
+    pressure: pressure ?? null
   });
 
   // Set style based on current state
@@ -205,9 +226,12 @@ export function stationToFeature(station) {
  * @param {number|null} windSpeed - Wind speed in m/s
  * @param {number|null} windDirection - Wind direction in degrees (0-360, where 0=N)
  */
-function setFeatureStyle(feature, temperature, windSpeed, windDirection) {
+function setFeatureStyle(feature, temperature, windSpeed, windDirection, humidity, snowDepth, pressure) {
   const showTemp = state.weatherShowTemperature;
   const showWind = state.weatherShowWind;
+  const showHumidity = state.weatherShowHumidity;
+  const showSnowDepth = state.weatherShowSnowDepth;
+  const showPressure = state.weatherShowPressure;
   const showCircles = state.weatherCirclesVisible;
   const textSize = state.weatherTextSize;
 
@@ -217,12 +241,15 @@ function setFeatureStyle(feature, temperature, windSpeed, windDirection) {
   let textLines = [];
   let offsetY = 0;
   const arrowSize = state.weatherArrowSize;
+  let lineCount = 0;
 
   // Wind arrow (if showing wind)
   if (showWind && windSpeed !== null) {
     const arrowColor = getWindSpeedColor(windSpeed);
+    // Wind direction is where wind comes FROM, but arrow points where it's going TO
+    // So we add 180° to flip the direction
     const rotation = windDirection !== null
-      ? (windDirection * Math.PI) / 180
+      ? ((windDirection + 180) * Math.PI) / 180
       : 0;
 
     styleConfig.image = new Icon({
@@ -232,20 +259,53 @@ function setFeatureStyle(feature, temperature, windSpeed, windDirection) {
     });
 
     // Add wind speed text with "m/s" unit
-    textLines.push(`${Math.round(windSpeed)} m/s`);
+    textLines.push(`${windSpeed.toFixed(1)} m/s`);
     offsetY = arrowSize + textSize / 2;
+    lineCount++;
   }
 
   // Temperature text (if showing temperature)
   if (showTemp && temperature !== null) {
-    textLines.push(Math.round(temperature).toString() + '°');
-    if (!showWind) {
-      // Only temperature, no offset needed
-      offsetY = 0;
+    textLines.push(temperature.toFixed(1) + '°');
+    if (lineCount === 0) {
+      offsetY = 0; // First line
     } else {
-      // Both wind and temperature - push temperature below wind speed
-      offsetY = arrowSize + textSize * 2;
+      offsetY = arrowSize + textSize * (lineCount + 1) / 2; // Below arrow
     }
+    lineCount++;
+  }
+
+  // Humidity text (if showing humidity)
+  if (showHumidity && humidity !== null) {
+    textLines.push(`${humidity.toFixed(1)}% RH`);
+    if (lineCount === 0) {
+      offsetY = 0; // First line
+    } else {
+      offsetY = arrowSize + textSize * (lineCount + 1) / 2; // Below previous
+    }
+    lineCount++;
+  }
+
+  // Snow depth text (if showing snow depth)
+  if (showSnowDepth && snowDepth !== null) {
+    textLines.push(`${snowDepth.toFixed(1)} cm`);
+    if (lineCount === 0) {
+      offsetY = 0; // First line
+    } else {
+      offsetY = arrowSize + textSize * (lineCount + 1) / 2; // Below previous
+    }
+    lineCount++;
+  }
+
+  // Pressure text (if showing pressure)
+  if (showPressure && pressure !== null) {
+    textLines.push(`${pressure.toFixed(1)} hPa`);
+    if (lineCount === 0) {
+      offsetY = 0; // First line
+    } else {
+      offsetY = arrowSize + textSize * (lineCount + 1) / 2; // Below previous
+    }
+    lineCount++;
   }
 
   // Apply text if we have any
@@ -282,12 +342,18 @@ export function updateWeatherStationStyles() {
     const temperature = feature.get('temperature');
     const windSpeed = feature.get('windSpeed');
     const windDirection = feature.get('windDirection');
-    setFeatureStyle(feature, temperature, windSpeed, windDirection);
+    const humidity = feature.get('humidity');
+    const snowDepth = feature.get('snowDepth');
+    const pressure = feature.get('pressure');
+    setFeatureStyle(feature, temperature, windSpeed, windDirection, humidity, snowDepth, pressure);
   });
 
   const showTemp = state.weatherShowTemperature ? 'temp' : '';
   const showWind = state.weatherShowWind ? 'wind' : '';
-  console.log(`[Weather] Updated styles for ${state.weatherStationFeatures.length} stations (showing: ${showTemp} ${showWind})`);
+  const showHumidity = state.weatherShowHumidity ? 'humidity' : '';
+  const showSnowDepth = state.weatherShowSnowDepth ? 'snow' : '';
+  const showPressure = state.weatherShowPressure ? 'pressure' : '';
+  console.log(`[Weather] Updated styles for ${state.weatherStationFeatures.length} stations (showing: ${showTemp} ${showWind} ${showHumidity} ${showSnowDepth} ${showPressure})`);
 }
 
 /**

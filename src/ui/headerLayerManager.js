@@ -574,6 +574,48 @@ function createWeatherAccordion() {
   );
   displayModeDiv.appendChild(windRow);
 
+  // Humidity checkbox
+  const humidityRow = createCheckboxRow(
+    'Humidity',
+    state.weatherShowHumidity,
+    async (checked) => {
+      state.weatherShowHumidity = checked;
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-show-humidity'
+  );
+  displayModeDiv.appendChild(humidityRow);
+
+  // Snow depth checkbox
+  const snowRow = createCheckboxRow(
+    'Snow depth',
+    state.weatherShowSnowDepth,
+    async (checked) => {
+      state.weatherShowSnowDepth = checked;
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-show-snow'
+  );
+  displayModeDiv.appendChild(snowRow);
+
+  // Pressure checkbox
+  const pressureRow = createCheckboxRow(
+    'Pressure',
+    state.weatherShowPressure,
+    async (checked) => {
+      state.weatherShowPressure = checked;
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-show-pressure'
+  );
+  displayModeDiv.appendChild(pressureRow);
+
   content.appendChild(displayModeDiv);
 
   // Arrow size control (always visible now since wind can be on with temperature)

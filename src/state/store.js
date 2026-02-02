@@ -138,6 +138,9 @@ export const state = {
   weatherEnabled: false,
   weatherShowTemperature: true, // Show temperature
   weatherShowWind: false, // Show wind (speed + direction)
+  weatherShowHumidity: false, // Show relative humidity
+  weatherShowSnowDepth: false, // Show snow depth
+  weatherShowPressure: false, // Show sea level pressure
   weatherCirclesVisible: false, // Show/hide colored circles (text always visible)
   weatherTextSize: 10, // Font size for labels in pixels
   weatherArrowSize: 20, // Arrow size in pixels (wind mode)
