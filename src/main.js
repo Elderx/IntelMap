@@ -132,6 +132,10 @@ async function bootstrap() {
     copyDrawnFeatures('main', 'right', state.map, state.rightMap);
     clearDrawnFeatures('main', state.map);
     updateOsmDynamicLayers(); // Sync dynamic layers to split maps
+    // Sync weather station layers to split maps
+    import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
+      rebuildWeatherLayers();
+    });
   }
 
   function deactivateSplitScreen() {
@@ -151,6 +155,10 @@ async function bootstrap() {
     copyDrawnFeatures('left', 'main', state.leftMap, state.map);
     clearDrawnFeatures('left', state.leftMap);
     clearDrawnFeatures('right', state.rightMap);
+    // Sync weather station layers to single map
+    import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
+      rebuildWeatherLayers();
+    });
   }
 
   const _activateSplitScreen = activateSplitScreen;
@@ -294,6 +302,15 @@ async function bootstrap() {
     }
     if (params.weather === '1') {
       state.weatherEnabled = true;
+      // Parse display options (default to temperature if none specified)
+      state.weatherShowTemperature = params.showTemp !== '0'; // Default true
+      state.weatherShowWind = params.showWind === '1'; // Default false
+
+      // If both showTemp and showWind are explicitly set to 0, disable both
+      if (params.showTemp === '0' && params.showWind === '0') {
+        state.weatherShowTemperature = false;
+      }
+
       // Defer until maps are ready
       setTimeout(() => {
         import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());

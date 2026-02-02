@@ -5,10 +5,49 @@
 
 import Feature from 'ol/Feature.js';
 import Point from 'ol/geom/Point.js';
-import { Style, Circle, Fill, Stroke, Text } from 'ol/style.js';
+import { Style, Circle, Fill, Stroke, Text, Icon } from 'ol/style.js';
 import { fromLonLat } from 'ol/proj.js';
 import { FMI_CONFIG } from '../config/constants.js';
 import { state } from '../state/store.js';
+
+/**
+ * Create an arrow icon on canvas
+ * @param {string} color - Fill color
+ * @param {number} size - Arrow size in pixels
+ * @returns {string} Data URL of the arrow image
+ */
+function createArrowIcon(color, size) {
+  const canvas = document.createElement('canvas');
+  const canvasSize = size * 2;
+  canvas.width = canvasSize;
+  canvas.height = canvasSize;
+  const ctx = canvas.getContext('2d');
+
+  // Center of canvas
+  const cx = canvasSize / 2;
+  const cy = canvasSize / 2;
+
+  // Arrow pointing up (north)
+  ctx.beginPath();
+  ctx.moveTo(cx, cy - size); // Tip
+  ctx.lineTo(cx - size * 0.6, cy + size * 0.6); // Left corner
+  ctx.lineTo(cx - size * 0.3, cy + size * 0.3); // Inner left
+  ctx.lineTo(cx, cy + size * 0.8); // Bottom center (notch)
+  ctx.lineTo(cx + size * 0.3, cy + size * 0.3); // Inner right
+  ctx.lineTo(cx + size * 0.6, cy + size * 0.6); // Right corner
+  ctx.closePath();
+
+  // Fill
+  ctx.fillStyle = color;
+  ctx.fill();
+
+  // Stroke
+  ctx.strokeStyle = '#000';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  return canvas.toDataURL();
+}
 
 /**
  * Fetch weather station observations from FMI WFS
@@ -28,7 +67,7 @@ export async function fetchWeatherStations(bbox) {
     request: 'getFeature',
     storedquery_id: 'fmi::observations::weather::simple',
     bbox: `${minLon},${minLat},${maxLon},${maxLat}`,
-    parameters: 't2m,ws_10min,r_1h',
+    parameters: 't2m,ws_10min,wd_10min,r_1h',
     starttime: twentyMinsAgo,
     crs: 'EPSG:4326'
   });
@@ -104,6 +143,7 @@ function parseFmiXml(xmlText) {
         location: [longitude, latitude], // lon, lat order for OpenLayers
         temperature: null,
         windSpeed: null,
+        windDirection: null,
         precipitation: null,
         timestamp: new Date().toISOString()
       });
@@ -115,6 +155,8 @@ function parseFmiXml(xmlText) {
       station.temperature = value;
     } else if (paramName === 'ws_10min') {
       station.windSpeed = value;
+    } else if (paramName === 'wd_10min') {
+      station.windDirection = value;
     } else if (paramName === 'r_1h') {
       station.precipitation = value;
     }
@@ -134,7 +176,7 @@ function parseFmiXml(xmlText) {
  * @returns {Feature|null} OpenLayers Feature or null if invalid
  */
 export function stationToFeature(station) {
-  const { location, temperature, windSpeed, precipitation, name, stationId } = station;
+  const { location, temperature, windSpeed, windDirection, precipitation, name, stationId } = station;
 
   if (!location || location.length !== 2) return null;
 
@@ -146,11 +188,12 @@ export function stationToFeature(station) {
     name,
     temperature: temperature ?? null,
     windSpeed: windSpeed ?? null,
+    windDirection: windDirection ?? null,
     precipitation: precipitation ?? null
   });
 
   // Set style based on current state
-  setFeatureStyle(feature, temperature);
+  setFeatureStyle(feature, temperature, windSpeed, windDirection);
 
   return feature;
 }
@@ -159,25 +202,68 @@ export function stationToFeature(station) {
  * Set style for a weather station feature
  * @param {Feature} feature - OpenLayers Feature
  * @param {number|null} temperature - Temperature in Celsius
+ * @param {number|null} windSpeed - Wind speed in m/s
+ * @param {number|null} windDirection - Wind direction in degrees (0-360, where 0=N)
  */
-function setFeatureStyle(feature, temperature) {
+function setFeatureStyle(feature, temperature, windSpeed, windDirection) {
+  const showTemp = state.weatherShowTemperature;
+  const showWind = state.weatherShowWind;
   const showCircles = state.weatherCirclesVisible;
   const textSize = state.weatherTextSize;
 
-  const styleConfig = {
-    text: temperature !== null ? new Text({
-      text: Math.round(temperature).toString() + '°',
-      font: `${textSize}px sans-serif`,
-      fill: new Fill({ color: '#fff' }),
-      stroke: new Stroke({ color: '#000', width: 2 })
-    }) : undefined
-  };
+  const styleConfig = {};
 
-  // Only add circle image if toggle is enabled
-  if (showCircles) {
+  // Build text based on what's displayed
+  let textLines = [];
+  let offsetY = 0;
+  const arrowSize = state.weatherArrowSize;
+
+  // Wind arrow (if showing wind)
+  if (showWind && windSpeed !== null) {
+    const arrowColor = getWindSpeedColor(windSpeed);
+    const rotation = windDirection !== null
+      ? (windDirection * Math.PI) / 180
+      : 0;
+
+    styleConfig.image = new Icon({
+      src: createArrowIcon(arrowColor, arrowSize),
+      anchor: [0.5, 0.5],
+      rotation: rotation
+    });
+
+    // Add wind speed text with "m/s" unit
+    textLines.push(`${Math.round(windSpeed)} m/s`);
+    offsetY = arrowSize + textSize / 2;
+  }
+
+  // Temperature text (if showing temperature)
+  if (showTemp && temperature !== null) {
+    textLines.push(Math.round(temperature).toString() + '°');
+    if (!showWind) {
+      // Only temperature, no offset needed
+      offsetY = 0;
+    } else {
+      // Both wind and temperature - push temperature below wind speed
+      offsetY = arrowSize + textSize * 2;
+    }
+  }
+
+  // Apply text if we have any
+  if (textLines.length > 0) {
+    styleConfig.text = new Text({
+      text: textLines.join('\n'),
+      font: `bold ${textSize}px sans-serif`,
+      fill: new Fill({ color: '#fff' }),
+      stroke: new Stroke({ color: '#000', width: 2 }),
+      offsetY: offsetY
+    });
+  }
+
+  // Add circles for temperature-only mode
+  if (showTemp && !showWind && temperature !== null && showCircles) {
     styleConfig.image = new Circle({
       radius: 12,
-      fill: new Fill({ color: getTemperatureColor(temperature ?? null) }),
+      fill: new Fill({ color: getTemperatureColor(temperature) }),
       stroke: new Stroke({ color: '#000', width: 1 })
     });
   }
@@ -187,17 +273,33 @@ function setFeatureStyle(feature, temperature) {
 
 /**
  * Update all weather station feature styles
- * Called when circles visibility toggle changes
+ * Called when display settings change
  */
 export function updateWeatherStationStyles() {
   if (!state.weatherStationFeatures || state.weatherStationFeatures.length === 0) return;
 
   state.weatherStationFeatures.forEach(feature => {
     const temperature = feature.get('temperature');
-    setFeatureStyle(feature, temperature);
+    const windSpeed = feature.get('windSpeed');
+    const windDirection = feature.get('windDirection');
+    setFeatureStyle(feature, temperature, windSpeed, windDirection);
   });
 
-  console.log(`[Weather] Updated styles for ${state.weatherStationFeatures.length} stations (circles: ${state.weatherCirclesVisible ? 'visible' : 'hidden'})`);
+  const showTemp = state.weatherShowTemperature ? 'temp' : '';
+  const showWind = state.weatherShowWind ? 'wind' : '';
+  console.log(`[Weather] Updated styles for ${state.weatherStationFeatures.length} stations (showing: ${showTemp} ${showWind})`);
+}
+
+/**
+ * Get color based on wind speed
+ * @param {number} speed - Wind speed in m/s
+ * @returns {string} Color hex code
+ */
+function getWindSpeedColor(speed) {
+  if (speed < 3) return '#4CAF50'; // Green - calm
+  if (speed < 8) return '#FFC107'; // Amber - moderate
+  if (speed < 14) return '#FF9800'; // Orange - fresh
+  return '#F44336'; // Red - strong/gale
 }
 
 /**

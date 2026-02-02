@@ -136,8 +136,11 @@ export const state = {
 
   // Weather overlay
   weatherEnabled: false,
-  weatherCirclesVisible: true, // Show/hide colored circles (text always visible)
-  weatherTextSize: 10, // Font size for temperature labels in pixels
+  weatherShowTemperature: true, // Show temperature
+  weatherShowWind: false, // Show wind (speed + direction)
+  weatherCirclesVisible: false, // Show/hide colored circles (text always visible)
+  weatherTextSize: 10, // Font size for labels in pixels
+  weatherArrowSize: 20, // Arrow size in pixels (wind mode)
   weatherStationLayer: { main: null, left: null, right: null },
   weatherStationFeatures: [],
   weatherPollingTimer: null,

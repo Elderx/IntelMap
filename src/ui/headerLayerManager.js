@@ -524,6 +524,94 @@ function createWeatherAccordion() {
 
   content.appendChild(mainRow);
 
+  // Display mode control
+  const displayModeDiv = document.createElement('div');
+  displayModeDiv.style.marginTop = '8px';
+  displayModeDiv.style.paddingTop = '8px';
+  displayModeDiv.style.borderTop = '1px solid #eee';
+
+  const displayModeLabel = document.createElement('label');
+  displayModeLabel.style.fontSize = '11px';
+  displayModeLabel.style.fontWeight = '600';
+  displayModeLabel.style.color = '#888';
+  displayModeLabel.style.display = 'block';
+  displayModeLabel.style.marginBottom = '4px';
+  displayModeLabel.textContent = 'Display Mode:';
+  displayModeDiv.appendChild(displayModeLabel);
+
+  // Temperature checkbox
+  const tempRow = createCheckboxRow(
+    'Temperature',
+    state.weatherShowTemperature,
+    async (checked) => {
+      state.weatherShowTemperature = checked;
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-show-temperature'
+  );
+  displayModeDiv.appendChild(tempRow);
+
+  // Wind checkbox
+  const windRow = createCheckboxRow(
+    'Wind (speed + direction)',
+    state.weatherShowWind,
+    async (checked) => {
+      state.weatherShowWind = checked;
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-show-wind'
+  );
+  displayModeDiv.appendChild(windRow);
+
+  content.appendChild(displayModeDiv);
+
+  // Arrow size control (always visible now since wind can be on with temperature)
+  const arrowSizeDiv = document.createElement('div');
+  arrowSizeDiv.style.marginTop = '8px';
+  arrowSizeDiv.style.paddingTop = '8px';
+  arrowSizeDiv.style.borderTop = '1px solid #eee';
+
+  const arrowSizeLabel = document.createElement('label');
+  arrowSizeLabel.style.fontSize = '11px';
+  arrowSizeLabel.style.fontWeight = '600';
+  arrowSizeLabel.style.color = '#888';
+  arrowSizeLabel.style.display = 'block';
+  arrowSizeLabel.style.marginBottom = '4px';
+  arrowSizeLabel.textContent = 'Arrow Size (px):';
+  arrowSizeDiv.appendChild(arrowSizeLabel);
+
+  const arrowSizeSelect = document.createElement('select');
+  arrowSizeSelect.id = 'weather-arrow-size';
+  arrowSizeSelect.className = 'form-select';
+  arrowSizeSelect.style.width = '100%';
+  arrowSizeSelect.style.fontSize = '12px';
+  arrowSizeSelect.style.padding = '4px 8px';
+
+  const arrowSizes = [12, 16, 20, 24, 28, 32, 36];
+  arrowSizes.forEach(size => {
+    const option = document.createElement('option');
+    option.value = size.toString();
+    option.textContent = `${size}px`;
+    if (size === state.weatherArrowSize) {
+      option.selected = true;
+    }
+    arrowSizeSelect.appendChild(option);
+  });
+
+  arrowSizeSelect.addEventListener('change', function() {
+    state.weatherArrowSize = parseInt(this.value, 10);
+    import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+      updateWeatherStationStyles();
+    });
+  });
+
+  arrowSizeDiv.appendChild(arrowSizeSelect);
+  content.appendChild(arrowSizeDiv);
+
   // Circles visibility toggle
   const circlesRow = createCheckboxRow(
     'Show circles',
@@ -590,7 +678,7 @@ function createWeatherAccordion() {
   infoText.className = 'text-muted';
   infoText.style.fontSize = '11px';
   infoText.style.padding = '4px 0 0 16px';
-  infoText.textContent = 'Showing temperature observations from FMI weather stations';
+  infoText.textContent = 'Showing observations from FMI weather stations';
   content.appendChild(infoText);
 
   return createAccordionItem('🌤️ Weather', content, false);

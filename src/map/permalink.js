@@ -56,6 +56,8 @@ export function updatePermalinkWithFeatures() {
   let weatherStr = '';
   if (state.weatherEnabled) {
     weatherStr = `&weather=1`;
+    if (state.weatherShowTemperature) weatherStr += '&showTemp=1';
+    if (state.weatherShowWind) weatherStr += '&showWind=1';
   }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();

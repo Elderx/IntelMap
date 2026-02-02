@@ -165,3 +165,55 @@ export function stopWeatherUpdates() {
     updateActiveLayersPanel();
   });
 }
+
+/**
+ * Rebuild weather station layers for current map configuration
+ * Called when switching between single and split-screen modes
+ */
+export function rebuildWeatherLayers() {
+  if (!state.weatherEnabled || !state.weatherStationFeatures.length) {
+    return; // Not enabled or no features to display
+  }
+
+  console.log('[Weather] Rebuilding layers for map configuration (isSplit:', state.isSplit, ')');
+
+  // Remove existing layers from all maps
+  ['main', 'left', 'right'].forEach(key => {
+    const layer = state.weatherStationLayer[key];
+    if (!layer) return;
+
+    const map = key === 'main' ? state.map : key === 'left' ? state.leftMap : state.rightMap;
+    if (map) {
+      map.removeLayer(layer);
+    }
+    state.weatherStationLayer[key] = null;
+  });
+
+  // Create layers for active maps
+  if (state.isSplit) {
+    if (state.leftMap) {
+      state.weatherStationLayer.left = createStationLayer();
+      state.leftMap.addLayer(state.weatherStationLayer.left);
+      const source = state.weatherStationLayer.left.getSource();
+      source.clear();
+      source.addFeatures(state.weatherStationFeatures);
+    }
+    if (state.rightMap) {
+      state.weatherStationLayer.right = createStationLayer();
+      state.rightMap.addLayer(state.weatherStationLayer.right);
+      const source = state.weatherStationLayer.right.getSource();
+      source.clear();
+      source.addFeatures(state.weatherStationFeatures);
+    }
+  } else {
+    if (state.map) {
+      state.weatherStationLayer.main = createStationLayer();
+      state.map.addLayer(state.weatherStationLayer.main);
+      const source = state.weatherStationLayer.main.getSource();
+      source.clear();
+      source.addFeatures(state.weatherStationFeatures);
+    }
+  }
+
+  console.log('[Weather] Layers rebuilt successfully');
+}
