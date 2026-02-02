@@ -1,0 +1,319 @@
+/* GPX Panel Styles */
+.gpx-panel {
+  position: absolute;
+  top: 70px;
+  right: 10px;
+  width: 350px;
+  max-height: calc(100vh - 90px);
+  background: rgba(255, 255, 255, 0.97);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  overflow-y: auto;
+  scrollbar-width: thin;
+}
+
+.gpx-panel-dark {
+  background: rgba(40, 40, 40, 0.97);
+  color: #fff;
+}
+
+.gpx-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 15px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.gpx-panel-dark .gpx-panel-header {
+  border-bottom: 1px solid #444;
+}
+
+.gpx-panel-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gpx-panel-dark .gpx-panel-header h3 {
+  color: #fff;
+}
+
+.gpx-panel-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #999;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.2s;
+}
+
+.gpx-panel-close:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #333;
+}
+
+.gpx-panel-dark .gpx-panel-close:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.gpx-panel-section {
+  padding: 15px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.gpx-panel-dark .gpx-panel-section {
+  border-bottom: 1px solid #333;
+}
+
+.gpx-panel-section:last-child {
+  border-bottom: none;
+}
+
+.gpx-panel-section h4 {
+  margin: 0 0 10px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gpx-panel-dark .gpx-panel-section h4 {
+  color: #aaa;
+}
+
+.gpx-hint {
+  font-size: 12px;
+  color: #888;
+  margin-top: 5px;
+}
+
+.gpx-panel-dark .gpx-hint {
+  color: #999;
+}
+
+.gpx-file-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  margin-bottom: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.gpx-file-item:hover {
+  background: #f0f0f0;
+}
+
+.gpx-panel-dark .gpx-file-item {
+  background: #333;
+}
+
+.gpx-panel-dark .gpx-file-item:hover {
+  background: #444;
+}
+
+.gpx-file-item-current {
+  background: #e3f2fd;
+  border-left: 3px solid #2196F3;
+}
+
+.gpx-panel-dark .gpx-file-item-current {
+  background: #1a3a5a;
+  border-left: 3px solid #2196F3;
+}
+
+.gpx-file-name {
+  font-size: 14px;
+  color: #333;
+  flex: 1;
+}
+
+.gpx-panel-dark .gpx-file-name {
+  color: #fff;
+}
+
+.gpx-file-remove {
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: #999;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.gpx-file-remove:hover {
+  background: rgba(244, 67, 54, 0.1);
+  color: #F44336;
+}
+
+.gpx-stats-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.gpx-stat-item {
+  display: flex;
+  flex-direction: column;
+  padding: 8px;
+  background: #f9f9f9;
+  border-radius: 6px;
+}
+
+.gpx-panel-dark .gpx-stat-item {
+  background: #333;
+}
+
+.gpx-stat-label {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.gpx-panel-dark .gpx-stat-label {
+  color: #aaa;
+}
+
+.gpx-stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.gpx-panel-dark .gpx-stat-value {
+  color: #fff;
+}
+
+.gpx-control-group {
+  margin-bottom: 15px;
+}
+
+.gpx-control-group:last-child {
+  margin-bottom: 0;
+}
+
+.gpx-control-group > label {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.gpx-panel-dark .gpx-control-group > label {
+  color: #aaa;
+}
+
+.gpx-radio-group,
+.gpx-checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.gpx-radio-group label,
+.gpx-checkbox-group label {
+  display: flex;
+  align-items: center;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  transition: background 0.2s;
+}
+
+.gpx-panel-dark .gpx-radio-group label,
+.gpx-panel-dark .gpx-checkbox-group label {
+  color: #fff;
+}
+
+.gpx-radio-group label:hover,
+.gpx-checkbox-group label:hover {
+  background: #f5f5f5;
+}
+
+.gpx-panel-dark .gpx-radio-group label:hover,
+.gpx-panel-dark .gpx-checkbox-group label:hover {
+  background: #444;
+}
+
+.gpx-radio-group label input,
+.gpx-checkbox-group label input {
+  margin-right: 10px;
+  cursor: pointer;
+}
+
+.gpx-error {
+  background: #ffebee;
+  color: #c62828;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 14px;
+  border-left: 4px solid #F44336;
+}
+
+.gpx-panel-dark .gpx-error {
+  background: #5a2a2a;
+  color: #ff8a80;
+  border-left: 4px solid #F44336;
+}
+
+/* Chart container */
+#gpx-charts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+#gpx-charts-container canvas {
+  max-height: 200px;
+}
+
+/* GPX Panel Toggle Button (in header) */
+.header-btn-gpx {
+  position: relative;
+}
+
+.header-btn-gpx.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: #4CAF50;
+  border-radius: 0 0 3px 3px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .gpx-panel {
+    width: calc(100% - 20px);
+    right: 10px;
+    left: 10px;
+    max-height: calc(100vh - 150px);
+  }
+
+  .gpx-stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

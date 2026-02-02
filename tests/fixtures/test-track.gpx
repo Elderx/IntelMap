@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="IntelMap Test" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata>
+    <name>Test Track</name>
+    <desc>Simple test track for GPX overlay testing</desc>
+  </metadata>
+  <trk>
+    <name>Test Track</name>
+    <trkseg>
+      <trkpt lat="60.1700" lon="24.9400">
+        <ele>10</ele>
+        <time>2024-06-15T10:00:00Z</time>
+      </trkpt>
+      <trkpt lat="60.1750" lon="24.9500">
+        <ele>25</ele>
+        <time>2024-06-15T10:05:00Z</time>
+      </trkpt>
+      <trkpt lat="60.1800" lon="24.9600">
+        <ele>40</ele>
+        <time>2024-06-15T10:10:00Z</time>
+      </trkpt>
+      <trkpt lat="60.1850" lon="24.9700">
+        <ele>35</ele>
+        <time>2024-06-15T10:15:00Z</time>
+      </trkpt>
+      <trkpt lat="60.1900" lon="24.9800">
+        <ele>20</ele>
+        <time>2024-06-15T10:20:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>

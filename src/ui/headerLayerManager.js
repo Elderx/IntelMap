@@ -18,6 +18,9 @@ import '../styles/ais.css';
 import { startWeatherUpdates, stopWeatherUpdates } from '../weather/weatherManager.js';
 import '../styles/weather.css';
 
+// GPX imports (dynamic to avoid circular dependency)
+import '../styles/gpx.css';
+
 /**
  * Mount the header layer manager for single map mode
  */
@@ -61,6 +64,10 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   // Weather Section
   const weatherItem = createWeatherAccordion();
   accordion.appendChild(weatherItem);
+
+  // GPX Section
+  const gpxItem = createGpxAccordion();
+  accordion.appendChild(gpxItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -682,6 +689,99 @@ function createWeatherAccordion() {
   content.appendChild(infoText);
 
   return createAccordionItem('🌤️ Weather', content, false);
+}
+
+/**
+ * Create GPX overlay accordion
+ * @returns {HTMLElement} Accordion element
+ */
+/**
+ * Create GPX overlay accordion
+ * @returns {HTMLElement} Accordion element
+ */
+function createGpxAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  // Main enable/disable toggle
+  const mainRow = createCheckboxRow(
+    '📍 GPX Tracks',
+    state.gpxEnabled,
+    async (checked) => {
+      state.gpxEnabled = checked;
+      if (checked) {
+        const { showGpxPanel } = await import('./gpxControl.js');
+        showGpxPanel();
+      } else {
+        // Reset the "was enabled before close" flag when manually unchecked
+        const { resetWasGpxEnabledBeforeClose } = await import('./gpxControl.js');
+        if (resetWasGpxEnabledBeforeClose) {
+          resetWasGpxEnabledBeforeClose();
+        }
+        const { hideGpxPanel } = await import('./gpxControl.js');
+        hideGpxPanel();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+    },
+    'gpx-enabled'
+  );
+
+  content.appendChild(mainRow);
+
+  // Info text
+  const infoText = document.createElement('div');
+  infoText.className = 'text-muted';
+  infoText.style.fontSize = '11px';
+  infoText.style.padding = '4px 0 0 16px';
+  infoText.textContent = 'Load GPX files to display GPS tracks on the map';
+  content.appendChild(infoText);
+
+  const item = createAccordionItem('📍 GPX', content, false);
+  item.classList.add('gpx'); // Add class for identification
+
+  // Store reference to the checkbox for later access
+  item.dataset.gpxCheckboxId = 'gpx-enabled';
+
+  // Add custom click handler to show panel when clicking header
+  const header = item.querySelector('.header-accordion-header');
+  if (header) {
+    header.addEventListener('click', async () => {
+      // Check if panel is hidden
+      const panel = document.querySelector('#gpx-panel');
+      const panelHidden = !panel || panel.style.display === 'none' || panel.style.display === '';
+
+      // If panel is hidden, check if we should re-enable GPX and show it
+      if (panelHidden) {
+        // Import dynamically to check if GPX was enabled before close
+        const { wasGpxEnabledBeforeCloseFn } = await import('./gpxControl.js');
+        const wasEnabled = wasGpxEnabledBeforeCloseFn();
+
+        // Check if there are loaded files or GPX was enabled before close
+        const hasFiles = state.gpxFiles && state.gpxFiles.length > 0;
+        const shouldReopen = state.gpxEnabled || wasEnabled || hasFiles;
+
+        if (shouldReopen) {
+          // Re-enable GPX if needed
+          if (!state.gpxEnabled) {
+            state.gpxEnabled = true;
+            const checkbox = document.getElementById('gpx-enabled');
+            if (checkbox) {
+              checkbox.checked = true;
+            }
+            updateHeaderActiveLayers();
+            updatePermalinkWithFeatures();
+          }
+
+          // Show the panel
+          const { showGpxPanel } = await import('./gpxControl.js');
+          showGpxPanel();
+        }
+      }
+    });
+  }
+
+  return item;
 }
 
 /**

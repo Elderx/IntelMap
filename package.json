@@ -1,7 +1,9 @@
 {
   "name": "avoin-wmts-openlayers",
   "dependencies": {
+    "chart.js": "^4.5.1",
     "flatpickr": "^4.6.13",
+    "gpx-basic-stats": "^2.2.0",
     "ol": "10.5.0",
     "ol-mapbox-style": "^13.0.1"
   },

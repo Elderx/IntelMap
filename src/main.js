@@ -70,6 +70,11 @@ async function bootstrap() {
   initHeader();
   mountHeaderLayerManager(result); // Populate header layers dropdown (always available)
 
+  // Initialize GPX control
+  import('./ui/gpxControl.js').then(({ initGpxControl }) => {
+    initGpxControl();
+  });
+
   async function loadUserFeaturesFromServer() {
     try {
       const [markersFC, polygonsFC, circlesFC] = await Promise.all([
@@ -136,6 +141,10 @@ async function bootstrap() {
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
     });
+    // Sync GPX layers to split maps
+    import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
+      rebuildGpxLayers();
+    });
   }
 
   function deactivateSplitScreen() {
@@ -158,6 +167,10 @@ async function bootstrap() {
     // Sync weather station layers to single map
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
+    });
+    // Sync GPX layers to single map
+    import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
+      rebuildGpxLayers();
     });
   }
 

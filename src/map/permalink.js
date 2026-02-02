@@ -59,6 +59,14 @@ export function updatePermalinkWithFeatures() {
     if (state.weatherShowTemperature) weatherStr += '&showTemp=1';
     if (state.weatherShowWind) weatherStr += '&showWind=1';
   }
+  let gpxStr = '';
+  if (state.gpxEnabled && state.gpxCurrentFile) {
+    gpxStr = `&gpx=${state.gpxCurrentFile.id}`;
+    if (state.gpxColorMode !== 'elevation') gpxStr += `&gpxColor=${state.gpxColorMode}`;
+    if (state.gpxShowElevationChart) gpxStr += '&gpxElev=1';
+    if (state.gpxShowSpeedChart) gpxStr += '&gpxSpeed=1';
+    if (state.gpxShowDistanceChart) gpxStr += '&gpxDist=1';
+  }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();
   const center = view.getCenter();
@@ -68,7 +76,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + gpxStr;
   window.history.replaceState({}, '', params);
 }
 

@@ -144,7 +144,22 @@ export const state = {
   weatherStationLayer: { main: null, left: null, right: null },
   weatherStationFeatures: [],
   weatherPollingTimer: null,
-  weatherError: null
+  weatherError: null,
+
+  // GPX overlay
+  gpxEnabled: false,                  // Master toggle
+  gpxFiles: [],                       // Array of loaded GPX file metadata
+  gpxFeatures: [],                    // Array of parsed OpenLayers features
+  gpxLayer: { main: null, left: null, right: null },  // Vector layers
+  gpxCharts: null,                    // Chart.js instances
+  gpxCurrentFile: null,               // Currently selected GPX file
+  gpxColorMode: 'elevation',          // 'elevation' | 'speed' | 'solid'
+  gpxShowElevationChart: true,        // Show elevation profile
+  gpxShowSpeedChart: false,           // Show speed chart
+  gpxShowDistanceChart: false,        // Show distance chart
+  gpxError: null,                     // Error state
+  gpxHoverMarker: null,               // Overlay marker for hover interaction
+  gpxHoverTooltip: null               // Tooltip element for hover
 };
 
 

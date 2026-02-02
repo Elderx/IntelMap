@@ -193,7 +193,21 @@ export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
     import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
   }, aircraftList, 'Live Aircraft', { isAccordion: true });
 
-  return [digiroad, generic, osm, aircraft];
+  // GPX overlay dropdown
+  const gpxSelected = state.gpxEnabled ? ['gpx'] : [];
+  const gpxList = [{ name: 'gpx', title: 'GPX Tracks', type: 'gpx' }];
+  const gpx = createOverlayDropdown(mapKey, gpxSelected, function (newSelected) {
+    const enabled = newSelected.includes('gpx');
+    state.gpxEnabled = enabled;
+    if (enabled) {
+      import('./gpxControl.js').then(({ showGpxPanel }) => showGpxPanel());
+    } else {
+      import('./gpxControl.js').then(({ hideGpxPanel }) => hideGpxPanel());
+    }
+    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+  }, gpxList, 'GPX Tracks', { isAccordion: true });
+
+  return [digiroad, generic, osm, aircraft, gpx];
 }
 
 export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
