@@ -1,13 +1,14 @@
 /**
  * Weather Manager Module
- * Orchestrates WMS layers and station data updates
+ * Orchestrates station data updates (no WMS layers)
  */
 
 import { transformExtent } from 'ol/proj.js';
 import { state } from '../state/store.js';
 import { FMI_CONFIG } from '../config/constants.js';
-import { createWeatherWmsLayers, updateAllWmsLayers } from './weatherWms.js';
 import { fetchWeatherStations, stationToFeature } from './weatherStations.js';
+import { Vector as VectorLayer } from 'ol/layer.js';
+import { Vector as VectorSource } from 'ol/source.js';
 
 /**
  * Start weather overlay updates
@@ -20,20 +21,20 @@ export function startWeatherUpdates() {
 
   console.log('[Weather] Starting updates');
 
-  // Create WMS layers for active maps
+  // Create station marker layers for active maps
   if (state.isSplit) {
     if (state.leftMap) {
-      state.weatherWmsLayers.left = createWeatherWmsLayers();
-      addWmsLayersToMap(state.leftMap, state.weatherWmsLayers.left);
+      state.weatherStationLayer.left = createStationLayer();
+      state.leftMap.addLayer(state.weatherStationLayer.left);
     }
     if (state.rightMap) {
-      state.weatherWmsLayers.right = createWeatherWmsLayers();
-      addWmsLayersToMap(state.rightMap, state.weatherWmsLayers.right);
+      state.weatherStationLayer.right = createStationLayer();
+      state.rightMap.addLayer(state.weatherStationLayer.right);
     }
   } else {
     if (state.map) {
-      state.weatherWmsLayers.main = createWeatherWmsLayers();
-      addWmsLayersToMap(state.map, state.weatherWmsLayers.main);
+      state.weatherStationLayer.main = createStationLayer();
+      state.map.addLayer(state.weatherStationLayer.main);
     }
   }
 
@@ -49,13 +50,15 @@ export function startWeatherUpdates() {
 }
 
 /**
- * Add WMS layers to map
- * @param {Object} map - OpenLayers Map instance
- * @param {Object} layers - Object with temperature, wind, precipitation layers
+ * Create station marker layer
+ * @returns {VectorLayer} OpenLayers VectorLayer
  */
-function addWmsLayersToMap(map, layers) {
-  Object.values(layers).forEach(layer => {
-    if (layer) map.addLayer(layer);
+function createStationLayer() {
+  return new VectorLayer({
+    source: new VectorSource(),
+    style: null, // Style set per-feature
+    zIndex: FMI_CONFIG.zIndex.stations,
+    className: 'weather-station-layer'
   });
 }
 
@@ -67,22 +70,9 @@ async function updateWeatherStationData() {
 
   console.log('[Weather] Fetching station data');
 
-  // Determine which map's extent to use
-  let map;
-  if (state.isSplit) {
-    map = state.leftMap;
-  } else {
-    map = state.map;
-  }
-
-  if (!map) {
-    console.warn('[Weather] No map available for extent calculation');
-    return;
-  }
-
-  // Get current view extent and transform to WGS84
-  const extent = map.getView().calculateExtent();
-  const bbox = transformExtent(extent, 'EPSG:3857', 'EPSG:4326');
+  // Use Finland bounding box to ensure all Finnish stations are fetched
+  const bbox = FMI_CONFIG.finlandBbox;
+  console.log('[Weather] Using Finland bbox:', bbox);
 
   try {
     // Fetch station data
@@ -153,20 +143,6 @@ export function stopWeatherUpdates() {
   clearInterval(state.weatherPollingTimer);
   state.weatherPollingTimer = null;
 
-  // Remove WMS layers from maps
-  ['main', 'left', 'right'].forEach(key => {
-    const layers = state.weatherWmsLayers[key];
-    if (!layers) return;
-
-    const map = key === 'main' ? state.map : key === 'left' ? state.leftMap : state.rightMap;
-    if (map) {
-      Object.values(layers).forEach(layer => {
-        if (layer) map.removeLayer(layer);
-      });
-    }
-    state.weatherWmsLayers[key] = null;
-  });
-
   // Remove station marker layers
   ['main', 'left', 'right'].forEach(key => {
     const layer = state.weatherStationLayer[key];
@@ -187,27 +163,5 @@ export function stopWeatherUpdates() {
   // Update UI
   import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
     updateActiveLayersPanel();
-  });
-}
-
-/**
- * Toggle specific WMS layer
- * @param {string} layerType - 'temperature', 'wind', or 'precipitation'
- * @param {boolean} enabled - Whether layer should be enabled
- */
-export function toggleWmsLayer(layerType, enabled) {
-  const index = state.weatherActiveWmsLayers.indexOf(layerType);
-
-  if (enabled && index === -1) {
-    state.weatherActiveWmsLayers.push(layerType);
-  } else if (!enabled && index !== -1) {
-    state.weatherActiveWmsLayers.splice(index, 1);
-  }
-
-  updateAllWmsLayers();
-
-  // Update permalink
-  import('../map/permalink.js').then(({ updatePermalinkWithFeatures }) => {
-    updatePermalinkWithFeatures();
   });
 }

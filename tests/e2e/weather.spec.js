@@ -36,29 +36,6 @@ test.describe('Weather Overlay', () => {
     await expect(weatherToggle).not.toBeChecked();
   });
 
-  test('WMS layers toggle independently', async ({ page }) => {
-    await page.click('#layers-toggle');
-
-    // Expand weather accordion
-    const accordionHeader = page.locator('.header-accordion-item').filter({ hasText: '🌤️ Weather' }).locator('.header-accordion-header');
-    await accordionHeader.click();
-
-    // Enable weather first
-    const weatherToggle = page.locator('#weather-enabled');
-    await weatherToggle.check();
-
-    // Toggle temperature layer
-    const tempToggle = page.locator('#weather-temperature');
-    await expect(tempToggle).toBeChecked(); // Should be checked by default
-    await tempToggle.uncheck();
-    await expect(tempToggle).not.toBeChecked();
-
-    // Toggle wind layer
-    const windToggle = page.locator('#weather-wind');
-    await windToggle.check();
-    await expect(windToggle).toBeChecked();
-  });
-
   test('permalink encodes weather state', async ({ page }) => {
     // Enable weather
     await page.click('#layers-toggle');

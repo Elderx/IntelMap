@@ -136,10 +136,10 @@ export const state = {
 
   // Weather overlay
   weatherEnabled: false,
-  weatherWmsLayers: { main: null, left: null, right: null },
+  weatherCirclesVisible: true, // Show/hide colored circles (text always visible)
+  weatherTextSize: 10, // Font size for temperature labels in pixels
   weatherStationLayer: { main: null, left: null, right: null },
   weatherStationFeatures: [],
-  weatherActiveWmsLayers: ['temperature'], // Default: temperature layer enabled
   weatherPollingTimer: null,
   weatherError: null
 };

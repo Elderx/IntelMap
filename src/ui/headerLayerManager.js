@@ -15,7 +15,7 @@ import { startAisUpdates, stopAisUpdates, setUpdateInterval as setAisUpdateInter
 import '../styles/ais.css';
 
 // Weather imports
-import { startWeatherUpdates, stopWeatherUpdates, toggleWmsLayer } from '../weather/weatherManager.js';
+import { startWeatherUpdates, stopWeatherUpdates } from '../weather/weatherManager.js';
 import '../styles/weather.css';
 
 /**
@@ -518,54 +518,80 @@ function createWeatherAccordion() {
       }
       updateHeaderActiveLayers();
       updatePermalinkWithFeatures();
-
-      // Show/hide WMS layer toggles
-      const wmsToggles = content.querySelector('.weather-wms-toggles');
-      if (wmsToggles) {
-        wmsToggles.style.display = checked ? 'block' : 'none';
-      }
     },
     'weather-enabled'
   );
 
   content.appendChild(mainRow);
 
-  // WMS layer toggles
-  const wmsToggles = document.createElement('div');
-  wmsToggles.className = 'weather-wms-toggles';
-  wmsToggles.style.marginTop = '8px';
-  wmsToggles.style.paddingTop = '8px';
-  wmsToggles.style.borderTop = '1px solid #eee';
-  wmsToggles.style.display = state.weatherEnabled ? 'block' : 'none';
-
-  // Temperature layer
-  const tempRow = createCheckboxRow(
-    'Temperature',
-    state.weatherActiveWmsLayers.includes('temperature'),
-    (checked) => toggleWmsLayer('temperature', checked),
-    'weather-temperature'
+  // Circles visibility toggle
+  const circlesRow = createCheckboxRow(
+    'Show circles',
+    state.weatherCirclesVisible,
+    async (checked) => {
+      state.weatherCirclesVisible = checked;
+      // Update all station feature styles
+      import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+        updateWeatherStationStyles();
+      });
+    },
+    'weather-circles'
   );
-  wmsToggles.appendChild(tempRow);
 
-  // Wind layer
-  const windRow = createCheckboxRow(
-    'Wind',
-    state.weatherActiveWmsLayers.includes('wind'),
-    (checked) => toggleWmsLayer('wind', checked),
-    'weather-wind'
-  );
-  wmsToggles.appendChild(windRow);
+  content.appendChild(circlesRow);
 
-  // Precipitation layer
-  const precipRow = createCheckboxRow(
-    'Precipitation',
-    state.weatherActiveWmsLayers.includes('precipitation'),
-    (checked) => toggleWmsLayer('precipitation', checked),
-    'weather-precipitation'
-  );
-  wmsToggles.appendChild(precipRow);
+  // Text size control
+  const textSizeDiv = document.createElement('div');
+  textSizeDiv.style.marginTop = '8px';
+  textSizeDiv.style.paddingTop = '8px';
+  textSizeDiv.style.borderTop = '1px solid #eee';
 
-  content.appendChild(wmsToggles);
+  const textSizeLabel = document.createElement('label');
+  textSizeLabel.style.fontSize = '11px';
+  textSizeLabel.style.fontWeight = '600';
+  textSizeLabel.style.color = '#888';
+  textSizeLabel.style.display = 'block';
+  textSizeLabel.style.marginBottom = '4px';
+  textSizeLabel.textContent = 'Text Size (px):';
+  textSizeDiv.appendChild(textSizeLabel);
+
+  const textSizeSelect = document.createElement('select');
+  textSizeSelect.id = 'weather-text-size';
+  textSizeSelect.className = 'form-select';
+  textSizeSelect.style.width = '100%';
+  textSizeSelect.style.fontSize = '12px';
+  textSizeSelect.style.padding = '4px 8px';
+
+  // Add size options
+  const sizes = [8, 10, 12, 14, 16, 18, 20];
+  sizes.forEach(size => {
+    const option = document.createElement('option');
+    option.value = size.toString();
+    option.textContent = `${size}px`;
+    if (size === state.weatherTextSize) {
+      option.selected = true;
+    }
+    textSizeSelect.appendChild(option);
+  });
+
+  textSizeSelect.addEventListener('change', function() {
+    state.weatherTextSize = parseInt(this.value, 10);
+    // Update all station feature styles
+    import('../weather/weatherStations.js').then(({ updateWeatherStationStyles }) => {
+      updateWeatherStationStyles();
+    });
+  });
+
+  textSizeDiv.appendChild(textSizeSelect);
+  content.appendChild(textSizeDiv);
+
+  // Info text
+  const infoText = document.createElement('div');
+  infoText.className = 'text-muted';
+  infoText.style.fontSize = '11px';
+  infoText.style.padding = '4px 0 0 16px';
+  infoText.textContent = 'Showing temperature observations from FMI weather stations';
+  content.appendChild(infoText);
 
   return createAccordionItem('🌤️ Weather', content, false);
 }

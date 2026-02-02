@@ -8,6 +8,7 @@ import Point from 'ol/geom/Point.js';
 import { Style, Circle, Fill, Stroke, Text } from 'ol/style.js';
 import { fromLonLat } from 'ol/proj.js';
 import { FMI_CONFIG } from '../config/constants.js';
+import { state } from '../state/store.js';
 
 /**
  * Fetch weather station observations from FMI WFS
@@ -16,11 +17,20 @@ import { FMI_CONFIG } from '../config/constants.js';
  */
 export async function fetchWeatherStations(bbox) {
   const [minLon, minLat, maxLon, maxLat] = bbox;
+
+  // Calculate start time 20 minutes ago
+  const now = new Date();
+  const twentyMinsAgo = new Date(now.getTime() - 20 * 60000).toISOString();
+
   const params = new URLSearchParams({
+    service: 'WFS',
+    version: '2.0.0',
     request: 'getFeature',
-    storedquery_id: FMI_CONFIG.storedQueryId,
-    crs: 'EPSG:4326',
-    bbox: `${minLon},${minLat},${maxLon},${maxLat},EPSG:4326`
+    storedquery_id: 'fmi::observations::weather::simple',
+    bbox: `${minLon},${minLat},${maxLon},${maxLat}`,
+    parameters: 't2m,ws_10min,r_1h',
+    starttime: twentyMinsAgo,
+    crs: 'EPSG:4326'
   });
 
   const url = `${FMI_CONFIG.wfsBaseUrl}?${params.toString()}`;
@@ -40,7 +50,7 @@ export async function fetchWeatherStations(bbox) {
 }
 
 /**
- * Parse FMI WFS XML response to extract station observations
+ * Parse FMI WFS simple XML response
  * @param {string} xmlText - XML response from FMI
  * @returns {Array} Array of station observation objects
  */
@@ -48,111 +58,74 @@ function parseFmiXml(xmlText) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-  const stations = [];
-  const observationFeatures = xmlDoc.getElementsByTagName('wfs:member');
-
-  for (let i = 0; i < observationFeatures.length; i++) {
-    const feature = observationFeatures[i];
-    const stationElem = feature.getElementsByTagName('omso:StationTimeSeriesObservation')[0];
-
-    if (!stationElem) continue;
-
-    // Extract station ID
-    const stationIdElem = stationElem.getElementsByTagName('target:StationName')[0];
-    const stationId = stationIdElem?.textContent;
-
-    // Extract station name
-    const nameElem = stationElem.getElementsByTagName('gml:identifier')[0];
-    const name = nameElem?.textContent || stationId || 'Unknown Station';
-
-    // Extract location
-    const posElem = stationElem.getElementsByTagName('gml:pos')[0];
-    const position = posElem?.textContent?.split(' ').map(Number).reverse(); // lon, lat
-
-    if (!position || position.length !== 2) continue;
-
-    // Extract observation data
-    const resultElem = stationElem.getElementsByTagName('wml2:MeasurementTVP')[0];
-    const valueElem = resultElem?.getElementsByTagName('wml2:value')[0];
-    const value = valueElem?.textContent ? parseFloat(valueElem.textContent) : null;
-
-    // Determine observation type from parameter name
-    const parameterElem = stationElem.getElementsByTagName('wml2:parameter')[0];
-    const parameter = parameterElem?.getAttribute('xlink:href')?.split(':').pop() || 'temperature';
-
-    stations.push({
-      stationId,
-      name,
-      location: position,
-      [parameter]: value,
-      timestamp: new Date().toISOString()
-    });
-  }
-
-  // Combine multiple observations for same station
-  return combineStationObservations(stations);
-}
-
-/**
- * Combine multiple observation types for each station
- * @param {Array} observations - Array of individual observations
- * @returns {Array} Array of stations with combined observations
- */
-function combineStationObservations(observations) {
   const stationMap = new Map();
+  const featureMembers = xmlDoc.getElementsByTagName('wfs:member');
 
-  observations.forEach(obs => {
-    const { stationId, name, location, timestamp } = obs;
-    const key = stationId || name;
+  for (let i = 0; i < featureMembers.length; i++) {
+    const featureMember = featureMembers[i];
+    const bsWfsElem = featureMember.getElementsByTagName('BsWfs:BsWfsElement')[0];
 
-    if (!stationMap.has(key)) {
-      stationMap.set(key, {
-        stationId,
-        name,
-        location,
+    if (!bsWfsElem) continue;
+
+    // Extract location (lat, lon - note order!)
+    const locationElem = bsWfsElem.getElementsByTagName('BsWfs:Location')[0];
+    if (!locationElem) continue;
+
+    const pointElem = locationElem.getElementsByTagName('gml:Point')[0];
+    if (!pointElem) continue;
+
+    const posElem = pointElem.getElementsByTagName('gml:pos')[0];
+    if (!posElem) continue;
+
+    const coords = posElem.textContent.trim().split(/\s+/);
+    if (coords.length < 2) continue;
+
+    const latitude = parseFloat(coords[0]);
+    const longitude = parseFloat(coords[1]);
+
+    if (isNaN(latitude) || isNaN(longitude)) continue;
+
+    // Create unique key for this location
+    const locationKey = `${latitude.toFixed(4)}_${longitude.toFixed(4)}`;
+
+    // Extract parameter and value
+    const paramName = bsWfsElem.getElementsByTagName('BsWfs:ParameterName')[0]?.textContent;
+    const paramValue = bsWfsElem.getElementsByTagName('BsWfs:ParameterValue')[0]?.textContent;
+
+    if (!paramName || !paramValue) continue;
+
+    // Convert value to number
+    const value = parseFloat(paramValue);
+    if (isNaN(value)) continue;
+
+    // Initialize station if not exists
+    if (!stationMap.has(locationKey)) {
+      stationMap.set(locationKey, {
+        location: [longitude, latitude], // lon, lat order for OpenLayers
         temperature: null,
         windSpeed: null,
-        windDirection: null,
         precipitation: null,
-        timestamp
+        timestamp: new Date().toISOString()
       });
     }
 
-    const station = stationMap.get(key);
+    // Assign value to correct parameter
+    const station = stationMap.get(locationKey);
+    if (paramName === 't2m') {
+      station.temperature = value;
+    } else if (paramName === 'ws_10min') {
+      station.windSpeed = value;
+    } else if (paramName === 'r_1h') {
+      station.precipitation = value;
+    }
+  }
 
-    // Merge observation values
-    if (obs.temperature !== undefined) station.temperature = obs.temperature;
-    if (obs.windSpeed !== undefined) station.windSpeed = obs.windSpeed;
-    if (obs.windDirection !== undefined) station.windDirection = obs.windDirection;
-    if (obs.precipitation !== undefined) station.precipitation = obs.precipitation;
-  });
-
-  return Array.from(stationMap.values());
-}
-
-/**
- * Get station icon SVG based on temperature
- * @param {number|null} temperature - Temperature in Celsius
- * @returns {string} SVG data URI
- */
-function getStationIconPath(temperature) {
-  const temp = temperature ?? 0;
-  let color = '#2196F3'; // Blue (cold)
-
-  if (temp > 20) color = '#F44336'; // Red (hot)
-  else if (temp > 10) color = '#FF9800'; // Orange (warm)
-  else if (temp > 0) color = '#4CAF50'; // Green (mild)
-
-  const svg = `
-    <svg width="24" height="24" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="12" cy="12" r="10" fill="${color}" stroke="#000" stroke-width="0.5"/>
-      <text x="12" y="16" font-size="10" text-anchor="middle" fill="#fff" font-weight="bold">
-        ${Math.round(temp)}°
-      </text>
-    </svg>
-  `;
-
-  return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(svg);
+  // Convert map to array and generate station names
+  return Array.from(stationMap.values()).map((station, index) => ({
+    ...station,
+    stationId: `station-${index}`,
+    name: `Weather Station ${index + 1}`
+  }));
 }
 
 /**
@@ -161,7 +134,7 @@ function getStationIconPath(temperature) {
  * @returns {Feature|null} OpenLayers Feature or null if invalid
  */
 export function stationToFeature(station) {
-  const { location, temperature, windSpeed, windDirection, name, stationId } = station;
+  const { location, temperature, windSpeed, precipitation, name, stationId } = station;
 
   if (!location || location.length !== 2) return null;
 
@@ -173,35 +146,69 @@ export function stationToFeature(station) {
     name,
     temperature: temperature ?? null,
     windSpeed: windSpeed ?? null,
-    windDirection: windDirection ?? null
+    precipitation: precipitation ?? null
   });
 
-  // Set style
-  feature.setStyle(new Style({
-    image: new Circle({
-      radius: 12,
-      fill: new Fill({ color: getTemperatureColor(temperature ?? 0) }),
-      stroke: new Stroke({ color: '#000', width: 1 })
-    }),
-    text: temperature !== null ? new Text({
-      text: Math.round(temperature).toString(),
-      font: '10px sans-serif',
-      fill: new Fill({ color: '#fff' }),
-      stroke: new Stroke({ color: '#000', width: 2 })
-    }) : undefined
-  }));
+  // Set style based on current state
+  setFeatureStyle(feature, temperature);
 
   return feature;
 }
 
 /**
+ * Set style for a weather station feature
+ * @param {Feature} feature - OpenLayers Feature
+ * @param {number|null} temperature - Temperature in Celsius
+ */
+function setFeatureStyle(feature, temperature) {
+  const showCircles = state.weatherCirclesVisible;
+  const textSize = state.weatherTextSize;
+
+  const styleConfig = {
+    text: temperature !== null ? new Text({
+      text: Math.round(temperature).toString() + '°',
+      font: `${textSize}px sans-serif`,
+      fill: new Fill({ color: '#fff' }),
+      stroke: new Stroke({ color: '#000', width: 2 })
+    }) : undefined
+  };
+
+  // Only add circle image if toggle is enabled
+  if (showCircles) {
+    styleConfig.image = new Circle({
+      radius: 12,
+      fill: new Fill({ color: getTemperatureColor(temperature ?? null) }),
+      stroke: new Stroke({ color: '#000', width: 1 })
+    });
+  }
+
+  feature.setStyle(new Style(styleConfig));
+}
+
+/**
+ * Update all weather station feature styles
+ * Called when circles visibility toggle changes
+ */
+export function updateWeatherStationStyles() {
+  if (!state.weatherStationFeatures || state.weatherStationFeatures.length === 0) return;
+
+  state.weatherStationFeatures.forEach(feature => {
+    const temperature = feature.get('temperature');
+    setFeatureStyle(feature, temperature);
+  });
+
+  console.log(`[Weather] Updated styles for ${state.weatherStationFeatures.length} stations (circles: ${state.weatherCirclesVisible ? 'visible' : 'hidden'})`);
+}
+
+/**
  * Get color based on temperature
- * @param {number} temp - Temperature in Celsius
+ * @param {number|null} temp - Temperature in Celsius
  * @returns {string} Color hex code
  */
 function getTemperatureColor(temp) {
-  if (temp > 20) return '#F44336'; // Red
-  if (temp > 10) return '#FF9800'; // Orange
-  if (temp > 0) return '#4CAF50'; // Green
-  return '#2196F3'; // Blue
+  if (temp === null) return '#999999'; // Gray (no data)
+  if (temp > 20) return '#F44336'; // Red (hot)
+  if (temp > 10) return '#FF9800'; // Orange (warm)
+  if (temp > 0) return '#4CAF50'; // Green (mild)
+  return '#2196F3'; // Blue (cold)
 }

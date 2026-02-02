@@ -101,6 +101,10 @@ export const FMI_CONFIG = {
   wfsBaseUrl: 'https://opendata.fmi.fi/wfs',
   storedQueryId: 'fmi::observations::weather::simple',
 
+  // Finland bounding box (WGS84) - ensures all Finnish stations are fetched
+  // Format: [minLon, minLat, maxLon, maxLat]
+  finlandBbox: [19.0, 59.0, 32.0, 70.5],
+
   // Layer names for WMS
   layers: {
     temperature: 'flash:temperature',

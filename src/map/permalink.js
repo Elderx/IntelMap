@@ -57,10 +57,6 @@ export function updatePermalinkWithFeatures() {
   if (state.weatherEnabled) {
     weatherStr = `&weather=1`;
   }
-  let weatherLayersStr = '';
-  if (state.weatherActiveWmsLayers && state.weatherActiveWmsLayers.length > 0) {
-    weatherLayersStr = `&weatherLayers=${state.weatherActiveWmsLayers.join(',')}`;
-  }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();
   const center = view.getCenter();
@@ -70,7 +66,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + weatherLayersStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr;
   window.history.replaceState({}, '', params);
 }
 

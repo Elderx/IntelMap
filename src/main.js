@@ -299,10 +299,6 @@ async function bootstrap() {
         import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());
       }, 100);
     }
-    // Parse weatherLayers parameter
-    if (params.weatherLayers) {
-      state.weatherActiveWmsLayers = params.weatherLayers.split(',').filter(Boolean);
-    }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;
