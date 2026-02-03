@@ -744,12 +744,8 @@ function createWeatherAccordion() {
       const { toggleRadar } = await import('../radar/radarManager.js');
       const enabled = toggleRadar();
       updateHeaderActiveLayers();
-      // Show/hide bottom control bar
-      if (enabled) {
-        createRadarBottomBar();
-      } else {
-        removeRadarBottomBar();
-      }
+      // Update unified time bar
+      createUnifiedTimeBar();
     },
     'radar-enabled'
   );
@@ -1096,14 +1092,20 @@ export function updateAllLayerCheckboxes() {
 }
 
 /**
- * Create the radar bottom control bar (fixed position at bottom center)
+ * Create unified time control bar for radar and/or weather overlays
  */
-export function createRadarBottomBar() {
-  // Remove existing bar if present
-  removeRadarBottomBar();
+export function createUnifiedTimeBar() {
+  // Remove existing bars if present
+  removeUnifiedTimeBar();
+
+  // Determine which overlays are active
+  const hasRadar = state.radarEnabled;
+  const hasWeather = state.weatherEnabled;
+
+  if (!hasRadar && !hasWeather) return;
 
   const bar = document.createElement('div');
-  bar.id = 'radar-bottom-bar';
+  bar.id = 'unified-time-bar';
   bar.style.position = 'fixed';
   bar.style.bottom = '20px';
   bar.style.left = '50%';
@@ -1127,18 +1129,24 @@ export function createRadarBottomBar() {
     bar.style.border = '1px solid #444';
   }
 
-  // Title
+  // Title - show which overlays are active
   const title = document.createElement('div');
   title.style.fontSize = '13px';
   title.style.fontWeight = '600';
   title.style.color = isDark ? '#fff' : '#333';
   title.style.whiteSpace = 'nowrap';
-  title.textContent = '📡 Radar';
+  if (hasRadar && hasWeather) {
+    title.textContent = '🌤️ Weather + 📡 Radar';
+  } else if (hasRadar) {
+    title.textContent = '📡 Radar';
+  } else {
+    title.textContent = '🌤️ Weather';
+  }
   bar.appendChild(title);
 
   // Time display
   const timeDisplay = document.createElement('div');
-  timeDisplay.id = 'radar-time-display';
+  timeDisplay.id = 'unified-time-display';
   timeDisplay.style.fontFamily = 'monospace';
   timeDisplay.style.fontSize = '13px';
   timeDisplay.style.color = isDark ? '#fff' : '#333';
@@ -1153,28 +1161,43 @@ export function createRadarBottomBar() {
   stepBackBtn.style.padding = '4px 10px';
   stepBackBtn.style.fontSize = '14px';
   stepBackBtn.addEventListener('click', async () => {
-    const { radarStepBackward } = await import('../radar/radarManager.js');
-    radarStepBackward();
+    if (hasRadar) {
+      const { radarStepBackward } = await import('../radar/radarManager.js');
+      radarStepBackward();
+    }
+    if (hasWeather) {
+      const { getCurrentWeatherTimeIndex, getWeatherTimeSteps, setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
+      const currentIndex = getCurrentWeatherTimeIndex();
+      const timeSteps = getWeatherTimeSteps();
+      const prevIndex = currentIndex > 0 ? currentIndex - 1 : timeSteps.length - 1;
+      setWeatherTimeByIndex(prevIndex);
+    }
   });
   bar.appendChild(stepBackBtn);
 
   // Play button
   const playBtn = document.createElement('button');
-  playBtn.id = 'radar-play-btn';
+  playBtn.id = 'unified-play-btn';
   playBtn.className = 'btn btn-sm btn-success';
   playBtn.textContent = '▶';
   playBtn.style.padding = '4px 12px';
   playBtn.style.fontSize = '12px';
   playBtn.style.minWidth = '60px';
   playBtn.addEventListener('click', async () => {
-    const { startRadarAnimation } = await import('../radar/radarManager.js');
-    startRadarAnimation();
+    if (hasRadar) {
+      const { startRadarAnimation } = await import('../radar/radarManager.js');
+      startRadarAnimation();
+    }
+    if (hasWeather) {
+      const { startWeatherAnimation } = await import('../weather/weatherStations.js');
+      startWeatherAnimation();
+    }
   });
   bar.appendChild(playBtn);
 
   // Pause button
   const pauseBtn = document.createElement('button');
-  pauseBtn.id = 'radar-pause-btn';
+  pauseBtn.id = 'unified-pause-btn';
   pauseBtn.className = 'btn btn-sm btn-warning';
   pauseBtn.textContent = '⏸';
   pauseBtn.style.padding = '4px 12px';
@@ -1182,8 +1205,14 @@ export function createRadarBottomBar() {
   pauseBtn.style.minWidth = '60px';
   pauseBtn.style.display = 'none';
   pauseBtn.addEventListener('click', async () => {
-    const { stopRadarAnimation } = await import('../radar/radarManager.js');
-    stopRadarAnimation();
+    if (hasRadar) {
+      const { stopRadarAnimation } = await import('../radar/radarManager.js');
+      stopRadarAnimation();
+    }
+    if (hasWeather) {
+      const { stopWeatherAnimation } = await import('../weather/weatherStations.js');
+      stopWeatherAnimation();
+    }
   });
   bar.appendChild(pauseBtn);
 
@@ -1194,8 +1223,17 @@ export function createRadarBottomBar() {
   stepForwardBtn.style.padding = '4px 10px';
   stepForwardBtn.style.fontSize = '14px';
   stepForwardBtn.addEventListener('click', async () => {
-    const { radarStepForward } = await import('../radar/radarManager.js');
-    radarStepForward();
+    if (hasRadar) {
+      const { radarStepForward } = await import('../radar/radarManager.js');
+      radarStepForward();
+    }
+    if (hasWeather) {
+      const { getCurrentWeatherTimeIndex, getWeatherTimeSteps, setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
+      const currentIndex = getCurrentWeatherTimeIndex();
+      const timeSteps = getWeatherTimeSteps();
+      const nextIndex = currentIndex < timeSteps.length - 1 ? currentIndex + 1 : 0;
+      setWeatherTimeByIndex(nextIndex);
+    }
   });
   bar.appendChild(stepForwardBtn);
 
@@ -1208,7 +1246,7 @@ export function createRadarBottomBar() {
   bar.appendChild(speedLabel);
 
   const speedSelect = document.createElement('select');
-  speedSelect.id = 'radar-speed-select';
+  speedSelect.id = 'unified-speed-select';
   speedSelect.className = 'form-select';
   speedSelect.style.fontSize = '12px';
   speedSelect.style.padding = '4px 8px';
@@ -1226,15 +1264,24 @@ export function createRadarBottomBar() {
     const option = document.createElement('option');
     option.value = s.value;
     option.textContent = s.label;
-    if (s.value === state.radarSpeed) {
+    // Use radar speed as default, fallback to weather speed
+    const defaultSpeed = hasRadar ? state.radarSpeed : state.weatherAnimationSpeed;
+    if (s.value === defaultSpeed) {
       option.selected = true;
     }
     speedSelect.appendChild(option);
   });
 
   speedSelect.addEventListener('change', async function() {
-    const { setRadarSpeed } = await import('../radar/radarManager.js');
-    setRadarSpeed(parseFloat(this.value));
+    const speed = parseFloat(this.value);
+    if (hasRadar) {
+      const { setRadarSpeed } = await import('../radar/radarManager.js');
+      setRadarSpeed(speed);
+    }
+    if (hasWeather) {
+      const { setWeatherAnimationSpeed } = await import('../weather/weatherStations.js');
+      setWeatherAnimationSpeed(speed);
+    }
   });
 
   bar.appendChild(speedSelect);
@@ -1246,7 +1293,7 @@ export function createRadarBottomBar() {
 
   const slider = document.createElement('input');
   slider.type = 'range';
-  slider.id = 'radar-time-slider';
+  slider.id = 'unified-time-slider';
   slider.min = '0';
   slider.max = '143'; // Will be updated dynamically
   slider.value = '0';
@@ -1255,8 +1302,15 @@ export function createRadarBottomBar() {
   slider.style.height = '6px';
 
   slider.addEventListener('input', async function() {
-    const { setRadarTimeByIndex } = await import('../radar/radarManager.js');
-    setRadarTimeByIndex(parseInt(this.value, 10));
+    const index = parseInt(this.value, 10);
+    if (hasRadar) {
+      const { setRadarTimeByIndex } = await import('../radar/radarManager.js');
+      setRadarTimeByIndex(index);
+    }
+    if (hasWeather) {
+      const { setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
+      setWeatherTimeByIndex(index);
+    }
   });
 
   sliderContainer.appendChild(slider);
@@ -1264,248 +1318,114 @@ export function createRadarBottomBar() {
 
   document.body.appendChild(bar);
 
-  // Initialize time display
-  import('../radar/radarManager.js').then(({ getCurrentRadarTime, getRadarTimeSteps }) => {
-    const time = getCurrentRadarTime();
-    const timeSteps = getRadarTimeSteps();
-    if (slider && timeSteps.length > 0) {
-      slider.max = (timeSteps.length - 1).toString();
-      slider.value = (timeSteps.length - 1).toString();
-    }
-    if (time && timeDisplay) {
-      const local = new Date(time);
-      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
-    }
-  });
+  // Initialize time display and slider
+  initializeUnifiedTimeBar();
 }
 
 /**
- * Remove the radar bottom control bar
+ * Initialize the unified time bar with current time data
  */
-export function removeRadarBottomBar() {
-  const bar = document.getElementById('radar-bottom-bar');
-  if (bar) {
-    bar.remove();
-  }
-}
+async function initializeUnifiedTimeBar() {
+  const timeDisplay = document.getElementById('unified-time-display');
+  const slider = document.getElementById('unified-time-slider');
 
-/**
- * Recreate the radar bottom bar (e.g., on theme change)
- */
-export function refreshRadarBottomBar() {
+  // Get time steps from whichever overlay has data
+  let timeSteps = [];
+  let currentIndex = 0;
+
   if (state.radarEnabled) {
-    createRadarBottomBar();
-  }
-}
-
-/**
- * Create the weather bottom control bar (fixed position at bottom center)
- */
-export function createWeatherBottomBar() {
-  // Remove existing bar if present
-  removeWeatherBottomBar();
-
-  const bar = document.createElement('div');
-  bar.id = 'weather-bottom-bar';
-  bar.style.position = 'fixed';
-  bar.style.bottom = '20px';
-  bar.style.left = '50%';
-  bar.style.transform = 'translateX(-50%)';
-  bar.style.background = 'rgba(255, 255, 255, 0.95)';
-  bar.style.border = '1px solid #ddd';
-  bar.style.borderRadius = '12px';
-  bar.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
-  bar.style.padding = '12px 20px';
-  bar.style.zIndex = '1000';
-  bar.style.display = 'flex';
-  bar.style.alignItems = 'center';
-  bar.style.gap = '12px';
-  bar.style.minWidth = '500px';
-  bar.style.maxWidth = '800px';
-
-  // Dark theme support
-  const isDark = state.theme === 'dark';
-  if (isDark) {
-    bar.style.background = 'rgba(30, 30, 30, 0.95)';
-    bar.style.border = '1px solid #444';
+    const { getRadarTimeSteps, getCurrentTimeIndex: getRadarIndex } = await import('../radar/radarManager.js');
+    timeSteps = getRadarTimeSteps();
+    currentIndex = getRadarIndex();
+  } else if (state.weatherEnabled) {
+    const { getWeatherTimeSteps, getCurrentWeatherTimeIndex: getWeatherIndex } = await import('../weather/weatherStations.js');
+    timeSteps = getWeatherTimeSteps();
+    currentIndex = getWeatherIndex();
   }
 
-  // Title
-  const title = document.createElement('div');
-  title.style.fontSize = '13px';
-  title.style.fontWeight = '600';
-  title.style.color = isDark ? '#fff' : '#333';
-  title.style.whiteSpace = 'nowrap';
-  title.textContent = '🌤️ Weather';
-  bar.appendChild(title);
+  if (slider && timeSteps.length > 0) {
+    slider.max = (timeSteps.length - 1).toString();
+    slider.value = currentIndex.toString();
+  }
 
-  // Time display
-  const timeDisplay = document.createElement('div');
-  timeDisplay.id = 'weather-time-display';
-  timeDisplay.style.fontFamily = 'monospace';
-  timeDisplay.style.fontSize = '13px';
-  timeDisplay.style.color = isDark ? '#fff' : '#333';
-  timeDisplay.style.minWidth = '120px';
-  timeDisplay.textContent = '-';
-  bar.appendChild(timeDisplay);
-
-  // Step backward button
-  const stepBackBtn = document.createElement('button');
-  stepBackBtn.className = 'btn btn-sm btn-secondary';
-  stepBackBtn.innerHTML = '&laquo;';
-  stepBackBtn.style.padding = '4px 10px';
-  stepBackBtn.style.fontSize = '14px';
-  stepBackBtn.addEventListener('click', async () => {
-    const { setWeatherTimeByIndex, getCurrentWeatherTimeIndex, getWeatherTimeSteps } = await import('../weather/weatherStations.js');
-    const currentIndex = getCurrentWeatherTimeIndex();
-    const prevIndex = currentIndex > 0 ? currentIndex - 1 : getWeatherTimeSteps().length - 1;
-    setWeatherTimeByIndex(prevIndex);
-  });
-  bar.appendChild(stepBackBtn);
-
-  // Play button
-  const playBtn = document.createElement('button');
-  playBtn.id = 'weather-play-btn';
-  playBtn.className = 'btn btn-sm btn-success';
-  playBtn.textContent = '▶';
-  playBtn.style.padding = '4px 12px';
-  playBtn.style.fontSize = '12px';
-  playBtn.style.minWidth = '60px';
-  playBtn.addEventListener('click', async () => {
-    const { startWeatherAnimation } = await import('../weather/weatherStations.js');
-    startWeatherAnimation();
-  });
-  bar.appendChild(playBtn);
-
-  // Pause button
-  const pauseBtn = document.createElement('button');
-  pauseBtn.id = 'weather-pause-btn';
-  pauseBtn.className = 'btn btn-sm btn-warning';
-  pauseBtn.textContent = '⏸';
-  pauseBtn.style.padding = '4px 12px';
-  pauseBtn.style.fontSize = '12px';
-  pauseBtn.style.minWidth = '60px';
-  pauseBtn.style.display = 'none';
-  pauseBtn.addEventListener('click', async () => {
-    const { stopWeatherAnimation } = await import('../weather/weatherStations.js');
-    stopWeatherAnimation();
-  });
-  bar.appendChild(pauseBtn);
-
-  // Step forward button
-  const stepForwardBtn = document.createElement('button');
-  stepForwardBtn.className = 'btn btn-sm btn-secondary';
-  stepForwardBtn.innerHTML = '&raquo;';
-  stepForwardBtn.style.padding = '4px 10px';
-  stepForwardBtn.style.fontSize = '14px';
-  stepForwardBtn.addEventListener('click', async () => {
-    const { setWeatherTimeByIndex, getCurrentWeatherTimeIndex, getWeatherTimeSteps } = await import('../weather/weatherStations.js');
-    const currentIndex = getCurrentWeatherTimeIndex();
-    const timeSteps = getWeatherTimeSteps();
-    const nextIndex = currentIndex < timeSteps.length - 1 ? currentIndex + 1 : 0;
-    setWeatherTimeByIndex(nextIndex);
-  });
-  bar.appendChild(stepForwardBtn);
-
-  // Speed control
-  const speedLabel = document.createElement('span');
-  speedLabel.textContent = 'Speed:';
-  speedLabel.style.fontSize = '12px';
-  speedLabel.style.color = isDark ? '#ccc' : '#666';
-  speedLabel.style.marginLeft = '4px';
-  bar.appendChild(speedLabel);
-
-  const speedSelect = document.createElement('select');
-  speedSelect.id = 'weather-speed-select';
-  speedSelect.className = 'form-select';
-  speedSelect.style.fontSize = '12px';
-  speedSelect.style.padding = '4px 8px';
-  speedSelect.style.width = 'auto';
-  speedSelect.style.display = 'inline-block';
-
-  const speeds = [
-    { value: 0.5, label: '0.5x' },
-    { value: 1, label: '1x' },
-    { value: 2, label: '2x' },
-    { value: 4, label: '4x' },
-    { value: 6, label: '6x' }
-  ];
-  speeds.forEach(s => {
-    const option = document.createElement('option');
-    option.value = s.value;
-    option.textContent = s.label;
-    if (s.value === state.weatherAnimationSpeed) {
-      option.selected = true;
-    }
-    speedSelect.appendChild(option);
-  });
-
-  speedSelect.addEventListener('change', async function() {
-    const { setWeatherAnimationSpeed } = await import('../weather/weatherStations.js');
-    setWeatherAnimationSpeed(parseFloat(this.value));
-  });
-
-  bar.appendChild(speedSelect);
-
-  // Time slider (make it long)
-  const sliderContainer = document.createElement('div');
-  sliderContainer.style.flex = '1';
-  sliderContainer.style.minWidth = '200px';
-
-  const slider = document.createElement('input');
-  slider.type = 'range';
-  slider.id = 'weather-time-slider';
-  slider.min = '0';
-  slider.max = '143'; // Will be updated dynamically
-  slider.value = '0';
-  slider.style.width = '100%';
-  slider.style.cursor = 'pointer';
-  slider.style.height = '6px';
-
-  slider.addEventListener('input', async function() {
-    const { setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
-    setWeatherTimeByIndex(parseInt(this.value, 10));
-  });
-
-  sliderContainer.appendChild(slider);
-  bar.appendChild(sliderContainer);
-
-  document.body.appendChild(bar);
-
-  // Initialize time display
-  import('../weather/weatherStations.js').then(({ getCurrentWeatherTime, getWeatherTimeSteps, getCurrentWeatherTimeIndex }) => {
-    const time = getCurrentWeatherTime();
-    const timeSteps = getWeatherTimeSteps();
-    const currentIndex = getCurrentWeatherTimeIndex();
-
-    if (slider && timeSteps.length > 0) {
-      slider.max = (timeSteps.length - 1).toString();
-      slider.value = currentIndex.toString();
-    }
-    if (time && timeDisplay) {
+  if (timeDisplay && timeSteps.length > 0) {
+    const time = timeSteps[currentIndex];
+    if (time) {
       const local = new Date(time);
       local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
       timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
     }
-  });
+  }
 }
 
 /**
- * Remove the weather bottom control bar
+ * Remove the unified time control bar
  */
-export function removeWeatherBottomBar() {
-  const bar = document.getElementById('weather-bottom-bar');
+export function removeUnifiedTimeBar() {
+  const bar = document.getElementById('unified-time-bar');
   if (bar) {
     bar.remove();
   }
 }
 
 /**
- * Recreate the weather bottom bar (e.g., on theme change)
+ * Update unified time bar display (time display and slider position)
  */
-export function refreshWeatherBottomBar() {
-  if (state.weatherEnabled) {
-    createWeatherBottomBar();
+export function updateUnifiedTimeBar() {
+  // Reinitialize to update display
+  removeUnifiedTimeBar();
+  createUnifiedTimeBar();
+}
+
+/**
+ * Update unified time bar display (time display and slider position)
+ * Called when time changes during animation or slider move
+ */
+export function updateUnifiedTimeDisplay() {
+  const timeDisplay = document.getElementById('unified-time-display');
+  const slider = document.getElementById('unified-time-slider');
+
+  // Get time steps and current index from whichever overlay has data
+  let timeSteps = [];
+  let currentIndex = 0;
+
+  if (state.radarEnabled) {
+    const { getRadarTimeSteps, getCurrentTimeIndex: getRadarIndex } = require('../radar/radarManager.js');
+    timeSteps = getRadarTimeSteps();
+    currentIndex = getRadarIndex();
+  } else if (state.weatherEnabled) {
+    const { getWeatherTimeSteps, getCurrentWeatherTimeIndex: getWeatherIndex } = require('../weather/weatherStations.js');
+    timeSteps = getWeatherTimeSteps();
+    currentIndex = getWeatherIndex();
+  }
+
+  if (slider && timeSteps.length > 0) {
+    slider.max = (timeSteps.length - 1).toString();
+    slider.value = currentIndex.toString();
+  }
+
+  if (timeDisplay && timeSteps.length > 0) {
+    const time = timeSteps[currentIndex];
+    if (time) {
+      const local = new Date(time);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
+    }
+  }
+
+  // Update active layers panel to show current time
+  if (state.radarEnabled || state.weatherEnabled) {
+    import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
+      updateActiveLayersPanel();
+    });
+  }
+}
+
+/**
+ * Recreate the unified time bar (e.g., on theme change)
+ */
+export function refreshUnifiedTimeBar() {
+  if (state.radarEnabled || state.weatherEnabled) {
+    createUnifiedTimeBar();
   }
 }

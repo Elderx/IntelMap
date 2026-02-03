@@ -97,9 +97,9 @@ export function enableRadar() {
   });
   state.radarEnabled = true;
 
-  // Create bottom control bar
-  import('../ui/headerLayerManager.js').then(({ createRadarBottomBar }) => {
-    createRadarBottomBar();
+  // Update unified time bar (create or update to include radar)
+  import('../ui/headerLayerManager.js').then(({ createUnifiedTimeBar }) => {
+    createUnifiedTimeBar();
   });
 
   // Update active layers panel and permalink
@@ -126,9 +126,9 @@ export function disableRadar() {
   });
   state.radarEnabled = false;
 
-  // Remove bottom control bar
-  import('../ui/headerLayerManager.js').then(({ removeRadarBottomBar }) => {
-    removeRadarBottomBar();
+  // Update unified time bar (remove or update to exclude radar)
+  import('../ui/headerLayerManager.js').then(({ createUnifiedTimeBar }) => {
+    createUnifiedTimeBar();
   });
 
   // Update active layers panel and permalink
@@ -231,36 +231,10 @@ export function getCurrentTimeIndex() {
  * Update radar time display in UI
  */
 function updateRadarTimeDisplay() {
-  const timeSteps = state.radarLayer.main?.radarTimeSteps;
-  const slider = document.getElementById('radar-time-slider');
-
-  // Initialize slider max value based on time steps
-  if (slider && timeSteps && slider.max === '143') {
-    slider.max = (timeSteps.length - 1).toString();
-  }
-
-  const timeDisplay = document.getElementById('radar-time-display');
-  if (timeDisplay) {
-    const time = getCurrentRadarTime();
-    if (time) {
-      // Format as local time
-      const local = new Date(time);
-      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
-    }
-  }
-
-  // Update slider value
-  if (slider) {
-    slider.value = getCurrentTimeIndex();
-  }
-
-  // Update active layers panel to show current time
-  if (state.radarEnabled) {
-    import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
-      updateActiveLayersPanel();
-    });
-  }
+  // Use unified time bar instead of separate radar display
+  import('../ui/headerLayerManager.js').then(({ updateUnifiedTimeDisplay }) => {
+    updateUnifiedTimeDisplay();
+  });
 }
 
 /**
@@ -285,9 +259,9 @@ export function startRadarAnimation() {
 
   state.radarAnimating = true;
 
-  // Update play/pause button
-  const playBtn = document.getElementById('radar-play-btn');
-  const pauseBtn = document.getElementById('radar-pause-btn');
+  // Update play/pause button (unified bar)
+  const playBtn = document.getElementById('unified-play-btn');
+  const pauseBtn = document.getElementById('unified-pause-btn');
   if (playBtn) playBtn.style.display = 'none';
   if (pauseBtn) pauseBtn.style.display = 'inline-block';
 
@@ -304,9 +278,9 @@ export function stopRadarAnimation() {
   }
   state.radarAnimating = false;
 
-  // Update play/pause button
-  const playBtn = document.getElementById('radar-play-btn');
-  const pauseBtn = document.getElementById('radar-pause-btn');
+  // Update play/pause button (unified bar)
+  const playBtn = document.getElementById('unified-play-btn');
+  const pauseBtn = document.getElementById('unified-pause-btn');
   if (playBtn) playBtn.style.display = 'inline-block';
   if (pauseBtn) pauseBtn.style.display = 'none';
 

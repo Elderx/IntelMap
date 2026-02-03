@@ -554,31 +554,10 @@ export function setWeatherTimeByIndex(index) {
  * Update weather time display in UI
  */
 function updateWeatherTimeDisplay() {
-  const timeSteps = getWeatherTimeSteps();
-  const timeDisplay = document.getElementById('weather-time-display');
-  const slider = document.getElementById('weather-time-slider');
-
-  if (slider && timeSteps.length > 0) {
-    slider.max = (timeSteps.length - 1).toString();
-    slider.value = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
-  }
-
-  if (timeDisplay && timeSteps.length > 0) {
-    const index = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
-    const time = timeSteps[index];
-    if (time) {
-      const local = new Date(time);
-      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
-    }
-  }
-
-  // Update active layers panel
-  if (state.weatherEnabled) {
-    import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
-      updateActiveLayersPanel();
-    });
-  }
+  // Use unified time bar instead of separate weather display
+  import('../ui/headerLayerManager.js').then(({ updateUnifiedTimeDisplay }) => {
+    updateUnifiedTimeDisplay();
+  });
 }
 
 /**
@@ -618,9 +597,9 @@ export function startWeatherAnimation() {
 
   state.weatherAnimating = true;
 
-  // Update play/pause buttons
-  const playBtn = document.getElementById('weather-play-btn');
-  const pauseBtn = document.getElementById('weather-pause-btn');
+  // Update play/pause button (unified bar)
+  const playBtn = document.getElementById('unified-play-btn');
+  const pauseBtn = document.getElementById('unified-pause-btn');
   if (playBtn) playBtn.style.display = 'none';
   if (pauseBtn) pauseBtn.style.display = 'inline-block';
 
@@ -637,9 +616,9 @@ export function stopWeatherAnimation() {
   }
   state.weatherAnimating = false;
 
-  // Update play/pause buttons
-  const playBtn = document.getElementById('weather-play-btn');
-  const pauseBtn = document.getElementById('weather-pause-btn');
+  // Update play/pause buttons (unified bar)
+  const playBtn = document.getElementById('unified-play-btn');
+  const pauseBtn = document.getElementById('unified-pause-btn');
   if (playBtn) playBtn.style.display = 'inline-block';
   if (pauseBtn) pauseBtn.style.display = 'none';
 

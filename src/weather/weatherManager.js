@@ -46,10 +46,10 @@ export function startWeatherUpdates() {
   // Start polling interval
   state.weatherPollingTimer = setInterval(updateWeatherStationData, FMI_CONFIG.pollingIntervalMs);
 
-  // Create bottom control bar (after data is loaded)
-  import('../ui/headerLayerManager.js').then(({ createWeatherBottomBar }) => {
+  // Create unified time bar (after data is loaded)
+  import('../ui/headerLayerManager.js').then(({ createUnifiedTimeBar }) => {
     // Wait a bit for data to load
-    setTimeout(() => createWeatherBottomBar(), 500);
+    setTimeout(() => createUnifiedTimeBar(), 500);
   });
 
   console.log(`[Weather] Polling every ${FMI_CONFIG.pollingIntervalSec / 60} minutes`);
@@ -171,9 +171,9 @@ export function stopWeatherUpdates() {
   state.weatherEnabled = false;
   state.weatherError = null;
 
-  // Remove bottom control bar
-  import('../ui/headerLayerManager.js').then(({ removeWeatherBottomBar }) => {
-    removeWeatherBottomBar();
+  // Update unified time bar (remove or update to exclude weather)
+  import('../ui/headerLayerManager.js').then(({ createUnifiedTimeBar }) => {
+    createUnifiedTimeBar();
   });
 
   // Update UI
