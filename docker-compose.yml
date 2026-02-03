@@ -46,8 +46,10 @@ services:
       context: .
       args:
         NODE_ENV: production
-        # Cache proxy URL accessible from browser (external port)
-        VITE_TILE_CACHE_URL: http://localhost:8888
+        # Cache proxy URL accessible from browser
+        # Production default: intelmap.elderx.fi:8888
+        # Local dev: override with VITE_TILE_CACHE_URL=http://localhost:8888
+        VITE_TILE_CACHE_URL: ${VITE_TILE_CACHE_URL:-http://intelmap.elderx.fi:8888}
     environment:
       NODE_ENV: production
     depends_on:
