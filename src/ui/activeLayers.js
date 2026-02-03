@@ -281,6 +281,17 @@ export function updateActiveLayersPanel() {
         });
     }
 
+    // 8. FMI Radar overlay
+    if (state.radarEnabled) {
+        const currentTime = state.radarLayer.main?.radarTimeSteps?.[state.radarLayer.main?.radarTimeIndex];
+        const timeStr = currentTime ? new Date(currentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+        const title = timeStr ? `📡 Radar (${timeStr})` : `📡 Radar`;
+        addRow(title, '#9C27B0', async () => {
+            const { disableRadar } = await import('../radar/radarManager.js');
+            disableRadar();
+        });
+    }
+
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
 
     // Refresh dynamic OSM features in header dropdown

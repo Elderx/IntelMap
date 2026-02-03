@@ -162,7 +162,14 @@ export const state = {
   gpxShowDistanceChart: false,        // Show distance chart
   gpxError: null,                     // Error state
   gpxHoverMarker: null,               // Overlay marker for hover interaction
-  gpxHoverTooltip: null               // Tooltip element for hover
+  gpxHoverTooltip: null,              // Tooltip element for hover
+
+  // FMI Radar overlay
+  radarEnabled: false,                 // Master toggle for radar overlay
+  radarLayer: { main: null, left: null, right: null },
+  radarAnimating: false,               // Animation state
+  radarSpeed: 2,                       // Animation speed (fps)
+  radarCurrentTimeIndex: 0             // Current time step index
 };
 
 

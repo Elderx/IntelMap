@@ -66,6 +66,11 @@ async function bootstrap() {
   setupUserFeatureHover(state.map);
   setupUserFeatureClick(state.map);
 
+  // Initialize radar layers
+  import('./radar/radarManager.js').then(({ initRadarLayers }) => {
+    initRadarLayers();
+  });
+
   // Initialize header (for UI only - dropdowns, badges, etc.)
   initHeader();
   mountHeaderLayerManager(result); // Populate header layers dropdown (always available)
@@ -145,6 +150,10 @@ async function bootstrap() {
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
       rebuildGpxLayers();
     });
+    // Sync radar layers to split maps
+    import('./radar/radarManager.js').then(({ initRadarLayers }) => {
+      initRadarLayers();
+    });
   }
 
   function deactivateSplitScreen() {
@@ -171,6 +180,10 @@ async function bootstrap() {
     // Sync GPX layers to single map
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
       rebuildGpxLayers();
+    });
+    // Sync radar layers to single map
+    import('./radar/radarManager.js').then(({ initRadarLayers }) => {
+      initRadarLayers();
     });
   }
 
@@ -327,6 +340,15 @@ async function bootstrap() {
       // Defer until maps are ready
       setTimeout(() => {
         import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());
+      }, 100);
+    }
+    if (params.radar === '1') {
+      state.radarEnabled = true;
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./radar/radarManager.js').then(m => {
+          m.enableRadar();
+        });
       }, 100);
     }
     showAllDrawables(showClickMarker);

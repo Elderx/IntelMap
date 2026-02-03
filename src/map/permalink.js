@@ -59,6 +59,10 @@ export function updatePermalinkWithFeatures() {
     if (state.weatherShowTemperature) weatherStr += '&showTemp=1';
     if (state.weatherShowWind) weatherStr += '&showWind=1';
   }
+  let radarStr = '';
+  if (state.radarEnabled) {
+    radarStr = `&radar=1`;
+  }
   let gpxStr = '';
   if (state.gpxEnabled && state.gpxCurrentFile) {
     gpxStr = `&gpx=${state.gpxCurrentFile.id}`;
@@ -76,7 +80,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + gpxStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + radarStr + gpxStr;
   window.history.replaceState({}, '', params);
 }
 
