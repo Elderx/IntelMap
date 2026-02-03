@@ -29,7 +29,9 @@ services:
       NODE_ENV: staging
 
   cache-proxy:
-    # Separate cache volume for staging
+    # Staging cache-proxy doesn't need exposed ports (internal only)
+    # Production uses port 8888, so we remove the port mapping here
+    ports: []
     volumes:
       - tile-cache-staging:/var/cache/nginx/tiles
 
