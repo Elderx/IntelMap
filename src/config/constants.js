@@ -5,10 +5,12 @@ export const apiKey = '977cd66e-8512-460a-83d3-cb405325c3ff';
 export const epsg = 'EPSG:3857';
 export const tileMatrixSet = 'WGS84_Pseudo-Mercator';
 
-// Tile cache proxy URL (set via VITE_TILE_CACHE_URL env var, empty = direct access)
+// Tile cache proxy URL (set via VITE_TILE_CACHE_URL env var)
+// - If set: use absolute URL to proxy (e.g., http://localhost:8888 for local dev)
+// - If empty: use relative paths (proxied by Caddy to cache-proxy:8888)
 export const tileCacheUrl = import.meta.env.VITE_TILE_CACHE_URL || '';
 
-// Original external URLs (used when cache proxy is not available)
+// Original external URLs (for reference, not used directly)
 export const mmlBaseUrl = 'https://avoin-karttakuva.maanmittauslaitos.fi';
 export const osmBaseUrl = 'https://tile.openstreetmap.org';
 export const mapboxBaseUrl = 'https://api.mapbox.com';
@@ -18,22 +20,22 @@ export const digiroadBaseUrl = 'https://avoinapi.vaylapilvi.fi';
 export const fmiWmsBaseUrl = 'https://openwms.fmi.fi/geoserver/wms';
 export const nasaGibsBaseUrl = 'https://gibs.earthdata.nasa.gov';
 
-// Computed URLs - use cache proxy if available, otherwise direct
+// Computed URLs - use cache proxy URL if set, otherwise relative paths
 export const capsUrl = tileCacheUrl
   ? `${tileCacheUrl}/tiles/mml/avoin/wmts/1.0.0/WMTSCapabilities.xml?api-key=${apiKey}`
-  : `${mmlBaseUrl}/avoin/wmts/1.0.0/WMTSCapabilities.xml?api-key=${apiKey}`;
+  : `/tiles/mml/avoin/wmts/1.0.0/WMTSCapabilities.xml?api-key=${apiKey}`;
 
 export const wmsUrl = tileCacheUrl
   ? `${tileCacheUrl}/wms/digiroad/vaylatiedot/digiroad/wms`
-  : `${digiroadBaseUrl}/vaylatiedot/digiroad/wms`;
+  : `/wms/digiroad/vaylatiedot/digiroad/wms`;
 
 export const wmsCapabilitiesUrl = tileCacheUrl
   ? `${tileCacheUrl}/wms/digiroad/vaylatiedot/digiroad/wms?request=getcapabilities&service=wms`
-  : `${digiroadBaseUrl}/vaylatiedot/digiroad/wms?request=getcapabilities&service=wms`;
+  : `/wms/digiroad/vaylatiedot/digiroad/wms?request=getcapabilities&service=wms`;
 
 export const fmiWmsUrl = tileCacheUrl
   ? `${tileCacheUrl}/wms/fmi`
-  : `${fmiWmsBaseUrl}`;
+  : `/wms/fmi`;
 
 // Mapbox base URL and attribution (kept for potential future use)
 export const mbUrl = 'https://api.tiles.mapbox.com/v4/{id}/{z}/{x}/{y}.png?access_token=pk.eyJ1IjoiZWxkZXJ4IiwiYSI6ImNqdHNrdHlmbDA1bjczem81ZTQzZnJ3engifQ.2PoeE03vtRBPj1D_-ESbrw';

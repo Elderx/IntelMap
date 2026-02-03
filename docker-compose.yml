@@ -46,10 +46,10 @@ services:
       context: .
       args:
         NODE_ENV: production
-        # Cache proxy URL accessible from browser
-        # Production default: intelmap.elderx.fi:8888
-        # Local dev: override with VITE_TILE_CACHE_URL=http://localhost:8888
-        VITE_TILE_CACHE_URL: ${VITE_TILE_CACHE_URL:-http://intelmap.elderx.fi:8888}
+        # Cache proxy URL - empty means use relative paths (/tiles/*, /wms/*)
+        # These are proxied by Caddy to cache-proxy:8888 internally
+        # Local dev with direct cache access: VITE_TILE_CACHE_URL=http://localhost:8888
+        VITE_TILE_CACHE_URL: ""
     environment:
       NODE_ENV: production
     depends_on:

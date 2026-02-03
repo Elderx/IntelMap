@@ -22,7 +22,7 @@ export function createWMSOverlayLayer(layerName) {
 export function createOpenSeaMapOverlayLayer() {
   const openSeaMapUrl = tileCacheUrl
     ? `${tileCacheUrl}/tiles/openseamap/seamark/{z}/{x}/{y}.png`
-    : 'https://tiles.openseamap.org/seamark/{z}/{x}/{y}.png';
+    : `/tiles/openseamap/seamark/{z}/{x}/{y}.png`;
   return new TileLayer({
     opacity: 1,
     source: new XYZ({
@@ -36,14 +36,13 @@ export function createOpenSeaMapOverlayLayer() {
 
 export function createXYZOverlayLayer(layerInfo) {
   let url = layerInfo.url;
-  if (tileCacheUrl) {
-    if (url.includes('basemaps.cartocdn.com')) {
-      url = url.replace('https://{a-c}.basemaps.cartocdn.com', `${tileCacheUrl}/tiles/carto/{a-c}`);
-    } else if (url.includes('tiles.openrailwaymap.org')) {
-      url = url.replace('https://{a-c}.tiles.openrailwaymap.org', `${tileCacheUrl}/tiles/openrailway/{a-c}`);
-    } else if (url.includes('tile.waymarkedtrails.org')) {
-      url = url.replace('https://tile.waymarkedtrails.org', `${tileCacheUrl}/tiles/waymarked`);
-    }
+  // Rewrite URLs for cache proxy or relative paths
+  if (url.includes('basemaps.cartocdn.com')) {
+    url = url.replace('https://{a-c}.basemaps.cartocdn.com', `${tileCacheUrl || ''}/tiles/carto/{a-c}`);
+  } else if (url.includes('tiles.openrailwaymap.org')) {
+    url = url.replace('https://{a-c}.tiles.openrailwaymap.org', `${tileCacheUrl || ''}/tiles/openrailway/{a-c}`);
+  } else if (url.includes('tile.waymarkedtrails.org')) {
+    url = url.replace('https://tile.waymarkedtrails.org', `${tileCacheUrl || ''}/tiles/waymarked`);
   }
   return new TileLayer({
     opacity: 1,

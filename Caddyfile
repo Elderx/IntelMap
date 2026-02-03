@@ -1,4 +1,17 @@
 :80 {
+  # Proxy tile and WMS requests to cache-proxy (internal Docker network)
+  handle /tiles/* {
+    reverse_proxy cache-proxy:8888
+  }
+
+  handle /wms/* {
+    reverse_proxy cache-proxy:8888
+  }
+
+  handle /osm-api/* {
+    reverse_proxy cache-proxy:8888
+  }
+
   handle_path /mml-map/* {
     root * /srv
     file_server

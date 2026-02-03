@@ -16,6 +16,10 @@ const OVERPASS_SERVERS = tileCacheUrl
         `${tileCacheUrl}/osm-api/de/api/interpreter`
     ]
     : [
+        // Relative paths for Caddy proxy (production)
+        '/osm-api/kumi/api/interpreter',
+        '/osm-api/de/api/interpreter',
+        // Fallback to direct external servers
         'https://overpass.kumi.systems/api/interpreter',
         'https://overpass-api.de/api/interpreter',
         'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
