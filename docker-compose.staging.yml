@@ -6,7 +6,9 @@ name: intelmap-staging
 
 services:
   db:
-    # Use different volume name to avoid conflicts with production
+    # Staging database doesn't need exposed ports (internal only)
+    # Production uses port 5432, so we remove the port mapping here
+    ports: []
     volumes:
       - db-staging-data:/var/lib/postgresql/data
     environment:
