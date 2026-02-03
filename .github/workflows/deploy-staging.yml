@@ -24,5 +24,6 @@ jobs:
             git fetch origin
             git checkout dev
             git pull origin dev
+            sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging down
             sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up --build -d
             sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging exec -T db psql -U postgres -c "SELECT 'CREATE DATABASE mmlmap_staging' WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'mmlmap_staging')\\gexec"
