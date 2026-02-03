@@ -275,6 +275,7 @@ export function updateActiveLayersPanel() {
     // 7. Weather overlay
     if (state.weatherEnabled && state.weatherStationFeatures.length > 0) {
         const stationCount = state.weatherStationFeatures.length;
+        // For now, just show basic title (time updates happen via updateWeatherTimeDisplay)
         addRow(`🌤️ Weather (${stationCount})`, '#FF9800', async () => {
             const { stopWeatherUpdates } = await import('../weather/weatherManager.js');
             stopWeatherUpdates();

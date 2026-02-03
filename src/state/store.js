@@ -148,6 +148,9 @@ export const state = {
   weatherStationFeatures: [],
   weatherPollingTimer: null,
   weatherError: null,
+  weatherCurrentTimeIndex: null,      // Current time index for historical data
+  weatherAnimating: false,             // Animation state
+  weatherAnimationSpeed: 2,            // Animation speed (fps)
 
   // GPX overlay
   gpxEnabled: false,                  // Master toggle

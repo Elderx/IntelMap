@@ -46,6 +46,12 @@ export function startWeatherUpdates() {
   // Start polling interval
   state.weatherPollingTimer = setInterval(updateWeatherStationData, FMI_CONFIG.pollingIntervalMs);
 
+  // Create bottom control bar (after data is loaded)
+  import('../ui/headerLayerManager.js').then(({ createWeatherBottomBar }) => {
+    // Wait a bit for data to load
+    setTimeout(() => createWeatherBottomBar(), 500);
+  });
+
   console.log(`[Weather] Polling every ${FMI_CONFIG.pollingIntervalSec / 60} minutes`);
 }
 
@@ -139,6 +145,11 @@ export function stopWeatherUpdates() {
 
   console.log('[Weather] Stopping updates');
 
+  // Stop animation
+  import('./weatherStations.js').then(({ stopWeatherAnimation }) => {
+    stopWeatherAnimation();
+  });
+
   // Clear polling timer
   clearInterval(state.weatherPollingTimer);
   state.weatherPollingTimer = null;
@@ -159,6 +170,11 @@ export function stopWeatherUpdates() {
   state.weatherStationFeatures = [];
   state.weatherEnabled = false;
   state.weatherError = null;
+
+  // Remove bottom control bar
+  import('../ui/headerLayerManager.js').then(({ removeWeatherBottomBar }) => {
+    removeWeatherBottomBar();
+  });
 
   // Update UI
   import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {

@@ -1298,3 +1298,214 @@ export function refreshRadarBottomBar() {
     createRadarBottomBar();
   }
 }
+
+/**
+ * Create the weather bottom control bar (fixed position at bottom center)
+ */
+export function createWeatherBottomBar() {
+  // Remove existing bar if present
+  removeWeatherBottomBar();
+
+  const bar = document.createElement('div');
+  bar.id = 'weather-bottom-bar';
+  bar.style.position = 'fixed';
+  bar.style.bottom = '20px';
+  bar.style.left = '50%';
+  bar.style.transform = 'translateX(-50%)';
+  bar.style.background = 'rgba(255, 255, 255, 0.95)';
+  bar.style.border = '1px solid #ddd';
+  bar.style.borderRadius = '12px';
+  bar.style.boxShadow = '0 4px 20px rgba(0,0,0,0.15)';
+  bar.style.padding = '12px 20px';
+  bar.style.zIndex = '1000';
+  bar.style.display = 'flex';
+  bar.style.alignItems = 'center';
+  bar.style.gap = '12px';
+  bar.style.minWidth = '500px';
+  bar.style.maxWidth = '800px';
+
+  // Dark theme support
+  const isDark = state.theme === 'dark';
+  if (isDark) {
+    bar.style.background = 'rgba(30, 30, 30, 0.95)';
+    bar.style.border = '1px solid #444';
+  }
+
+  // Title
+  const title = document.createElement('div');
+  title.style.fontSize = '13px';
+  title.style.fontWeight = '600';
+  title.style.color = isDark ? '#fff' : '#333';
+  title.style.whiteSpace = 'nowrap';
+  title.textContent = '🌤️ Weather';
+  bar.appendChild(title);
+
+  // Time display
+  const timeDisplay = document.createElement('div');
+  timeDisplay.id = 'weather-time-display';
+  timeDisplay.style.fontFamily = 'monospace';
+  timeDisplay.style.fontSize = '13px';
+  timeDisplay.style.color = isDark ? '#fff' : '#333';
+  timeDisplay.style.minWidth = '120px';
+  timeDisplay.textContent = '-';
+  bar.appendChild(timeDisplay);
+
+  // Step backward button
+  const stepBackBtn = document.createElement('button');
+  stepBackBtn.className = 'btn btn-sm btn-secondary';
+  stepBackBtn.innerHTML = '&laquo;';
+  stepBackBtn.style.padding = '4px 10px';
+  stepBackBtn.style.fontSize = '14px';
+  stepBackBtn.addEventListener('click', async () => {
+    const { setWeatherTimeByIndex, getCurrentWeatherTimeIndex, getWeatherTimeSteps } = await import('../weather/weatherStations.js');
+    const currentIndex = getCurrentWeatherTimeIndex();
+    const prevIndex = currentIndex > 0 ? currentIndex - 1 : getWeatherTimeSteps().length - 1;
+    setWeatherTimeByIndex(prevIndex);
+  });
+  bar.appendChild(stepBackBtn);
+
+  // Play button
+  const playBtn = document.createElement('button');
+  playBtn.id = 'weather-play-btn';
+  playBtn.className = 'btn btn-sm btn-success';
+  playBtn.textContent = '▶';
+  playBtn.style.padding = '4px 12px';
+  playBtn.style.fontSize = '12px';
+  playBtn.style.minWidth = '60px';
+  playBtn.addEventListener('click', async () => {
+    const { startWeatherAnimation } = await import('../weather/weatherStations.js');
+    startWeatherAnimation();
+  });
+  bar.appendChild(playBtn);
+
+  // Pause button
+  const pauseBtn = document.createElement('button');
+  pauseBtn.id = 'weather-pause-btn';
+  pauseBtn.className = 'btn btn-sm btn-warning';
+  pauseBtn.textContent = '⏸';
+  pauseBtn.style.padding = '4px 12px';
+  pauseBtn.style.fontSize = '12px';
+  pauseBtn.style.minWidth = '60px';
+  pauseBtn.style.display = 'none';
+  pauseBtn.addEventListener('click', async () => {
+    const { stopWeatherAnimation } = await import('../weather/weatherStations.js');
+    stopWeatherAnimation();
+  });
+  bar.appendChild(pauseBtn);
+
+  // Step forward button
+  const stepForwardBtn = document.createElement('button');
+  stepForwardBtn.className = 'btn btn-sm btn-secondary';
+  stepForwardBtn.innerHTML = '&raquo;';
+  stepForwardBtn.style.padding = '4px 10px';
+  stepForwardBtn.style.fontSize = '14px';
+  stepForwardBtn.addEventListener('click', async () => {
+    const { setWeatherTimeByIndex, getCurrentWeatherTimeIndex, getWeatherTimeSteps } = await import('../weather/weatherStations.js');
+    const currentIndex = getCurrentWeatherTimeIndex();
+    const timeSteps = getWeatherTimeSteps();
+    const nextIndex = currentIndex < timeSteps.length - 1 ? currentIndex + 1 : 0;
+    setWeatherTimeByIndex(nextIndex);
+  });
+  bar.appendChild(stepForwardBtn);
+
+  // Speed control
+  const speedLabel = document.createElement('span');
+  speedLabel.textContent = 'Speed:';
+  speedLabel.style.fontSize = '12px';
+  speedLabel.style.color = isDark ? '#ccc' : '#666';
+  speedLabel.style.marginLeft = '4px';
+  bar.appendChild(speedLabel);
+
+  const speedSelect = document.createElement('select');
+  speedSelect.id = 'weather-speed-select';
+  speedSelect.className = 'form-select';
+  speedSelect.style.fontSize = '12px';
+  speedSelect.style.padding = '4px 8px';
+  speedSelect.style.width = 'auto';
+  speedSelect.style.display = 'inline-block';
+
+  const speeds = [
+    { value: 0.5, label: '0.5x' },
+    { value: 1, label: '1x' },
+    { value: 2, label: '2x' },
+    { value: 4, label: '4x' },
+    { value: 6, label: '6x' }
+  ];
+  speeds.forEach(s => {
+    const option = document.createElement('option');
+    option.value = s.value;
+    option.textContent = s.label;
+    if (s.value === state.weatherAnimationSpeed) {
+      option.selected = true;
+    }
+    speedSelect.appendChild(option);
+  });
+
+  speedSelect.addEventListener('change', async function() {
+    const { setWeatherAnimationSpeed } = await import('../weather/weatherStations.js');
+    setWeatherAnimationSpeed(parseFloat(this.value));
+  });
+
+  bar.appendChild(speedSelect);
+
+  // Time slider (make it long)
+  const sliderContainer = document.createElement('div');
+  sliderContainer.style.flex = '1';
+  sliderContainer.style.minWidth = '200px';
+
+  const slider = document.createElement('input');
+  slider.type = 'range';
+  slider.id = 'weather-time-slider';
+  slider.min = '0';
+  slider.max = '143'; // Will be updated dynamically
+  slider.value = '0';
+  slider.style.width = '100%';
+  slider.style.cursor = 'pointer';
+  slider.style.height = '6px';
+
+  slider.addEventListener('input', async function() {
+    const { setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
+    setWeatherTimeByIndex(parseInt(this.value, 10));
+  });
+
+  sliderContainer.appendChild(slider);
+  bar.appendChild(sliderContainer);
+
+  document.body.appendChild(bar);
+
+  // Initialize time display
+  import('../weather/weatherStations.js').then(({ getCurrentWeatherTime, getWeatherTimeSteps, getCurrentWeatherTimeIndex }) => {
+    const time = getCurrentWeatherTime();
+    const timeSteps = getWeatherTimeSteps();
+    const currentIndex = getCurrentWeatherTimeIndex();
+
+    if (slider && timeSteps.length > 0) {
+      slider.max = (timeSteps.length - 1).toString();
+      slider.value = currentIndex.toString();
+    }
+    if (time && timeDisplay) {
+      const local = new Date(time);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
+    }
+  });
+}
+
+/**
+ * Remove the weather bottom control bar
+ */
+export function removeWeatherBottomBar() {
+  const bar = document.getElementById('weather-bottom-bar');
+  if (bar) {
+    bar.remove();
+  }
+}
+
+/**
+ * Recreate the weather bottom bar (e.g., on theme change)
+ */
+export function refreshWeatherBottomBar() {
+  if (state.weatherEnabled) {
+    createWeatherBottomBar();
+  }
+}

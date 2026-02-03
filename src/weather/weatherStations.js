@@ -52,14 +52,18 @@ function createArrowIcon(color, size) {
 /**
  * Fetch weather station observations from FMI WFS
  * @param {Array} bbox - [minLon, minLat, maxLon, maxLat] in WGS84
+ * @param {Object} options - Options for fetching
+ * @param {number} options.hoursBack - Hours of historical data to fetch (default: 12)
  * @returns {Promise<Array>} Array of station observations
  */
-export async function fetchWeatherStations(bbox) {
+export async function fetchWeatherStations(bbox, options = {}) {
+  const { hoursBack = 12 } = options;
   const [minLon, minLat, maxLon, maxLat] = bbox;
 
-  // Calculate start time 20 minutes ago
+  // Calculate start time (N hours ago)
   const now = new Date();
-  const twentyMinsAgo = new Date(now.getTime() - 20 * 60000).toISOString();
+  const startTime = new Date(now.getTime() - hoursBack * 60 * 60 * 1000).toISOString();
+  const endTime = now.toISOString();
 
   const params = new URLSearchParams({
     service: 'WFS',
@@ -68,7 +72,8 @@ export async function fetchWeatherStations(bbox) {
     storedquery_id: 'fmi::observations::weather::simple',
     bbox: `${minLon},${minLat},${maxLon},${maxLat}`,
     parameters: 't2m,ws_10min,wd_10min,r_1h,rh,snow_aws,p_sea',
-    starttime: twentyMinsAgo,
+    starttime: startTime,
+    endtime: endTime,
     crs: 'EPSG:4326'
   });
 
@@ -89,15 +94,27 @@ export async function fetchWeatherStations(bbox) {
 }
 
 /**
- * Parse FMI WFS simple XML response
+ * Parse FMI WFS simple XML response with time series support
  * @param {string} xmlText - XML response from FMI
- * @returns {Array} Array of station observation objects
+ * @returns {Object} Object containing timeSteps array and current observations
  */
 function parseFmiXml(xmlText) {
   const parser = new DOMParser();
   const xmlDoc = parser.parseFromString(xmlText, 'text/xml');
 
-  const stationMap = new Map();
+  // Round time to nearest 5 minutes (for time step grouping)
+  function roundTo5Minutes(date) {
+    const rounded = new Date(date);
+    rounded.setSeconds(0);
+    rounded.setMilliseconds(0);
+    rounded.setMinutes(Math.floor(rounded.getMinutes() / 5) * 5);
+    return rounded;
+  }
+
+  // Structure: timeStepsMap<timestampStr, Array<observations>>
+  const timeStepsMap = new Map();
+  const stationMap = new Map(); // Latest observation per station (for current display)
+
   const featureMembers = xmlDoc.getElementsByTagName('wfs:member');
 
   for (let i = 0; i < featureMembers.length; i++) {
@@ -141,48 +158,76 @@ function parseFmiXml(xmlText) {
     const value = parseFloat(paramValue);
     if (isNaN(value)) continue;
 
-    // Initialize or update station, keeping only the most recent observation
-    if (!stationMap.has(locationKey) || observationTime > stationMap.get(locationKey).timestamp) {
-      if (!stationMap.has(locationKey)) {
-        stationMap.set(locationKey, {
-          location: [longitude, latitude], // lon, lat order for OpenLayers
-          temperature: null,
-          windSpeed: null,
-          windDirection: null,
-          precipitation: null,
-          humidity: null,
-          snowDepth: null,
-          pressure: null,
-          timestamp: observationTime
-        });
-      } else {
-        // Update timestamp for existing station
-        stationMap.get(locationKey).timestamp = observationTime;
-      }
+    // Round time to 5-minute interval for time step grouping
+    const roundedTime = roundTo5Minutes(observationTime);
+    const timeKey = roundedTime.toISOString();
+
+    // Initialize time step if not exists
+    if (!timeStepsMap.has(timeKey)) {
+      timeStepsMap.set(timeKey, []);
     }
 
-    // Assign value to correct parameter (always update from most recent observation)
-    const station = stationMap.get(locationKey);
+    // Find or create observation for this station at this time step
+    const timeStepObservations = timeStepsMap.get(timeKey);
+    let obs = timeStepObservations.find(o => o.locationKey === locationKey);
+
+    if (!obs) {
+      obs = {
+        locationKey,
+        location: [longitude, latitude],
+        temperature: null,
+        windSpeed: null,
+        windDirection: null,
+        precipitation: null,
+        humidity: null,
+        snowDepth: null,
+        pressure: null,
+        timestamp: roundedTime
+      };
+      timeStepObservations.push(obs);
+    }
+
+    // Assign value to correct parameter
     if (paramName === 't2m') {
-      station.temperature = value;
+      obs.temperature = value;
     } else if (paramName === 'ws_10min') {
-      station.windSpeed = value;
+      obs.windSpeed = value;
     } else if (paramName === 'wd_10min') {
-      station.windDirection = value;
+      obs.windDirection = value;
     } else if (paramName === 'r_1h') {
-      station.precipitation = value;
+      obs.precipitation = value;
     } else if (paramName === 'rh') {
-      station.humidity = value;
+      obs.humidity = value;
     } else if (paramName === 'snow_aws') {
-      station.snowDepth = value;
+      obs.snowDepth = value;
     } else if (paramName === 'p_sea') {
-      station.pressure = value;
+      obs.pressure = value;
+    }
+
+    // Update latest observation for this station (for current display)
+    if (!stationMap.has(locationKey) || observationTime > stationMap.get(locationKey).timestamp) {
+      stationMap.set(locationKey, { ...obs, timestamp: observationTime });
     }
   }
 
-  // Convert map to array and generate station names
-  return Array.from(stationMap.values()).map((station, index) => ({
-    ...station,
+  // Convert timeStepsMap to sorted array of Dates
+  const timeSteps = Array.from(timeStepsMap.keys())
+    .map(k => new Date(k))
+    .sort((a, b) => a - b);
+
+  // Store time series data globally
+  if (typeof window !== 'undefined') {
+    window._weatherTimeSteps = timeSteps;
+    window._weatherTimeSeriesMap = timeStepsMap;
+  }
+
+  // Return current observations (most recent time step)
+  const latestTimeKey = timeSteps.length > 0 ? timeSteps[timeSteps.length - 1].toISOString() : null;
+  const currentObservations = latestTimeKey ? timeStepsMap.get(latestTimeKey) || [] : [];
+
+  // Convert to array and generate station names
+  return Array.from(currentObservations).map((obs, index) => ({
+    ...obs,
     stationId: `station-${index}`,
     name: `Weather Station ${index + 1}`
   }));
@@ -214,7 +259,7 @@ export function stationToFeature(station) {
   });
 
   // Set style based on current state
-  setFeatureStyle(feature, temperature, windSpeed, windDirection);
+  setFeatureStyle(feature, temperature, windSpeed, windDirection, humidity, snowDepth, pressure);
 
   return feature;
 }
@@ -380,3 +425,240 @@ function getTemperatureColor(temp) {
   if (temp > 0) return '#4CAF50'; // Green (mild)
   return '#2196F3'; // Blue (cold)
 }
+
+// ===== Time Series Management =====
+
+/**
+ * Get weather time steps
+ * @returns {Array<Date>} Array of available time steps
+ */
+export function getWeatherTimeSteps() {
+  if (typeof window !== 'undefined' && window._weatherTimeSteps) {
+    return window._weatherTimeSteps;
+  }
+  return [];
+}
+
+/**
+ * Get current weather time index
+ * @returns {number} Current time index
+ */
+export function getCurrentWeatherTimeIndex() {
+  const timeSteps = getWeatherTimeSteps();
+  if (timeSteps.length === 0) return 0;
+  return timeSteps.length - 1; // Default to latest
+}
+
+/**
+ * Set weather observations for a specific time index
+ * @param {number} index - Time step index
+ */
+export function setWeatherTimeByIndex(index) {
+  const timeSteps = getWeatherTimeSteps();
+  if (!timeSteps || index < 0 || index >= timeSteps.length) return;
+
+  const targetTime = timeSteps[index];
+
+  // Get all unique station locations across all time steps
+  const timeSeriesMap = typeof window !== 'undefined' ? window._weatherTimeSeriesMap : null;
+  if (!timeSeriesMap) {
+    console.warn('[Weather] No time series data available');
+    return;
+  }
+
+  // Build a map of all station locations and their latest available data before/at target time
+  const stationDataMap = new Map();
+  const allLocationKeys = new Set();
+
+  // First pass: collect all location keys and their data across all time steps
+  for (const [timeKey, observations] of timeSeriesMap.entries()) {
+    const stepTime = new Date(timeKey);
+    // Only consider time steps up to and including the target time
+    if (stepTime > targetTime) continue;
+
+    observations.forEach(obs => {
+      allLocationKeys.add(obs.locationKey);
+
+      if (!stationDataMap.has(obs.locationKey)) {
+        // First time seeing this station - store data
+        stationDataMap.set(obs.locationKey, {
+          locationKey: obs.locationKey,
+          location: obs.location,
+          temperature: obs.temperature,
+          windSpeed: obs.windSpeed,
+          windDirection: obs.windDirection,
+          precipitation: obs.precipitation,
+          humidity: obs.humidity,
+          snowDepth: obs.snowDepth,
+          pressure: obs.pressure,
+          timestamp: obs.timestamp
+        });
+      } else {
+        // Station exists - update data if this observation is more recent
+        const existing = stationDataMap.get(obs.locationKey);
+        if (obs.timestamp > existing.timestamp) {
+          stationDataMap.set(obs.locationKey, {
+            locationKey: obs.locationKey,
+            location: obs.location,
+            temperature: obs.temperature ?? existing.temperature,
+            windSpeed: obs.windSpeed ?? existing.windSpeed,
+            windDirection: obs.windDirection ?? existing.windDirection,
+            precipitation: obs.precipitation ?? existing.precipitation,
+            humidity: obs.humidity ?? existing.humidity,
+            snowDepth: obs.snowDepth ?? existing.snowDepth,
+            pressure: obs.pressure ?? existing.pressure,
+            timestamp: obs.timestamp
+          });
+        }
+      }
+    });
+  }
+
+  // Convert map to array and create features
+  const newFeatures = [];
+  let idx = 0;
+  for (const [locationKey, obs] of stationDataMap) {
+    const feature = stationToFeature({
+      ...obs,
+      stationId: locationKey || `station-${idx}`,
+      name: `Weather Station ${idx + 1}`
+    });
+    if (feature) {
+      newFeatures.push(feature);
+    }
+    idx++;
+  }
+
+  // Update features in state
+  state.weatherStationFeatures = newFeatures;
+  state.weatherCurrentTimeIndex = index;
+
+  // Update layers
+  ['main', 'left', 'right'].forEach(key => {
+    const layer = state.weatherStationLayer[key];
+    if (layer) {
+      // Clear existing features
+      layer.getSource()?.clear();
+      // Add new features
+      layer.getSource()?.addFeatures(newFeatures);
+    }
+  });
+
+  // Update time display
+  updateWeatherTimeDisplay();
+
+  console.log(`[Weather] Set time to index ${index} (${targetTime.toISOString()}) - showing ${newFeatures.length} stations`);
+}
+
+/**
+ * Update weather time display in UI
+ */
+function updateWeatherTimeDisplay() {
+  const timeSteps = getWeatherTimeSteps();
+  const timeDisplay = document.getElementById('weather-time-display');
+  const slider = document.getElementById('weather-time-slider');
+
+  if (slider && timeSteps.length > 0) {
+    slider.max = (timeSteps.length - 1).toString();
+    slider.value = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
+  }
+
+  if (timeDisplay && timeSteps.length > 0) {
+    const index = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
+    const time = timeSteps[index];
+    if (time) {
+      const local = new Date(time);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
+    }
+  }
+
+  // Update active layers panel
+  if (state.weatherEnabled) {
+    import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
+      updateActiveLayersPanel();
+    });
+  }
+}
+
+/**
+ * Get current weather time
+ * @returns {Date|null} Current selected time
+ */
+export function getCurrentWeatherTime() {
+  const timeSteps = getWeatherTimeSteps();
+  const index = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
+  return timeSteps[index] || null;
+}
+
+// ===== Weather Animation =====
+
+let weatherAnimationId = null;
+let weatherFrameRate = 2; // frames per second
+
+/**
+ * Start weather animation
+ */
+export function startWeatherAnimation() {
+  stopWeatherAnimation();
+
+  weatherAnimationId = setInterval(() => {
+    const timeSteps = getWeatherTimeSteps();
+    const currentIndex = state.weatherCurrentTimeIndex ?? (timeSteps.length - 1);
+
+    if (timeSteps.length === 0) return;
+
+    let nextIndex = currentIndex + 1;
+    if (nextIndex >= timeSteps.length) {
+      nextIndex = 0; // Loop back to start
+    }
+
+    setWeatherTimeByIndex(nextIndex);
+  }, 1000 / weatherFrameRate);
+
+  state.weatherAnimating = true;
+
+  // Update play/pause buttons
+  const playBtn = document.getElementById('weather-play-btn');
+  const pauseBtn = document.getElementById('weather-pause-btn');
+  if (playBtn) playBtn.style.display = 'none';
+  if (pauseBtn) pauseBtn.style.display = 'inline-block';
+
+  console.log('[Weather] Animation started');
+}
+
+/**
+ * Stop weather animation
+ */
+export function stopWeatherAnimation() {
+  if (weatherAnimationId) {
+    clearInterval(weatherAnimationId);
+    weatherAnimationId = null;
+  }
+  state.weatherAnimating = false;
+
+  // Update play/pause buttons
+  const playBtn = document.getElementById('weather-play-btn');
+  const pauseBtn = document.getElementById('weather-pause-btn');
+  if (playBtn) playBtn.style.display = 'inline-block';
+  if (pauseBtn) pauseBtn.style.display = 'none';
+
+  console.log('[Weather] Animation stopped');
+}
+
+/**
+ * Set weather animation speed
+ * @param {number} fps - Frames per second
+ */
+export function setWeatherAnimationSpeed(fps) {
+  weatherFrameRate = Math.max(0.1, Math.min(10, fps));
+  state.weatherAnimationSpeed = weatherFrameRate;
+
+  // Restart animation if running
+  if (state.weatherAnimating) {
+    startWeatherAnimation();
+  }
+
+  console.log(`[Weather] Speed set to ${weatherFrameRate} fps`);
+}
+
