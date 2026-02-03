@@ -544,8 +544,8 @@ export function setWeatherTimeByIndex(index) {
     }
   });
 
-  // Update time display
-  updateWeatherTimeDisplay();
+  // Note: time display update is handled by the caller (e.g., slider handler)
+  // to avoid circular import with headerLayerManager
 
   console.log(`[Weather] Set time to index ${index} (${targetTime.toISOString()}) - showing ${newFeatures.length} stations`);
 }

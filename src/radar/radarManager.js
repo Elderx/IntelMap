@@ -173,7 +173,8 @@ export function setRadarTimeByIndex(index) {
   });
 
   state.radarCurrentTimeIndex = index;
-  updateRadarTimeDisplay();
+  // Note: time display update is handled by the caller (e.g., slider handler)
+  // to avoid circular import with headerLayerManager
 }
 
 /**

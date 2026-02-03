@@ -18,6 +18,28 @@ import '../styles/ais.css';
 import { startWeatherUpdates, stopWeatherUpdates } from '../weather/weatherManager.js';
 import '../styles/weather.css';
 
+// Radar imports - static imports for unified time bar
+import {
+  setRadarTimeByIndex,
+  radarStepBackward,
+  radarStepForward,
+  startRadarAnimation,
+  stopRadarAnimation,
+  setRadarSpeed,
+  getCurrentTimeIndex as getRadarTimeIndex,
+  getRadarTimeSteps
+} from '../radar/radarManager.js';
+
+// Weather stations imports - static imports for unified time bar
+import {
+  setWeatherTimeByIndex,
+  getCurrentWeatherTimeIndex,
+  getWeatherTimeSteps,
+  startWeatherAnimation,
+  stopWeatherAnimation,
+  setWeatherAnimationSpeed
+} from '../weather/weatherStations.js';
+
 // GPX imports (dynamic to avoid circular dependency)
 import '../styles/gpx.css';
 
@@ -1160,17 +1182,17 @@ export function createUnifiedTimeBar() {
   stepBackBtn.innerHTML = '&laquo;';
   stepBackBtn.style.padding = '4px 10px';
   stepBackBtn.style.fontSize = '14px';
-  stepBackBtn.addEventListener('click', async () => {
+  stepBackBtn.addEventListener('click', () => {
     if (hasRadar) {
-      const { radarStepBackward } = await import('../radar/radarManager.js');
       radarStepBackward();
+      updateUnifiedTimeDisplay();
     }
     if (hasWeather) {
-      const { getCurrentWeatherTimeIndex, getWeatherTimeSteps, setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
       const currentIndex = getCurrentWeatherTimeIndex();
       const timeSteps = getWeatherTimeSteps();
       const prevIndex = currentIndex > 0 ? currentIndex - 1 : timeSteps.length - 1;
       setWeatherTimeByIndex(prevIndex);
+      updateUnifiedTimeDisplay();
     }
   });
   bar.appendChild(stepBackBtn);
@@ -1183,13 +1205,11 @@ export function createUnifiedTimeBar() {
   playBtn.style.padding = '4px 12px';
   playBtn.style.fontSize = '12px';
   playBtn.style.minWidth = '60px';
-  playBtn.addEventListener('click', async () => {
+  playBtn.addEventListener('click', () => {
     if (hasRadar) {
-      const { startRadarAnimation } = await import('../radar/radarManager.js');
       startRadarAnimation();
     }
     if (hasWeather) {
-      const { startWeatherAnimation } = await import('../weather/weatherStations.js');
       startWeatherAnimation();
     }
   });
@@ -1204,13 +1224,11 @@ export function createUnifiedTimeBar() {
   pauseBtn.style.fontSize = '12px';
   pauseBtn.style.minWidth = '60px';
   pauseBtn.style.display = 'none';
-  pauseBtn.addEventListener('click', async () => {
+  pauseBtn.addEventListener('click', () => {
     if (hasRadar) {
-      const { stopRadarAnimation } = await import('../radar/radarManager.js');
       stopRadarAnimation();
     }
     if (hasWeather) {
-      const { stopWeatherAnimation } = await import('../weather/weatherStations.js');
       stopWeatherAnimation();
     }
   });
@@ -1222,17 +1240,17 @@ export function createUnifiedTimeBar() {
   stepForwardBtn.innerHTML = '&raquo;';
   stepForwardBtn.style.padding = '4px 10px';
   stepForwardBtn.style.fontSize = '14px';
-  stepForwardBtn.addEventListener('click', async () => {
+  stepForwardBtn.addEventListener('click', () => {
     if (hasRadar) {
-      const { radarStepForward } = await import('../radar/radarManager.js');
       radarStepForward();
+      updateUnifiedTimeDisplay();
     }
     if (hasWeather) {
-      const { getCurrentWeatherTimeIndex, getWeatherTimeSteps, setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
       const currentIndex = getCurrentWeatherTimeIndex();
       const timeSteps = getWeatherTimeSteps();
       const nextIndex = currentIndex < timeSteps.length - 1 ? currentIndex + 1 : 0;
       setWeatherTimeByIndex(nextIndex);
+      updateUnifiedTimeDisplay();
     }
   });
   bar.appendChild(stepForwardBtn);
@@ -1272,14 +1290,12 @@ export function createUnifiedTimeBar() {
     speedSelect.appendChild(option);
   });
 
-  speedSelect.addEventListener('change', async function() {
+  speedSelect.addEventListener('change', function() {
     const speed = parseFloat(this.value);
     if (hasRadar) {
-      const { setRadarSpeed } = await import('../radar/radarManager.js');
       setRadarSpeed(speed);
     }
     if (hasWeather) {
-      const { setWeatherAnimationSpeed } = await import('../weather/weatherStations.js');
       setWeatherAnimationSpeed(speed);
     }
   });
@@ -1301,16 +1317,16 @@ export function createUnifiedTimeBar() {
   slider.style.cursor = 'pointer';
   slider.style.height = '6px';
 
-  slider.addEventListener('input', async function() {
+  slider.addEventListener('input', function() {
     const index = parseInt(this.value, 10);
     if (hasRadar) {
-      const { setRadarTimeByIndex } = await import('../radar/radarManager.js');
       setRadarTimeByIndex(index);
     }
     if (hasWeather) {
-      const { setWeatherTimeByIndex } = await import('../weather/weatherStations.js');
       setWeatherTimeByIndex(index);
     }
+    // Update time display only (not slider position to avoid conflict)
+    updateUnifiedTimeDisplayText(index);
   });
 
   sliderContainer.appendChild(slider);
@@ -1334,13 +1350,11 @@ async function initializeUnifiedTimeBar() {
   let currentIndex = 0;
 
   if (state.radarEnabled) {
-    const { getRadarTimeSteps, getCurrentTimeIndex: getRadarIndex } = await import('../radar/radarManager.js');
     timeSteps = getRadarTimeSteps();
-    currentIndex = getRadarIndex();
+    currentIndex = getRadarTimeIndex();
   } else if (state.weatherEnabled) {
-    const { getWeatherTimeSteps, getCurrentWeatherTimeIndex: getWeatherIndex } = await import('../weather/weatherStations.js');
     timeSteps = getWeatherTimeSteps();
-    currentIndex = getWeatherIndex();
+    currentIndex = getCurrentWeatherTimeIndex();
   }
 
   if (slider && timeSteps.length > 0) {
@@ -1378,8 +1392,38 @@ export function updateUnifiedTimeBar() {
 }
 
 /**
+ * Update unified time bar display text only (not slider position)
+ * Called during slider drag to avoid conflict with user interaction
+ * @param {number} sliderIndex - Optional slider index to use (from slider.value)
+ */
+function updateUnifiedTimeDisplayText(sliderIndex = null) {
+  const timeDisplay = document.getElementById('unified-time-display');
+
+  // Get time steps from whichever overlay has data
+  let timeSteps = [];
+  let currentIndex = 0;
+
+  if (state.radarEnabled) {
+    timeSteps = getRadarTimeSteps();
+    currentIndex = sliderIndex !== null ? sliderIndex : getRadarTimeIndex();
+  } else if (state.weatherEnabled) {
+    timeSteps = getWeatherTimeSteps();
+    currentIndex = sliderIndex !== null ? sliderIndex : getCurrentWeatherTimeIndex();
+  }
+
+  if (timeDisplay && timeSteps.length > 0 && currentIndex < timeSteps.length) {
+    const time = timeSteps[currentIndex];
+    if (time) {
+      const local = new Date(time);
+      local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+      timeDisplay.textContent = local.toISOString().slice(0, 16).replace('T', ' ');
+    }
+  }
+}
+
+/**
  * Update unified time bar display (time display and slider position)
- * Called when time changes during animation or slider move
+ * Called when time changes during animation or programmatic updates
  */
 export function updateUnifiedTimeDisplay() {
   const timeDisplay = document.getElementById('unified-time-display');
@@ -1390,13 +1434,11 @@ export function updateUnifiedTimeDisplay() {
   let currentIndex = 0;
 
   if (state.radarEnabled) {
-    const { getRadarTimeSteps, getCurrentTimeIndex: getRadarIndex } = require('../radar/radarManager.js');
     timeSteps = getRadarTimeSteps();
-    currentIndex = getRadarIndex();
+    currentIndex = getRadarTimeIndex();
   } else if (state.weatherEnabled) {
-    const { getWeatherTimeSteps, getCurrentWeatherTimeIndex: getWeatherIndex } = require('../weather/weatherStations.js');
     timeSteps = getWeatherTimeSteps();
-    currentIndex = getWeatherIndex();
+    currentIndex = getCurrentWeatherTimeIndex();
   }
 
   if (slider && timeSteps.length > 0) {
