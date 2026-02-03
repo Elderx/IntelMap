@@ -21,15 +21,17 @@ export function showLoginOverlay(onSuccess) {
   box.style.border = '1px solid #1f2937';
   box.style.borderRadius = '12px';
   box.style.boxShadow = '0 20px 60px rgba(0,0,0,0.4)';
-  box.style.padding = '28px 26px 22px 26px';
-  box.style.width = '340px';
+  box.style.padding = '32px 28px 24px 28px';
+  box.style.width = '320px';
+  box.style.maxWidth = '90vw';
 
   const title = document.createElement('div');
-  title.textContent = 'MML Map — Sign in';
-  title.style.fontSize = '18px';
+  title.textContent = 'IntelMap — Sign in';
+  title.style.fontSize = '20px';
   title.style.fontWeight = '600';
-  title.style.marginBottom = '14px';
+  title.style.marginBottom = '20px';
   title.style.textAlign = 'center';
+  title.style.letterSpacing = '0.02em';
   box.appendChild(title);
 
   const form = document.createElement('form');
@@ -37,22 +39,26 @@ export function showLoginOverlay(onSuccess) {
 
   const u = document.createElement('input');
   u.type = 'text'; u.placeholder = 'Username';
-  u.style.width = '100%'; u.style.padding = '10px 12px'; u.style.marginBottom = '10px';
-  u.style.borderRadius = '8px'; u.style.border = '1px solid #374151'; u.style.background = '#0b1220'; u.style.color = '#e5e7eb';
+  u.style.width = '100%'; u.style.padding = '12px 14px'; u.style.marginBottom = '12px';
+  u.style.borderRadius = '8px'; u.style.border = '1px solid #374151'; u.style.background = '#0b1220';
+  u.style.color = '#e5e7eb'; u.style.boxSizing = 'border-box'; u.style.fontSize = '14px';
 
   const p = document.createElement('input');
   p.type = 'password'; p.placeholder = 'Password';
-  p.style.width = '100%'; p.style.padding = '10px 12px'; p.style.marginBottom = '12px';
-  p.style.borderRadius = '8px'; p.style.border = '1px solid #374151'; p.style.background = '#0b1220'; p.style.color = '#e5e7eb';
+  p.style.width = '100%'; p.style.padding = '12px 14px'; p.style.marginBottom = '16px';
+  p.style.borderRadius = '8px'; p.style.border = '1px solid #374151'; p.style.background = '#0b1220';
+  p.style.color = '#e5e7eb'; p.style.boxSizing = 'border-box'; p.style.fontSize = '14px';
 
   const err = document.createElement('div');
-  err.style.color = '#f87171'; err.style.minHeight = '18px'; err.style.fontSize = '12px'; err.style.marginBottom = '8px';
+  err.style.color = '#f87171'; err.style.minHeight = '20px'; err.style.fontSize = '13px';
+  err.style.marginBottom = '10px'; err.style.textAlign = 'center';
 
   const submit = document.createElement('button');
   submit.type = 'submit'; submit.textContent = 'Sign in';
-  submit.style.width = '100%'; submit.style.padding = '10px 12px';
+  submit.style.width = '100%'; submit.style.padding = '12px 14px';
   submit.style.borderRadius = '8px'; submit.style.border = '1px solid #2563eb';
   submit.style.background = '#2563eb'; submit.style.color = 'white'; submit.style.cursor = 'pointer';
+  submit.style.boxSizing = 'border-box'; submit.style.fontSize = '14px'; submit.style.fontWeight = '500';
 
   form.appendChild(u); form.appendChild(p); form.appendChild(err); form.appendChild(submit);
   box.appendChild(form);
