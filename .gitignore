@@ -114,3 +114,6 @@ test-results/
 
 # Git worktrees
 .worktrees/
+
+# Docker Compose override for local development (contains local settings)
+docker-compose.override.yml

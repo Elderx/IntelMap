@@ -166,12 +166,49 @@ async function initDb() {
     );
   `);
 
-  // Seed admin if no users
-  const ucount = await pool.query('SELECT COUNT(*)::int AS c FROM users');
-  if (ucount.rows[0].c === 0) {
-    const hash = await bcrypt.hash(ADMIN_PASSWORD, 10);
-    await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', ['admin', hash]);
-    console.log('[server] Seeded default admin user (password from ADMIN_PASSWORD env or default)');
+  // Seed/update users from environment variables
+  // USERS format: "username:password,username:password,..."
+  // Backward compatible with ADMIN_PASSWORD (treated as "admin:ADMIN_PASSWORD")
+
+  let usersToSync = [];
+
+  if (process.env.USERS) {
+    // Parse USERS env var: username:password,username:password
+    const userEntries = process.env.USERS.split(',').map(u => u.trim()).filter(Boolean);
+    for (const entry of userEntries) {
+      const [username, ...passwordParts] = entry.split(':');
+      const password = passwordParts.join(':'); // Allow colons in password
+      if (username && password) {
+        usersToSync.push({ username, password });
+      }
+    }
+    console.log(`[server] Syncing ${usersToSync.length} user(s) from USERS env var`);
+  } else if (ADMIN_PASSWORD) {
+    // Backward compatibility: treat ADMIN_PASSWORD as admin user
+    usersToSync.push({ username: 'admin', password: ADMIN_PASSWORD });
+    console.log('[server] Using ADMIN_PASSWORD env var (deprecated, use USERS instead)');
+  }
+
+  // Sync users: create if not exists, update password if changed
+  for (const { username, password } of usersToSync) {
+    const existing = await pool.query('SELECT id, password_hash FROM users WHERE username = $1', [username]);
+
+    if (existing.rows.length === 0) {
+      // Create new user
+      const hash = await bcrypt.hash(password, 10);
+      await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [username, hash]);
+      console.log(`[server] Created user: ${username}`);
+    } else {
+      // Check if password needs updating
+      const currentHash = existing.rows[0].password_hash;
+      const passwordMatches = await bcrypt.compare(password, currentHash);
+
+      if (!passwordMatches) {
+        const newHash = await bcrypt.hash(password, 10);
+        await pool.query('UPDATE users SET password_hash = $1 WHERE username = $2', [newHash, username]);
+        console.log(`[server] Updated password for user: ${username}`);
+      }
+    }
   }
 
   // Assign owner to legacy rows (default to admin) if not set

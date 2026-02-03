@@ -1,0 +1,29 @@
+# docker-compose.override.yml - FOR LOCAL DEVELOPMENT ONLY
+# Copy this file to docker-compose.override.yml and customize for your local setup
+# This file is automatically loaded by docker-compose and overrides the base docker-compose.yml
+#
+# IMPORTANT: Never commit docker-compose.override.yml to git as it contains your local settings
+
+services:
+  # Override server settings for local development
+  server:
+    environment:
+      # Use local users for testing (format: username:password,username:password)
+      USERS: "admin:admin,testuser:test123,viewer:viewer"
+      # Use a simple session secret for dev
+      SESSION_SECRET: "local-dev-secret"
+
+  # Override web settings for local development
+  web:
+    build:
+      args:
+        # Use localhost:8888 for direct cache proxy access (bypasses Caddy)
+        VITE_TILE_CACHE_URL: "http://localhost:8888"
+    # Expose on port 8080 locally instead of 80
+    ports:
+      - "8080:8080"
+
+  # Keep cache-proxy port exposed for local testing
+  cache-proxy:
+    ports:
+      - "8888:8888"

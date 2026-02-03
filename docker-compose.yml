@@ -21,7 +21,12 @@ services:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap
       PORT: 3000
       SESSION_SECRET: change-me-in-prod
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin}
+      # User management via environment variables
+      # Format: "username:password,username:password,..."
+      # Example: "admin:secret123,user2:pass456,viewer:readonly"
+      # Backward compatible: ADMIN_PASSWORD is treated as "admin:ADMIN_PASSWORD"
+      USERS: ${USERS:-admin:admin}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}  # Deprecated, use USERS instead
     depends_on:
       db:
         condition: service_healthy
