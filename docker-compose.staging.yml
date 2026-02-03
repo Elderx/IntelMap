@@ -1,0 +1,36 @@
+# Staging environment override for IntelMap
+# This file extends the base docker-compose.yml for staging deployments
+# Usage: docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up -d
+
+name: intelmap-staging
+
+services:
+  db:
+    # Use different volume name to avoid conflicts with production
+    volumes:
+      - db-staging-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: mmlmap_staging
+
+  server:
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
+      # Staging users (can be different from production)
+      USERS: "admin:r3zqpj2psdp98fuwf"
+      SESSION_SECRET: staging-session-secret-change-me
+
+  web:
+    # Staging runs on port 8081 instead of 80
+    ports:
+      - "8081:80"
+    environment:
+      NODE_ENV: staging
+
+  cache-proxy:
+    # Separate cache volume for staging
+    volumes:
+      - tile-cache-staging:/var/cache/nginx/tiles
+
+volumes:
+  db-staging-data:
+  tile-cache-staging:
