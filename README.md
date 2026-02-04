@@ -156,17 +156,23 @@ IntelMap is deployed on AWS with automatic staging deployments.
 
 ### Deployment Workflow
 
-**Production Deployment** (manual, on `main` branch):
+**GitOps Automatic Deployments:**
+
+Both environments are deployed automatically via GitHub Actions:
+
+| Branch | Trigger | Deploys |
+|--------|---------|---------|
+| `main` | Push to main | Production + Staging |
+| `dev` | Push to dev | Staging only |
+
+**Manual Deployment** (if needed):
 ```bash
 cd /home/ubuntu/IntelMap
 git pull origin main
-sudo docker compose up -d --force-recreate
+./deploy-all.sh
 ```
 
-**Staging Deployment** (automatic, on `dev` branch):
-1. Push to `dev` branch
-2. GitHub Actions automatically deploys to staging
-3. CI/CD runs: `./deploy-all.sh`
+**Note:** The deploy script always rebuilds images without cache and restarts all containers.
 
 ### Infrastructure
 
@@ -204,11 +210,30 @@ sudo docker compose up -d --force-recreate
 
 ### Automatic Deployments
 
-Every push to the `dev` branch triggers:
-1. GitHub Actions workflow
+**GitOps with GitHub Actions:**
+
+Pushes to either branch trigger automatic deployments:
+- **Push to `dev`** → Deploys staging environment only
+- **Push to `main`** → Deploys both production AND staging
+
+The deployment process:
+1. GitHub Actions workflow triggers
 2. SSH to EC2 instance
 3. Execute `deploy-all.sh`
-4. Deploy staging with zero-downtime
+4. Build images without cache: `docker compose build --no-cache`
+5. Restart containers: `docker compose up -d --force-recreate`
+6. Update host Caddy configuration
+
+**Note:** Deployments always rebuild from scratch (no cache) to ensure changes are deployed.
+
+### Staging Environment Indicator
+
+The staging environment has a **visual indicator** to distinguish it from production:
+- **Orange header background** (#8b4900) on staging-intelmap.elderx.fi
+- Production retains the normal header colors
+- This is implemented via hostname detection and CSS in `index.html`
+
+**Always check the header color** to ensure you're testing in the correct environment!
 
 ## Configuration
 
