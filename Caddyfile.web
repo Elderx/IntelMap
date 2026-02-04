@@ -2,7 +2,7 @@
 # This is used INSIDE the web container to serve static files
 # It does NOT do domain-based routing - that's handled by the host Caddyfile
 
-:8080 {
+:80 {
   handle_path /mml-map/* {
     root * /srv
     file_server
