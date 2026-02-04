@@ -15,9 +15,9 @@ services:
       POSTGRES_DB: mmlmap_staging
 
   server:
-    # Staging server doesn't need exposed ports (internal only)
-    # Production uses port 3000, so we remove the port mapping here
-    ports: !override []
+    # Expose on port 3001 for host Caddy access (production uses 3000)
+    ports:
+      - "3001:3000"
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
       # Staging users (can be different from production)
@@ -33,9 +33,9 @@ services:
       NODE_ENV: staging
 
   cache-proxy:
-    # Staging cache-proxy doesn't need exposed ports (internal only)
-    # Production uses port 8888, so we remove the port mapping here
-    ports: !override []
+    # Expose on port 8889 for host Caddy access (production uses 8888)
+    ports:
+      - "8889:8888"
     volumes:
       - tile-cache-staging:/var/cache/nginx/tiles
 
