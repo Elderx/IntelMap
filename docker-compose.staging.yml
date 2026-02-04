@@ -16,8 +16,9 @@ services:
 
   server:
     # Expose on port 3001 for host Caddy access (production uses 3000)
+    # Use !override on each port mapping to ensure base mapping is replaced
     ports:
-      - "3001:3000"
+      - !override "3001:3000"
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
       # Staging users (can be different from production)
@@ -26,16 +27,17 @@ services:
 
   web:
     # Staging runs on port 8081 instead of 80
-    # Use !override to replace base port mapping (80:80) with staging mapping (8081:80)
-    ports: !override
-      - "8081:80"
+    # Use !override on each port mapping to ensure base mapping is replaced
+    ports:
+      - !override "8081:80"
     environment:
       NODE_ENV: staging
 
   cache-proxy:
     # Expose on port 8889 for host Caddy access (production uses 8888)
+    # Use !override on each port mapping to ensure base mapping is replaced
     ports:
-      - "8889:8888"
+      - !override "8889:8888"
     volumes:
       - tile-cache-staging:/var/cache/nginx/tiles
 
