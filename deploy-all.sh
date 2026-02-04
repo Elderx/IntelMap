@@ -30,7 +30,8 @@ echo ""
 
 # Step 3: Start production
 echo "Step 3: Building and starting production environment..."
-sudo docker compose up -d --build --no-cache
+sudo docker compose build --no-cache
+sudo docker compose up -d --force-recreate
 echo "✓ Production started"
 echo ""
 
@@ -45,7 +46,8 @@ echo ""
 echo "Step 5: Building and starting staging environment..."
 git checkout --force dev  # Overwrite any local changes
 git pull origin dev
-sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --build --no-cache --force-recreate
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging build --no-cache
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --force-recreate
 echo "✓ Staging started"
 echo ""
 
