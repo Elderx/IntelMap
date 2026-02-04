@@ -29,8 +29,8 @@ echo "✓ Code updated"
 echo ""
 
 # Step 3: Start production
-echo "Step 3: Starting production environment..."
-sudo docker compose up -d
+echo "Step 3: Building and starting production environment..."
+sudo docker compose up -d --build --no-cache
 echo "✓ Production started"
 echo ""
 
@@ -42,10 +42,10 @@ echo "✓ Production status check complete"
 echo ""
 
 # Step 5: Start staging
-echo "Step 5: Starting staging environment..."
+echo "Step 5: Building and starting staging environment..."
 git checkout --force dev  # Overwrite any local changes
 git pull origin dev
-sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --force-recreate
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --build --no-cache --force-recreate
 echo "✓ Staging started"
 echo ""
 
