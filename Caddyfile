@@ -1,5 +1,10 @@
 # Production - intelmap.elderx.fi
 intelmap.elderx.fi:80 {
+  # Proxy API requests to the backend server (must come first)
+  handle /api/* {
+    reverse_proxy server:3000
+  }
+
   # Proxy tile and WMS requests to cache-proxy (internal Docker network)
   handle /tiles/* {
     reverse_proxy cache-proxy:8888
@@ -18,22 +23,19 @@ intelmap.elderx.fi:80 {
     file_server
   }
 
-  # Proxy API requests to the backend server
-  handle /api/* {
-    reverse_proxy server:3000
-  }
-
+  # Serve static files for all other requests
   root * /srv
   file_server
 }
 
 # Staging - staging-intelmap.elderx.fi
 staging-intelmap.elderx.fi:80 {
-  # Proxy staging requests to staging containers
+  # Proxy API requests to staging server (must come first)
   handle /api/* {
     reverse_proxy intelmap-staging-server-1:3000
   }
 
+  # Proxy tile and WMS requests to staging cache-proxy
   handle /tiles/* {
     reverse_proxy intelmap-staging-cache-proxy-1:8888
   }
