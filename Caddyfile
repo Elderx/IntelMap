@@ -46,6 +46,6 @@ staging-intelmap.elderx.fi:80 {
     reverse_proxy intelmap-staging-cache-proxy-1:8888
   }
 
-  root * /srv
-  file_server
+  # Proxy all other requests to staging web container
+  reverse_proxy intelmap-staging-web-1:80
 } 
