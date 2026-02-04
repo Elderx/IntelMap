@@ -15,6 +15,9 @@ services:
       POSTGRES_DB: mmlmap_staging
 
   server:
+    # Staging server doesn't need exposed ports (internal only)
+    # Production uses port 3000, so we remove the port mapping here
+    ports: !override []
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
       # Staging users (can be different from production)
