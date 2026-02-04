@@ -23,7 +23,7 @@ echo ""
 # Step 2: Pull latest code
 echo "Step 2: Pulling latest code..."
 git fetch origin
-git checkout main
+git checkout --force main  # Overwrite local changes to deploy-all.sh
 git pull origin main
 echo "✓ Code updated"
 echo ""
@@ -43,7 +43,7 @@ echo ""
 
 # Step 5: Start staging
 echo "Step 5: Starting staging environment..."
-git checkout dev
+git checkout --force dev  # Overwrite any local changes
 git pull origin dev
 sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --force-recreate
 echo "✓ Staging started"
@@ -51,7 +51,7 @@ echo ""
 
 # Step 6: Update host Caddy
 echo "Step 6: Updating host Caddy configuration..."
-git checkout main
+git checkout --force main  # Return to main
 sudo cp /home/ubuntu/IntelMap/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl restart caddy
 echo "✓ Host Caddy updated and restarted"
