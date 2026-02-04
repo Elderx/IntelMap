@@ -8,7 +8,7 @@ services:
   db:
     # Staging database doesn't need exposed ports (internal only)
     # Production uses port 5432, so we remove the port mapping here
-    ports: []
+    ports: !override []
     volumes:
       - db-staging-data:/var/lib/postgresql/data
     environment:
@@ -31,7 +31,7 @@ services:
   cache-proxy:
     # Staging cache-proxy doesn't need exposed ports (internal only)
     # Production uses port 8888, so we remove the port mapping here
-    ports: []
+    ports: !override []
     volumes:
       - tile-cache-staging:/var/cache/nginx/tiles
 
