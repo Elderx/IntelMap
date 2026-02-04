@@ -267,3 +267,105 @@ Tests are in `tests/e2e/` using Playwright.
 **IMPORTANT:** Tests are run from the host machine, NOT inside Docker containers. The web container uses Caddy and doesn't have npm/node available.
 
 **See "Mandatory Testing Workflow" section above for required testing steps before committing.**
+
+## GitOps Deployment Workflow
+
+IntelMap uses a GitOps workflow with automatic deployments via GitHub Actions.
+
+### Deployment Triggers
+
+**Automatic deployments occur on:**
+- Push to `main` branch → deploys production AND staging
+- Push to `dev` branch → deploys staging only
+- Manual trigger via GitHub Actions UI
+
+### Environments
+
+| Environment | URL | Branch | Database | Ports |
+|-------------|-----|--------|----------|-------|
+| Production | https://intelmap.elderx.fi | `main` | `mmlmap` | web:8080, server:3000, cache:8888 |
+| Staging | https://staging-intelmap.elderx.fi | `dev` | `mmlmap_staging` | web:8081, server:3001, cache:8889 |
+
+### Staging Environment Indicator
+
+The staging environment has a visual indicator - the header background is orange (#8b4900) to distinguish it from production. This is implemented via:
+1. Inline script in `index.html` that detects `staging-intelmap.elderx.fi` hostname
+2. Sets `data-environment="staging"` attribute on `<html>` element
+3. CSS rule applies orange background color
+
+**Do NOT remove this indicator** - it's critical for distinguishing staging from production!
+
+### Docker Build Requirements
+
+**CRITICAL:** The deploy script ALWAYS rebuilds images without cache:
+```bash
+docker compose build --no-cache
+docker compose up -d --force-recreate
+```
+
+This ensures changes are always deployed, but means deployments are slower.
+
+**Dockerfile must handle both production and staging builds:**
+```dockerfile
+# Build the app for production or staging
+RUN if [ "$NODE_ENV" = "production" ] || [ "$NODE_ENV" = "staging" ]; then npm run build; fi
+```
+
+The `NODE_ENV` build arg determines whether to build:
+- `NODE_ENV=production` → builds app
+- `NODE_ENV=staging` → builds app
+- `NODE_ENV=development` → skips build (uses Vite dev server)
+
+### Deployment Script
+
+The `deploy-all.sh` script handles the full deployment:
+1. Stops all containers (production + staging)
+2. Pulls latest code from `main`
+3. Builds and starts production (from `main` branch)
+4. Switches to `dev`, builds and starts staging
+5. Updates host Caddy configuration
+
+**Never manually run Docker Compose on the EC2 host** - always use the deploy script or let GitHub Actions handle it.
+
+### GitHub Actions Workflow
+
+Workflow file: `.github/workflows/deploy-staging.yml`
+
+The workflow:
+1. Connects to EC2 via SSH
+2. Pulls latest `main` branch (has the deploy script)
+3. Runs `deploy-all.sh` which handles both environments
+
+**Required GitHub Secrets:**
+- `SSH_HOST` - EC2 instance IP/hostname
+- `SSH_USER` - SSH username (e.g., `ubuntu`)
+- `SSH_PRIVATE_KEY` - Private SSH key for authentication
+- `SSH_PORT` - SSH port (default: 22)
+
+### Local Development Workflow
+
+For local development, continue using:
+```bash
+docker compose build
+docker compose up -d
+npm run test:e2e
+```
+
+Do NOT use `--no-cache` for local builds unless you're troubleshooting build issues.
+
+### Common Issues
+
+**Staging shows old code after push:**
+- Check GitHub Actions workflow completed successfully
+- Verify the workflow ran `deploy-all.sh`
+- The script always rebuilds without cache, so old code shouldn't persist
+
+**Build fails with "/app/dist not found":**
+- Check Dockerfile handles `NODE_ENV=staging` (build condition)
+- Verify the build step runs for staging environment
+- Check staging compose file sets `NODE_ENV: staging`
+
+**Production and staging show same content:**
+- Check host Caddy routing configuration
+- Verify containers are on correct ports
+- Check database connection strings in compose files
