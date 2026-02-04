@@ -26,7 +26,8 @@ services:
 
   web:
     # Staging runs on port 8081 instead of 80
-    ports:
+    # Use !override to replace base port mapping (80:80) with staging mapping (8081:80)
+    ports: !override
       - "8081:80"
     environment:
       NODE_ENV: staging
