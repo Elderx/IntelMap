@@ -1,0 +1,64 @@
+# Staging environment - standalone configuration
+# This is a complete compose file for staging (does not extend docker-compose.yml)
+# Usage: docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d
+
+name: intelmap-staging
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: mmlmap_staging
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d mmlmap_staging" ]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    volumes:
+      - db-staging-data:/var/lib/postgresql/data
+
+  server:
+    build: ./server
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
+      PORT: 3000
+      SESSION_SECRET: staging-session-secret-change-me
+      USERS: "admin:r3zqpj2psdp98fuwf"
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "3001:3000"
+
+  cache-proxy:
+    build: ./cache-proxy
+    ports:
+      - "8889:8888"
+    volumes:
+      - tile-cache-staging:/var/cache/nginx/tiles
+    healthcheck:
+      test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8889/health" ]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
+
+  web:
+    build:
+      context: .
+      args:
+        NODE_ENV: staging
+        VITE_TILE_CACHE_URL: ""
+    environment:
+      NODE_ENV: staging
+    depends_on:
+      - server
+      - cache-proxy
+    ports:
+      - "8081:80"
+
+volumes:
+  db-staging-data:
+  tile-cache-staging:

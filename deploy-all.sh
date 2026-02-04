@@ -15,7 +15,7 @@ cd /home/ubuntu/IntelMap
 
 # Step 1: Stop all containers
 echo "Step 1: Stopping all containers..."
-sudo docker compose -p intelmap-staging down 2>/dev/null || true
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging down 2>/dev/null || true
 sudo docker compose down
 echo "✓ All containers stopped"
 echo ""
@@ -45,7 +45,7 @@ echo ""
 echo "Step 5: Starting staging environment..."
 git checkout dev
 git pull origin dev
-sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up -d
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging up -d --force-recreate
 echo "✓ Staging started"
 echo ""
 
@@ -64,7 +64,7 @@ echo "=== Production Containers ==="
 sudo docker compose ps
 echo ""
 echo "=== Staging Containers ==="
-sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging ps
+sudo docker compose -f docker-compose.staging-standalone.yml -p intelmap-staging ps
 echo ""
 echo "=== Host Caddy Status ==="
 sudo systemctl status caddy --no-pager -l
