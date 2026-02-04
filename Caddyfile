@@ -2,46 +2,46 @@
 intelmap.elderx.fi:80 {
   # Proxy API requests to the backend server (must come first)
   handle /api/* {
-    reverse_proxy server:3000
+    reverse_proxy localhost:3000
   }
 
-  # Proxy tile and WMS requests to cache-proxy (internal Docker network)
+  # Proxy tile and WMS requests to cache-proxy
   handle /tiles/* {
-    reverse_proxy cache-proxy:8888
+    reverse_proxy localhost:8888
   }
 
   handle /wms/* {
-    reverse_proxy cache-proxy:8888
+    reverse_proxy localhost:8888
   }
 
   handle /osm-api/* {
-    reverse_proxy cache-proxy:8888
+    reverse_proxy localhost:8888
   }
 
-  # Proxy all other requests to production web container (port 8080)
-  reverse_proxy intelmap-web-1:80
+  # Proxy all other requests to production web container
+  reverse_proxy localhost:8080
 }
 
 # Staging - staging-intelmap.elderx.fi
 staging-intelmap.elderx.fi:80 {
-  # Proxy API requests to staging server (must come first)
+  # Proxy API requests to staging server
   handle /api/* {
-    reverse_proxy intelmap-staging-server-1:3000
+    reverse_proxy localhost:3001
   }
 
   # Proxy tile and WMS requests to staging cache-proxy
   handle /tiles/* {
-    reverse_proxy intelmap-staging-cache-proxy-1:8888
+    reverse_proxy localhost:8889
   }
 
   handle /wms/* {
-    reverse_proxy intelmap-staging-cache-proxy-1:8888
+    reverse_proxy localhost:8889
   }
 
   handle /osm-api/* {
-    reverse_proxy intelmap-staging-cache-proxy-1:8888
+    reverse_proxy localhost:8889
   }
 
   # Proxy all other requests to staging web container
-  reverse_proxy intelmap-staging-web-1:80
+  reverse_proxy localhost:8081
 } 
