@@ -2,6 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
+    <script>
+      if (window.location.hostname === 'staging-intelmap.elderx.fi') {
+        document.documentElement.dataset.environment = 'staging';
+      }
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>IntelMap</title>
     <!-- Google Fonts: Roboto -->
@@ -34,6 +39,10 @@
         height: 100%;
         float: left;
         position: relative;
+      }
+
+      [data-environment="staging"] .header {
+        background: #8b4900 !important;
       }
     </style>
   </head>
