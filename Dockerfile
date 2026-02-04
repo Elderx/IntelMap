@@ -24,7 +24,7 @@ RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
 # Production image for serving static files
 FROM caddy:2-alpine AS prod
 COPY --from=builder /app/dist /srv
-COPY Caddyfile /etc/caddy/Caddyfile
+COPY Caddyfile.web /etc/caddy/Caddyfile
 EXPOSE 8080
 CMD ["caddy", "run", "--config", "/etc/caddy/Caddyfile", "--adapter", "caddyfile"]
 
