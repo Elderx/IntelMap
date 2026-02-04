@@ -52,7 +52,7 @@ services:
       args:
         NODE_ENV: production
         # Cache proxy URL - empty means use relative paths (/tiles/*, /wms/*)
-        # These are proxied by Caddy to cache-proxy:8888 internally
+        # These are proxied by host Caddy to cache-proxy:8888 internally
         # Local dev with direct cache access: VITE_TILE_CACHE_URL=http://localhost:8888
         VITE_TILE_CACHE_URL: ""
     environment:
@@ -61,7 +61,7 @@ services:
       - server
       - cache-proxy
     ports:
-      - "80:80"
+      - "8080:80"  # Internal port 80, external port 8080 (host Caddy on port 80)
 
 volumes:
   db-data:

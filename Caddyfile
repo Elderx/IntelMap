@@ -18,14 +18,8 @@ intelmap.elderx.fi:80 {
     reverse_proxy cache-proxy:8888
   }
 
-  handle_path /mml-map/* {
-    root * /srv
-    file_server
-  }
-
-  # Serve static files for all other requests
-  root * /srv
-  file_server
+  # Proxy all other requests to production web container (port 8080)
+  reverse_proxy intelmap-web-1:80
 }
 
 # Staging - staging-intelmap.elderx.fi
