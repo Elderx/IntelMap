@@ -17,8 +17,8 @@ ENV NODE_ENV=$NODE_ENV
 ARG VITE_TILE_CACHE_URL=""
 ENV VITE_TILE_CACHE_URL=$VITE_TILE_CACHE_URL
 
-# If in production, build the app
-RUN if [ "$NODE_ENV" = "production" ]; then npm run build; fi
+# Build the app for production or staging
+RUN if [ "$NODE_ENV" = "production" ] || [ "$NODE_ENV" = "staging" ]; then npm run build; fi
 
 # ---
 # Production image for serving static files
