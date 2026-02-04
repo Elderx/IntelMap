@@ -21,9 +21,15 @@ jobs:
           script_stop: true
           script: |
             cd /home/ubuntu/IntelMap
+
+            # Pull latest code
             git fetch origin
             git checkout dev
             git pull origin dev
+
+            # Restart staging with force recreate
             sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging down
-            sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up --build -d
+            sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up -d --force-recreate
+
+            # Create database if needed
             sudo docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging exec -T db psql -U postgres -c "CREATE DATABASE mmlmap_staging;" || true
