@@ -352,7 +352,6 @@ async function bootstrap() {
       }, 100);
     }
     if (params.uas === '1') {
-      state.uasEnabled = true;
       // Defer until maps are ready
       setTimeout(() => {
         import('./airspace/uasManager.js').then(m => m.startUAS());
