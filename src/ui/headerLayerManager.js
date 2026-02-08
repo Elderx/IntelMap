@@ -898,7 +898,6 @@ function createUasAccordion() {
     '🚁 UAS Zones',
     state.uasEnabled,
     async (checked) => {
-      state.uasEnabled = checked;
       if (checked) {
         const { startUAS } = await import('../airspace/uasManager.js');
         await startUAS();
