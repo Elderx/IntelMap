@@ -71,6 +71,10 @@ export function updatePermalinkWithFeatures() {
     if (state.gpxShowSpeedChart) gpxStr += '&gpxSpeed=1';
     if (state.gpxShowDistanceChart) gpxStr += '&gpxDist=1';
   }
+  let uasStr = '';
+  if (state.uasEnabled) {
+    uasStr = `&uas=1`;
+  }
   const view = state.isSplit && state.leftMap ? state.leftMap.getView() : state.map.getView();
   const zoom = view.getZoom();
   const center = view.getCenter();
@@ -80,7 +84,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + radarStr + gpxStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + radarStr + gpxStr + uasStr;
   window.history.replaceState({}, '', params);
 }
 
