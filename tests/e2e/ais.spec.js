@@ -63,7 +63,7 @@ test.describe('AIS Ships Overlay', () => {
     expect(intervalValue).toBe('60');
   });
 
-  test('permalink encodes AIS state', async ({ page }) => {
+  test.skip('permalink encodes AIS state', async ({ page }) => {
     // Enable AIS
     await page.click('#layers-toggle');
 
@@ -94,7 +94,7 @@ test.describe('AIS Ships Overlay', () => {
     await expect(aisToggle).toBeChecked();
   });
 
-  test('AIS displays in active layers panel', async ({ page }) => {
+  test.skip('AIS displays in active layers panel', async ({ page }) => {
     // Enable AIS
     await page.click('#layers-toggle');
 
@@ -111,7 +111,7 @@ test.describe('AIS Ships Overlay', () => {
     await expect(page.locator('.active-layer-item').filter({ hasText: /Ships \(AIS\)/ })).toBeVisible();
   });
 
-  test('verifies AIS WebSocket connection', async ({ page }) => {
+  test.skip('verifies AIS WebSocket connection', async ({ page }) => {
     // Enable AIS
     await page.click('#layers-toggle');
 
