@@ -55,7 +55,7 @@ function buildZoneList(features) {
 /**
  * Build full detail view for a single UAS zone
  */
-function buildZoneDetail(feature) {
+function buildZoneDetail(feature, hasMultipleZones = false) {
   const props = feature.getProperties();
 
   if (!props.identifier) return null;
@@ -65,10 +65,12 @@ function buildZoneDetail(feature) {
 
   let html = `<div id="uas-zone-detail">`;
 
-  // Back button
-  html += `<div id="uas-popup-back" style="cursor:pointer;color:#0077cc;font-size:0.9em;margin-bottom:8px;display:flex;align-items:center;">
-    <span style="font-size:1.2em;margin-right:4px;">‹</span> Back to list
-  </div>`;
+  // Back button - only show when there are multiple zones
+  if (hasMultipleZones) {
+    html += `<div id="uas-popup-back" style="cursor:pointer;color:#0077cc;font-size:0.9em;margin-bottom:8px;display:flex;align-items:center;">
+      <span style="font-size:1.2em;margin-right:4px;">‹</span> Back to list
+    </div>`;
+  }
 
   // Restriction header
   html += `<div style="font-weight:bold; font-size:1.1em; margin-bottom:8px; color:${color}; display:flex; align-items:center;">
@@ -117,7 +119,7 @@ function attachListHandlers(features) {
     item.addEventListener('click', () => {
       const index = parseInt(item.dataset.index);
       const feature = features[index];
-      const detailHtml = buildZoneDetail(feature);
+      const detailHtml = buildZoneDetail(feature, true); // hasMultipleZones = true when from list
       if (detailHtml) {
         const popup = document.querySelector('.overlay-info-popup');
         if (popup) {
@@ -165,8 +167,8 @@ function handleMapClick(mapKey, event) {
   mapObj.forEachFeatureAtPixel(event.pixel, (feature) => {
     if (feature.get('isUASZone')) {
       features.push(feature);
-      return true; // Collect all, not just first
     }
+    // Return undefined to continue iterating through ALL features at this pixel
   });
 
   if (features.length === 0) return;
