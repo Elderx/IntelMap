@@ -5,7 +5,7 @@ test.describe('AIS Ships Overlay', () => {
     await page.goto('http://localhost:8080');
 
     // Handle authentication
-    const loginOverlay = page.locator('text=MML Map — Sign in');
+    const loginOverlay = page.locator('text=IntelMap — Sign in');
     await expect(loginOverlay).toBeVisible({ timeout: 10000 });
     await page.fill('input[placeholder="Username"]', 'admin');
     await page.fill('input[placeholder="Password"]', 'admin');

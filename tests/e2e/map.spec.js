@@ -16,7 +16,7 @@ test.describe('Map Interaction', () => {
         await page.goto('/');
 
         // Handle Login - wait for overlay
-        const loginOverlay = page.locator('text=MML Map — Sign in');
+        const loginOverlay = page.locator('text=IntelMap — Sign in');
         await expect(loginOverlay).toBeVisible({ timeout: 10000 });
 
         await page.fill('input[placeholder="Username"]', 'admin');

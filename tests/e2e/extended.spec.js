@@ -17,7 +17,7 @@ test.describe('Extended Integrations', () => {
 
         await page.goto('/');
 
-        const loginOverlay = page.locator('text=MML Map — Sign in');
+        const loginOverlay = page.locator('text=IntelMap — Sign in');
         await expect(loginOverlay).toBeVisible({ timeout: 10000 });
         await page.fill('input[placeholder="Username"]', 'admin');
         await page.fill('input[placeholder="Password"]', 'admin');
@@ -180,7 +180,7 @@ test.describe('Permalink Restore', () => {
 
         await page.goto(targetUrl);
 
-        const loginOverlay = page.locator('text=MML Map — Sign in');
+        const loginOverlay = page.locator('text=IntelMap — Sign in');
         await expect(loginOverlay).toBeVisible({ timeout: 10000 });
         await page.fill('input[placeholder="Username"]', 'admin');
         await page.fill('input[placeholder="Password"]', 'admin');

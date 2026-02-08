@@ -3,6 +3,28 @@
 # It does NOT do domain-based routing - that's handled by the host Caddyfile
 
 :80 {
+  # Proxy API requests to the backend server
+  # Note: On AWS, host Caddy handles /api/* first (won't reach here)
+  # Locally, this container needs to route /api/* to server service
+  handle /api/* {
+    reverse_proxy server:3000
+  }
+
+  # Proxy tile and WMS requests to cache-proxy
+  # Note: On AWS, host Caddy handles these first (won't reach here)
+  # Locally, this container needs to route to cache-proxy service
+  handle /tiles/* {
+    reverse_proxy cache-proxy:8888
+  }
+
+  handle /wms/* {
+    reverse_proxy cache-proxy:8888
+  }
+
+  handle /osm-api/* {
+    reverse_proxy cache-proxy:8888
+  }
+
   handle_path /mml-map/* {
     root * /srv
     file_server

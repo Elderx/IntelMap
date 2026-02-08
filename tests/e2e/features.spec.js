@@ -14,7 +14,7 @@ test.describe('Feature Interaction', () => {
         await page.goto('/');
 
         // Handle Login
-        const loginOverlay = page.locator('text=MML Map — Sign in');
+        const loginOverlay = page.locator('text=IntelMap — Sign in');
         await expect(loginOverlay).toBeVisible({ timeout: 10000 });
 
         await page.fill('input[placeholder="Username"]', 'admin');

@@ -21,8 +21,8 @@ services:
       - !override "3001:3000"
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
-      # Staging users (can be different from production)
-      USERS: "admin:r3zqpj2psdp98fuwf"
+      # Staging users (use same as production for local testing)
+      USERS: "admin:admin"
       SESSION_SECRET: staging-session-secret-change-me
 
   web:
