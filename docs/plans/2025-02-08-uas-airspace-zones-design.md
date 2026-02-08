@@ -14,6 +14,21 @@ The UAS Airspace Zones feature adds a new "Airspace" section to the Layers dropd
 - Full popup details include name, restriction, altitude, schedule, reason, identifier, and authority link
 - Z-index 70 places zones above most overlays but below drawn features
 
+## Deployment Restriction
+
+**CRITICAL:** This feature MUST NOT be deployed to production (intelmap.elderx.fi).
+
+- All implementation work is done in the `dev` branch only
+- Feature is deployed and tested ONLY on staging-intelmap.elderx.fi
+- NO commits to `main` branch for this feature
+- Production deployment is FORBIDDEN until explicitly authorized
+
+**Git workflow:**
+1. Work in `dev` branch
+2. Push to `dev` → deploys to staging-intelmap.elderx.fi
+3. Test on staging
+4. Do NOT merge to `main` (unless explicitly approved later)
+
 ---
 
 ## File Structure
