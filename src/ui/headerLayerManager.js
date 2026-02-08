@@ -43,6 +43,9 @@ import {
 // GPX imports (dynamic to avoid circular dependency)
 import '../styles/gpx.css';
 
+// UAS imports
+import '../styles/uas.css';
+
 /**
  * Mount the header layer manager for single map mode
  */
@@ -90,6 +93,10 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   // GPX Section
   const gpxItem = createGpxAccordion();
   accordion.appendChild(gpxItem);
+
+  // UAS Airspace Section
+  const uasItem = createUasAccordion();
+  accordion.appendChild(uasItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -875,6 +882,55 @@ function createGpxAccordion() {
       }
     });
   }
+
+  return item;
+}
+
+/**
+ * Create UAS Airspace accordion
+ */
+function createUasAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  // Main enable/disable toggle
+  const mainRow = createCheckboxRow(
+    '🚁 UAS Zones',
+    state.uasEnabled,
+    async (checked) => {
+      state.uasEnabled = checked;
+      if (checked) {
+        const { startUAS } = await import('../airspace/uasManager.js');
+        await startUAS();
+        const { setupUASClickHandlers } = await import('../airspace/uasInteractions.js');
+        setupUASClickHandlers();
+      } else {
+        const { stopUAS } = await import('../airspace/uasManager.js');
+        await stopUAS();
+        const { cleanupUASInteractions } = await import('../airspace/uasInteractions.js');
+        cleanupUASInteractions();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+    },
+    'uas-enabled'
+  );
+
+  content.appendChild(mainRow);
+
+  // Info text
+  const infoText = document.createElement('div');
+  infoText.className = 'text-muted';
+  infoText.style.fontSize = '11px';
+  infoText.style.padding = '4px 0 0 16px';
+  infoText.textContent = 'Finnish UAS (drone) flying zones with restriction info';
+  content.appendChild(infoText);
+
+  const item = createAccordionItem('Airspace', content, false);
+  item.classList.add('uas'); // Add class for identification
+
+  // Store reference to the checkbox for later access
+  item.dataset.uasCheckboxId = 'uas-enabled';
 
   return item;
 }
