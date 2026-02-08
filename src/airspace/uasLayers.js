@@ -1,10 +1,10 @@
 // UAS Airspace Zones Layer Management
 // Creates and manages OpenLayers VectorLayers for Finnish UAS zones
 
-import VectorLayer from 'ol/layer/Vector';
-import VectorSource from 'ol/source/Vector';
-import GeoJSON from 'ol/format/GeoJSON';
-import { Style, Fill, Stroke } from 'ol/style';
+import VectorLayer from 'ol/layer/Vector.js';
+import VectorSource from 'ol/source/Vector.js';
+import GeoJSON from 'ol/format/GeoJSON.js';
+import { Style, Fill, Stroke } from 'ol/style.js';
 import { state } from '../state/store.js';
 
 // Restriction type colors (aviation standard)
@@ -21,7 +21,30 @@ const RESTRICTION_COLORS = {
 export function createUASLayer() {
   const vectorSource = new VectorSource({
     url: 'https://flyk.com/api/uas.geojson',
-    format: new GeoJSON()
+    format: new GeoJSON(),
+    loader: function(extent, resolution, projection, success, failure) {
+      fetch('https://flyk.com/api/uas.geojson')
+        .then(response => response.json())
+        .then(json => {
+          const format = new GeoJSON();
+          const features = format.readFeatures(json, {
+            dataProjection: 'EPSG:4326',
+            featureProjection: projection
+          });
+
+          // Tag all features as UAS zones for interaction detection
+          features.forEach(feature => {
+            feature.set('isUASZone', true);
+          });
+
+          vectorSource.addFeatures(features);
+          success(features);
+        })
+        .catch(error => {
+          console.error('[UAS] Failed to load features:', error);
+          failure();
+        });
+    }
   });
 
   const vectorLayer = new VectorLayer({
