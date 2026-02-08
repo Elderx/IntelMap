@@ -293,6 +293,18 @@ export function updateActiveLayersPanel() {
         });
     }
 
+    // 9. UAS Airspace overlay
+    if (state.uasEnabled) {
+        const count = state.uasFeatures.length;
+        const title = `🚁 UAS Zones (${count})${state.uasError ? ' ⚠️' : ''}`;
+        addRow(title, '#e74c3c', async () => {
+            const { stopUAS } = await import('../airspace/uasManager.js');
+            const { cleanupUASInteractions } = await import('../airspace/uasInteractions.js');
+            cleanupUASInteractions();
+            stopUAS();
+        });
+    }
+
     state.activeLayersPanel.style.display = hasLayers ? 'block' : 'none';
 
     // Refresh dynamic OSM features in header dropdown

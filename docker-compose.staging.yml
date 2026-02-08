@@ -1,0 +1,46 @@
+# Staging environment override for IntelMap
+# This file extends the base docker-compose.yml for staging deployments
+# Usage: docker compose -f docker-compose.yml -f docker-compose.staging.yml -p intelmap-staging up -d
+
+name: intelmap-staging
+
+services:
+  db:
+    # Staging database doesn't need exposed ports (internal only)
+    # Production uses port 5432, so we remove the port mapping here
+    ports: !override []
+    volumes:
+      - db-staging-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: mmlmap_staging
+
+  server:
+    # Expose on port 3001 for host Caddy access (production uses 3000)
+    # Use !override on each port mapping to ensure base mapping is replaced
+    ports:
+      - !override "3001:3000"
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
+      # Staging users (use same as production for local testing)
+      USERS: "admin:admin"
+      SESSION_SECRET: staging-session-secret-change-me
+
+  web:
+    # Staging runs on port 8081 instead of 80
+    # Use !override on each port mapping to ensure base mapping is replaced
+    ports:
+      - !override "8081:80"
+    environment:
+      NODE_ENV: staging
+
+  cache-proxy:
+    # Expose on port 8889 for host Caddy access (production uses 8888)
+    # Use !override on each port mapping to ensure base mapping is replaced
+    ports:
+      - !override "8889:8888"
+    volumes:
+      - tile-cache-staging:/var/cache/nginx/tiles
+
+volumes:
+  db-staging-data:
+  tile-cache-staging:

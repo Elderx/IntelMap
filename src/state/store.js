@@ -172,7 +172,14 @@ export const state = {
   radarLayer: { main: null, left: null, right: null },
   radarAnimating: false,               // Animation state
   radarSpeed: 2,                       // Animation speed (fps)
-  radarCurrentTimeIndex: 0             // Current time step index
+  radarCurrentTimeIndex: 0,            // Current time step index
+
+  // UAS/Airspace overlay state
+  uasEnabled: false,                   // Master toggle for UAS zones
+  uasFeatures: [],                     // Fetched GeoJSON features
+  uasLayer: { main: null, left: null, right: null },  // Vector layers
+  uasError: null,                      // { type, message, time }
+  uasLastFetch: null                   // Timestamp of last successful fetch
 };
 
 

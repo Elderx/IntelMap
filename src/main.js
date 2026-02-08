@@ -351,6 +351,13 @@ async function bootstrap() {
         });
       }, 100);
     }
+    if (params.uas === '1') {
+      // Defer until maps are ready
+      setTimeout(() => {
+        import('./airspace/uasManager.js').then(m => m.startUAS());
+        import('./airspace/uasInteractions.js').then(m => m.setupUASClickHandlers());
+      }, 100);
+    }
     showAllDrawables(showClickMarker);
     state.restoringFromPermalink = false;
     state.permalinkInitialized = true;

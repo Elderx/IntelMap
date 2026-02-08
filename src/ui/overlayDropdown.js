@@ -207,7 +207,31 @@ export function createAllOverlayDropdowns(mapKey, updatePermalinkWithFeatures) {
     import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
   }, gpxList, 'GPX Tracks', { isAccordion: true });
 
-  return [digiroad, generic, osm, aircraft, gpx];
+  // UAS Airspace overlay dropdown
+  const uasSelected = state.uasEnabled ? ['uas'] : [];
+  const uasList = [{ name: 'uas', title: 'UAS Airspace Zones', type: 'uas' }];
+  const uas = createOverlayDropdown(mapKey, uasSelected, function (newSelected) {
+    const enabled = newSelected.includes('uas');
+    state.uasEnabled = enabled;
+    if (enabled) {
+      import('../airspace/uasManager.js')
+        .then(m => {
+          m.startUAS();
+          return import('../airspace/uasInteractions.js');
+        })
+        .then(m => m.setupUASClickHandlers());
+    } else {
+      import('../airspace/uasInteractions.js')
+        .then(m => {
+          m.cleanupUASInteractions();
+          return import('../airspace/uasManager.js');
+        })
+        .then(m => m.stopUAS());
+    }
+    import('./activeLayers.js').then(({ updateActiveLayersPanel }) => updateActiveLayersPanel());
+  }, uasList, 'UAS Airspace', { isAccordion: true });
+
+  return [digiroad, generic, osm, aircraft, gpx, uas];
 }
 
 export function mountOverlaySelectors(mainMapDiv, updatePermalinkWithFeatures) {
