@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://127.0.0.1:4176';
+const BASE_URL = process.env.PLAYWRIGHT_TEST_BASE_URL || 'http://localhost:8080';
 
 function createMetadataMessage(overrides = {}) {
   return {
@@ -38,10 +38,12 @@ function createLocationMessage(overrides = {}) {
 }
 
 async function installMockAisBroker(page, options = {}) {
-  await page.addInitScript(({ staleAfterMs, pruneIntervalMs }) => {
+  await page.addInitScript(({ staleAfterMs, pruneIntervalMs, persistenceFlushIntervalMs, persistenceBatchSize }) => {
     window.__INTELMAP_AIS_TEST_CONFIG__ = {
       staleAfterMs,
-      pruneIntervalMs
+      pruneIntervalMs,
+      persistenceFlushIntervalMs,
+      persistenceBatchSize
     };
 
     window.__INTELMAP_AIS_TEST_SESSIONS__ = [];
@@ -101,8 +103,113 @@ async function installMockAisBroker(page, options = {}) {
     };
   }, {
     staleAfterMs: options.staleAfterMs ?? 30 * 60 * 1000,
-    pruneIntervalMs: options.pruneIntervalMs ?? 60 * 1000
+    pruneIntervalMs: options.pruneIntervalMs ?? 60 * 1000,
+    persistenceFlushIntervalMs: options.persistenceFlushIntervalMs ?? 100,
+    persistenceBatchSize: options.persistenceBatchSize ?? 2
   });
+}
+
+async function installAisApiMocks(page, options = {}) {
+  const settingsPatchBodies = [];
+  const aisBatchBodies = [];
+
+  const settings = {
+    aisPersistenceEnabled: options.aisPersistenceEnabled ?? false
+  };
+
+  const tracksResponse = options.tracksResponse || {
+    tracks: []
+  };
+
+  const latestLocations = options.latestLocations || {};
+
+  await page.route('**/api/settings', async (route) => {
+    const request = route.request();
+    const method = request.method();
+
+    if (method === 'GET') {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(settings)
+      });
+      return;
+    }
+
+    if (method === 'PATCH') {
+      const body = request.postDataJSON();
+      settingsPatchBodies.push(body);
+      if (typeof body.aisPersistenceEnabled === 'boolean') {
+        settings.aisPersistenceEnabled = body.aisPersistenceEnabled;
+      }
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(settings)
+      });
+      return;
+    }
+
+    await route.continue();
+  });
+
+  await page.route('**/api/ais/history/batch', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'POST') {
+      await route.continue();
+      return;
+    }
+
+    const body = request.postDataJSON();
+    aisBatchBodies.push(body);
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        ok: true,
+        insertedLocations: Array.isArray(body.locations) ? body.locations.length : 0,
+        insertedMetadata: Array.isArray(body.metadata) ? body.metadata.length : 0
+      })
+    });
+  });
+
+  await page.route('**/api/ais/tracks**', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(tracksResponse)
+    });
+  });
+
+  await page.route('**/api/ais/latest-location**', async (route) => {
+    const request = route.request();
+    const url = new URL(request.url());
+    const mmsi = url.searchParams.get('mmsi');
+    const payload = mmsi ? latestLocations[mmsi] : null;
+
+    if (payload) {
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify(payload)
+      });
+      return;
+    }
+
+    await route.fulfill({
+      status: 404,
+      contentType: 'application/json',
+      body: JSON.stringify({ error: 'not_found' })
+    });
+  });
+
+  return { settingsPatchBodies, aisBatchBodies };
 }
 
 async function signIn(page, path = '/') {
@@ -127,9 +234,68 @@ async function openLayersAccordion(page, title) {
   const item = layersDropdown.locator('.header-accordion-item').filter({ hasText: title }).first();
   const content = item.locator('.header-accordion-content');
 
-  if (!(await content.isVisible())) {
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    if (await content.isVisible()) {
+      break;
+    }
     await item.locator('.header-accordion-header').click();
-    await expect(content).toBeVisible();
+    await page.waitForTimeout(100);
+  }
+
+  await expect(content).toBeVisible();
+  return content;
+}
+
+async function getAisAccordionContent(page) {
+  return await openLayersAccordion(page, 'Ships');
+}
+
+async function setAisInputValue(page, selector, value) {
+  await getAisAccordionContent(page);
+  await page.evaluate(({ cssSelector, nextValue }) => {
+    const sections = Array.from(document.querySelectorAll('#layers-dropdown .header-accordion-item'));
+    const shipsSection = sections.find((node) => node.textContent?.includes('🚢 Ships'));
+    const input = shipsSection?.querySelector(cssSelector);
+    if (!input) {
+      throw new Error(`AIS input not found: ${cssSelector}`);
+    }
+    input.value = nextValue;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { cssSelector: selector, nextValue: value });
+}
+
+async function clickAisButton(page, selector) {
+  const content = await getAisAccordionContent(page);
+  const button = content.locator(selector).first();
+  await button.click({ force: true });
+  return button;
+}
+
+async function setAisToggle(page, checked) {
+  await getAisAccordionContent(page);
+  await page.evaluate(({ nextChecked }) => {
+    const toggles = Array.from(document.querySelectorAll('#ais-enabled'));
+    const target = toggles.find((node) => node.offsetParent !== null) || toggles[0];
+    if (!target) {
+      throw new Error('AIS toggle not found');
+    }
+    target.checked = nextChecked;
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { nextChecked: checked });
+
+  await expect.poll(async () => {
+    return await page.evaluate(() => Boolean(window.__INTELMAP_APP_STATE__?.aisEnabled));
+  }).toBe(checked);
+}
+
+async function openSettingsMenu(page) {
+  const settingsDropdown = page.locator('#settings-dropdown');
+  if (!(await settingsDropdown.isVisible())) {
+    const toggle = page.locator('#settings-toggle');
+    await expect(toggle).toHaveCount(1);
+    await toggle.click({ force: true });
+    await expect(settingsDropdown).toBeVisible();
   }
 }
 
@@ -189,36 +355,37 @@ async function clickRenderedFeature(page, mapKey = 'main', index = 0) {
 }
 
 async function enableAisOverlay(page) {
-  await openLayersAccordion(page, 'Ships');
-  const toggle = page.locator('#ais-enabled');
-  await toggle.check();
-  await expect(toggle).toBeChecked();
+  await setAisToggle(page, true);
 }
 
 test.describe('AIS Ships Overlay', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test('toggle AIS overlay', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page);
 
     await enableAisOverlay(page);
     await expect(page.locator('#ais-interval-input')).toHaveCount(0);
-
-    const toggle = page.locator('#ais-enabled');
-    await toggle.uncheck();
-    await expect(toggle).not.toBeChecked();
+    await setAisToggle(page, false);
   });
 
   test('restore AIS from permalink', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page, '/?ais=1');
 
     await openLayersAccordion(page, 'Ships');
-    await expect(page.locator('#ais-enabled')).toBeChecked();
+    await expect.poll(async () => {
+      return await page.evaluate(() => Boolean(window.__INTELMAP_APP_STATE__?.aisEnabled));
+    }).toBe(true);
     await expect(page.locator('#ais-interval-input')).toHaveCount(0);
   });
 
   test('shows AIS vessel color legend', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page);
 
     const legend = page.locator('.map-legend-panel');
@@ -235,12 +402,13 @@ test.describe('AIS Ships Overlay', () => {
     await expect(legend).toContainText('Unknown');
     await expect(legend.locator('.map-legend-swatch')).toHaveCount(5);
 
-    await page.locator('#ais-enabled').uncheck();
+    await setAisToggle(page, false);
     await expect(legend).toBeHidden();
   });
 
   test('renders live AIS vessels from MQTT location and metadata', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page);
     await enableAisOverlay(page);
 
@@ -252,8 +420,15 @@ test.describe('AIS Ships Overlay', () => {
 
   test('opens an AIS popup with merged MQTT data', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page);
     await enableAisOverlay(page);
+
+    const layersDropdown = page.locator('#layers-dropdown');
+    if (await layersDropdown.isVisible()) {
+      await page.click('#layers-toggle');
+      await expect(layersDropdown).toBeHidden();
+    }
 
     await emitMetadata(page, '230145250', createMetadataMessage());
     await emitLocation(page, '230145250', createLocationMessage());
@@ -265,10 +440,22 @@ test.describe('AIS Ships Overlay', () => {
     await expect(popup).toContainText('9543756', { timeout: 10000 });
     await expect(popup).toContainText('UST LUGA', { timeout: 10000 });
     await expect(popup).toContainText('V7WW7', { timeout: 10000 });
+
+    const mmsiLink = popup.locator('.ais-popup-link');
+    await expect(mmsiLink).toHaveAttribute('href', 'https://www.vesselfinder.com/?mmsi=230145250');
+    await expect(mmsiLink).toHaveAttribute('target', '_blank');
+
+    const popupSearchButton = popup.locator('.ais-popup-search-btn');
+    await expect(popupSearchButton).toHaveText('Search');
+    await popupSearchButton.click();
+
+    const accordionContent = await getAisAccordionContent(page);
+    await expect(accordionContent.locator('#ais-mmsi-search-input')).toHaveValue('230145250');
   });
 
   test('keeps AIS vessels working after switching to split view', async ({ page }) => {
     await installMockAisBroker(page);
+    await installAisApiMocks(page);
     await signIn(page);
     await enableAisOverlay(page);
 
@@ -277,6 +464,12 @@ test.describe('AIS Ships Overlay', () => {
 
     await page.click('#split-toggle');
     await expect(page.locator('#map-left .ol-viewport')).toBeVisible({ timeout: 10000 });
+    await page.waitForFunction(() => {
+      const state = window.__INTELMAP_APP_STATE__;
+      const leftLayer = state?.aisLayer?.left;
+      const source = leftLayer?.getSource?.();
+      return Boolean(source && source.getFeatures().length > 0);
+    });
     await clickRenderedFeature(page, 'left');
 
     await expect(page.locator('.ais-popup')).toContainText('ARUNA CIHAN', { timeout: 10000 });
@@ -284,6 +477,7 @@ test.describe('AIS Ships Overlay', () => {
 
   test('prunes stale AIS vessels from the live cache', async ({ page }) => {
     await installMockAisBroker(page, { staleAfterMs: 5000, pruneIntervalMs: 50 });
+    await installAisApiMocks(page);
     await signIn(page);
     await enableAisOverlay(page);
 
@@ -292,5 +486,129 @@ test.describe('AIS Ships Overlay', () => {
 
     await expect(page.locator('.active-layers-panel')).toContainText('Ships (1)', { timeout: 10000 });
     await expect(page.locator('.active-layers-panel')).toContainText('Ships (0)', { timeout: 10000 });
+  });
+
+  test('opens settings menu and saves AIS persistence toggle', async ({ page }) => {
+    await installMockAisBroker(page);
+    const { settingsPatchBodies } = await installAisApiMocks(page, { aisPersistenceEnabled: false });
+    await signIn(page);
+
+    await openSettingsMenu(page);
+
+    const toggle = page.locator('#settings-ais-persistence');
+    await expect(toggle).not.toBeChecked();
+    await toggle.check();
+    await expect(toggle).toBeChecked();
+
+    await expect.poll(() => settingsPatchBodies.length, { timeout: 10000 }).toBeGreaterThan(0);
+    expect(settingsPatchBodies[settingsPatchBodies.length - 1]).toMatchObject({
+      aisPersistenceEnabled: true
+    });
+  });
+
+  test('does not persist AIS history batches from the browser client', async ({ page }) => {
+    await installMockAisBroker(page, {
+      persistenceFlushIntervalMs: 50,
+      persistenceBatchSize: 1
+    });
+    const { aisBatchBodies } = await installAisApiMocks(page, { aisPersistenceEnabled: true });
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await emitMetadata(page, '230145250', createMetadataMessage());
+    await emitLocation(page, '230145250', createLocationMessage());
+
+    await page.waitForTimeout(500);
+    expect(aisBatchBodies.length).toBe(0);
+  });
+
+  test('can search by MMSI and select multiple ships', async ({ page }) => {
+    await installMockAisBroker(page);
+    await installAisApiMocks(page, {
+      latestLocations: {
+        257111100: {
+          mmsi: '257111100',
+          lon: 25.05,
+          lat: 60.22,
+          observedAt: new Date().toISOString()
+        }
+      }
+    });
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await emitMetadata(page, '230145250', createMetadataMessage({ name: 'ARUNA CIHAN' }));
+    await emitLocation(page, '230145250', createLocationMessage({ lon: 24.94, lat: 60.19 }));
+    await emitMetadata(page, '230145251', createMetadataMessage({ name: 'BALTIC STAR', type: 80 }));
+    await emitLocation(page, '230145251', createLocationMessage({ lon: 25.0, lat: 60.23, heading: 90 }));
+
+    await setAisInputValue(page, '#ais-mmsi-search-input', '230145250');
+    await clickAisButton(page, '#ais-mmsi-search-btn');
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisSelectedMmsi?.size || 0);
+    }).toBe(1);
+
+    await clickRenderedFeature(page, 'main', 1);
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisSelectedMmsi?.size || 0);
+    }).toBe(2);
+  });
+
+  test('draws tracks for selected ships and shows playback slider', async ({ page }) => {
+    await installMockAisBroker(page);
+    await installAisApiMocks(page, {
+      tracksResponse: {
+        tracks: [
+          {
+            mmsi: '230145250',
+            points: [
+              { lon: 24.9, lat: 60.1, timestamp: '2026-03-04T10:00:00.000Z' },
+              { lon: 25.0, lat: 60.2, timestamp: '2026-03-04T10:05:00.000Z' }
+            ]
+          },
+          {
+            mmsi: '230145251',
+            points: [
+              { lon: 25.1, lat: 60.3, timestamp: '2026-03-04T10:00:00.000Z' },
+              { lon: 25.2, lat: 60.4, timestamp: '2026-03-04T10:05:00.000Z' }
+            ]
+          }
+        ]
+      }
+    });
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await emitMetadata(page, '230145250', createMetadataMessage({ name: 'ARUNA CIHAN' }));
+    await emitLocation(page, '230145250', createLocationMessage({ lon: 24.94, lat: 60.19 }));
+    await emitMetadata(page, '230145251', createMetadataMessage({ name: 'BALTIC STAR', type: 80 }));
+    await emitLocation(page, '230145251', createLocationMessage({ lon: 25.0, lat: 60.23, heading: 90 }));
+
+    await page.evaluate(() => {
+      const state = window.__INTELMAP_APP_STATE__;
+      state.aisSelectedMmsi = new Set(['230145250', '230145251']);
+      (state.aisFeatures || []).forEach((feature) => {
+        const mmsi = String(feature.get('mmsi'));
+        feature.set('selected', state.aisSelectedMmsi.has(mmsi));
+        feature.changed();
+      });
+    });
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisSelectedMmsi?.size || 0);
+    }).toBe(2);
+
+    await setAisInputValue(page, '#ais-track-start', '2026-03-04T10:00');
+    await setAisInputValue(page, '#ais-track-end', '2026-03-04T10:10');
+    await clickAisButton(page, '#ais-load-tracks-btn');
+
+    const playbackBar = page.locator('#ais-playback-bar');
+    await expect(playbackBar).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#ais-playback-slider')).toBeVisible({ timeout: 10000 });
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisTrackFeatures?.length || 0);
+    }).toBe(2);
   });
 });

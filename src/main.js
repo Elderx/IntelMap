@@ -26,6 +26,7 @@ import { getSession } from './auth/session.js';
 import { showLoginOverlay } from './ui/loginOverlay.js';
 import { initHeader, updateSplitToggleText, updateRemoveFeaturesButton, closeAllDropdowns, updateHeaderButtonVisibility } from './ui/header.js';
 import { mountHeaderLayerManager, mountSplitModeLayerManagers, updateHeaderActiveLayers, refreshDynamicOsmFeatures } from './ui/headerLayerManager.js';
+import { loadSettings } from './ui/settingsMenu.js';
 import { updateAllOverlays } from './map/overlays.js';
 import './ui/mobileMenu.js'; // Initialize mobile menu (auto-runs)
 
@@ -47,6 +48,9 @@ async function bootstrap() {
   } catch (e) {
     console.warn('Failed to load aircraft interval preference:', e);
   }
+
+  // Load server-side user settings (AIS persistence toggle currently)
+  await loadSettings();
 
   // Pre-fetch layer groups so they are available for restoration
   const { fetchLayerGroups } = await import('./api/client.js');
@@ -151,6 +155,9 @@ async function bootstrap() {
     import('./ais/aisManager.js').then(({ rebuildAisLayers }) => {
       rebuildAisLayers();
     });
+    import('./ais/aisTracksManager.js').then(({ rebuildAisTrackLayers }) => {
+      rebuildAisTrackLayers();
+    });
     import('./ais/aisInteractions.js').then(({ setupAisClickHandlers }) => {
       if (state.aisEnabled) {
         setupAisClickHandlers();
@@ -212,6 +219,9 @@ async function bootstrap() {
     });
     import('./ais/aisManager.js').then(({ rebuildAisLayers }) => {
       rebuildAisLayers();
+    });
+    import('./ais/aisTracksManager.js').then(({ rebuildAisTrackLayers }) => {
+      rebuildAisTrackLayers();
     });
     import('./ais/aisInteractions.js').then(({ setupAisClickHandlers }) => {
       if (state.aisEnabled) {

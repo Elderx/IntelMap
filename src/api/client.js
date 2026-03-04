@@ -25,6 +25,22 @@ export async function apiPost(path, body) {
   }
 }
 
+export async function apiPatch(path, body) {
+  try {
+    const res = await fetch(path, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      credentials: 'same-origin'
+    });
+    if (!res.ok) throw new Error('bad_status');
+    return await res.json();
+  } catch (e) {
+    console.warn('[api] PATCH failed', path, e.message);
+    return null;
+  }
+}
+
 export async function fetchMarkers() {
   return await apiGet('/api/markers');
 }
@@ -93,22 +109,6 @@ export async function deleteLayerGroup(id) {
   return await apiDelete(`/api/layer-groups/${id}`);
 }
 
-async function apiPatch(path, body) {
-  try {
-    const res = await fetch(path, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      credentials: 'same-origin'
-    });
-    if (!res.ok) throw new Error('bad_status');
-    return await res.json();
-  } catch (e) {
-    console.warn('[api] PATCH failed', path, e.message);
-    return null;
-  }
-}
-
 async function apiDelete(path) {
   try {
     const res = await fetch(path, {
@@ -141,4 +141,34 @@ export async function markTileAsCached(layerId, tileKey, bbox, featureCount = 0)
 export async function clearTileCacheFromDb(layerId = null) {
   const path = layerId ? `/api/osm-tiles?layer_id=${encodeURIComponent(layerId)}` : '/api/osm-tiles';
   return await apiDelete(path);
+}
+
+// User settings API
+export async function fetchSettings() {
+  return await apiGet('/api/settings');
+}
+
+export async function updateSettings(settings) {
+  return await apiPatch('/api/settings', settings);
+}
+
+// AIS history API
+export async function saveAisHistoryBatch(payload) {
+  return await apiPost('/api/ais/history/batch', payload);
+}
+
+export async function fetchAisTracks({ mmsis, start, end }) {
+  const params = new URLSearchParams();
+  if (Array.isArray(mmsis) && mmsis.length) {
+    params.set('mmsis', mmsis.join(','));
+  }
+  if (start) params.set('start', start);
+  if (end) params.set('end', end);
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return await apiGet(`/api/ais/tracks${suffix}`);
+}
+
+export async function fetchAisLatestLocationByMmsi(mmsi) {
+  if (!mmsi) return null;
+  return await apiGet(`/api/ais/latest-location?mmsi=${encodeURIComponent(String(mmsi))}`);
 }

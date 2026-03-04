@@ -2,6 +2,8 @@ import { state } from '../state/store.js';
 import { AIS_OVERLAY_CONFIG, getAisOverlayRuntimeConfig } from '../config/constants.js';
 import { connectToAisMqtt } from '../api/aisMqtt.js';
 import { createAisLayer, vesselToFeature } from './aisLayer.js';
+import { clearAisSelection } from './aisSelection.js';
+import { clearAisTracks } from './aisTracksManager.js';
 import { removeMapLegendSection, setMapLegendSection } from '../ui/mapLegend.js';
 
 function updateAisLayer(mapKey, features) {
@@ -221,6 +223,8 @@ export function stopAisUpdates() {
   state.aisConnected = false;
   state.aisFeatures = [];
   state.aisVesselsByMmsi = new Map();
+  clearAisSelection();
+  clearAisTracks();
   state.aisError = null;
   state.aisLastUpdate = null;
   state.aisLastMessageAt = null;

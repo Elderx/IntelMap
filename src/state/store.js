@@ -141,6 +141,27 @@ export const state = {
   aisError: null,
   aisLastUpdate: null,
   aisLastMessageAt: null,
+  aisPersistenceEnabled: false,
+  aisPersistenceFlushTimer: null,
+  aisPersistenceQueue: {
+    locations: [],
+    metadata: []
+  },
+  aisMmsiSearchQuery: '',
+  aisSelectedMmsi: new Set(),
+  aisTrackLayer: { main: null, left: null, right: null },
+  aisTrackHeadLayer: { main: null, left: null, right: null },
+  aisTrackFeatures: [],
+  aisTrackHeadFeatures: [],
+  aisTrackDataByMmsi: new Map(),
+  aisTrackRangeStart: null,
+  aisTrackRangeEnd: null,
+  aisTrackLoading: false,
+  aisTrackError: null,
+  aisTrackPlaybackTimestamps: [],
+  aisTrackPlaybackIndex: 0,
+  aisTrackPlaybackTimer: null,
+  aisTrackPlaybackSpeed: 2,
 
   // Weather overlay
   weatherEnabled: false,

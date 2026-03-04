@@ -4,11 +4,13 @@
  */
 
 import { state } from '../state/store.js';
+import { fromLonLat } from 'ol/proj.js';
 import { updateAllOverlays } from '../map/overlays.js';
 import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
 import { updateOSMLegend } from './osmLegend.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { toggleLayerGroup } from './layerGroupMenu.js';
+import { fetchAisLatestLocationByMmsi } from '../api/client.js';
 import { startTrainLocationUpdates, stopTrainLocationUpdates } from '../trains/trainLocationsManager.js';
 import { startTrainStations, stopTrainStations } from '../trains/trainStationsManager.js';
 import { setupTrainLocationClickHandlers, cleanupTrainLocationInteractions } from '../trains/trainLocationsInteractions.js';
@@ -18,6 +20,8 @@ import '../styles/trains.css';
 // AIS imports
 import { startAisUpdates, stopAisUpdates } from '../ais/aisManager.js';
 import { setupAisClickHandlers, cleanupAisInteractions } from '../ais/aisInteractions.js';
+import { setAisVesselSelected } from '../ais/aisSelection.js';
+import { loadAisTracksForSelection } from '../ais/aisTracksManager.js';
 import '../styles/ais.css';
 
 // Weather imports
@@ -481,6 +485,11 @@ function createAircraftAccordion() {
 function createAisAccordion() {
   const content = document.createElement('div');
   content.style.padding = '8px 0';
+  const assignIdIfMissing = (el, id) => {
+    if (!document.getElementById(id)) {
+      el.id = id;
+    }
+  };
 
   // Enable/disable toggle
   const row = createCheckboxRow(
@@ -502,6 +511,125 @@ function createAisAccordion() {
   );
 
   content.appendChild(row);
+
+  const divider = document.createElement('div');
+  divider.style.margin = '8px 0';
+  divider.style.borderTop = '1px solid #d6dbe3';
+  content.appendChild(divider);
+
+  const searchLabel = document.createElement('label');
+  searchLabel.textContent = 'Search by MMSI';
+  searchLabel.style.display = 'block';
+  searchLabel.style.fontSize = '12px';
+  searchLabel.style.fontWeight = '600';
+  searchLabel.style.color = '#607080';
+  searchLabel.style.marginBottom = '6px';
+  content.appendChild(searchLabel);
+
+  const searchRow = document.createElement('div');
+  searchRow.style.display = 'flex';
+  searchRow.style.gap = '6px';
+  searchRow.style.marginBottom = '8px';
+
+  const searchInput = document.createElement('input');
+  assignIdIfMissing(searchInput, 'ais-mmsi-search-input');
+  searchInput.type = 'text';
+  searchInput.className = 'form-input';
+  searchInput.placeholder = 'e.g. 230145250';
+  searchInput.style.flex = '1';
+  searchInput.value = state.aisMmsiSearchQuery || '';
+  searchInput.addEventListener('input', () => {
+    state.aisMmsiSearchQuery = searchInput.value || '';
+  });
+
+  const searchBtn = document.createElement('button');
+  assignIdIfMissing(searchBtn, 'ais-mmsi-search-btn');
+  searchBtn.type = 'button';
+  searchBtn.className = 'btn btn-secondary';
+  searchBtn.textContent = 'Select';
+  searchBtn.style.whiteSpace = 'nowrap';
+
+  searchBtn.addEventListener('click', async () => {
+    const mmsi = searchInput.value.trim();
+    if (!mmsi) return;
+    state.aisMmsiSearchQuery = mmsi;
+
+    const liveFeature = state.aisFeatures.find((feature) => String(feature.get('mmsi')) === mmsi);
+    setAisVesselSelected(mmsi, true);
+
+    const activeMap = state.isSplit ? (state.leftMap || state.map) : state.map;
+    if (liveFeature && activeMap) {
+      const coordinate = liveFeature.getGeometry()?.getCoordinates?.();
+      if (coordinate) {
+        activeMap.getView().animate({ center: coordinate, duration: 350 });
+      }
+      return;
+    }
+
+    const latest = await fetchAisLatestLocationByMmsi(mmsi);
+    if (!latest || !activeMap) {
+      return;
+    }
+    const lon = Number(latest.lon);
+    const lat = Number(latest.lat);
+    if (Number.isFinite(lon) && Number.isFinite(lat)) {
+      activeMap.getView().animate({ center: fromLonLat([lon, lat], 'EPSG:3857'), duration: 350 });
+    }
+  });
+
+  searchRow.append(searchInput, searchBtn);
+  content.appendChild(searchRow);
+
+  const trackTitle = document.createElement('div');
+  trackTitle.textContent = 'Track Range';
+  trackTitle.style.fontSize = '12px';
+  trackTitle.style.fontWeight = '600';
+  trackTitle.style.color = '#607080';
+  trackTitle.style.marginBottom = '6px';
+  content.appendChild(trackTitle);
+
+  const rangeGrid = document.createElement('div');
+  rangeGrid.className = 'ais-track-range-grid';
+
+  const startInput = document.createElement('input');
+  assignIdIfMissing(startInput, 'ais-track-start');
+  startInput.type = 'datetime-local';
+  startInput.className = 'form-input';
+
+  const endInput = document.createElement('input');
+  assignIdIfMissing(endInput, 'ais-track-end');
+  endInput.type = 'datetime-local';
+  endInput.className = 'form-input';
+
+  const now = new Date();
+  const defaultEnd = state.aisTrackRangeEnd ? new Date(state.aisTrackRangeEnd) : now;
+  const defaultStart = state.aisTrackRangeStart
+    ? new Date(state.aisTrackRangeStart)
+    : new Date(defaultEnd.getTime() - (6 * 60 * 60 * 1000));
+  const formatDateTimeInput = (date) => {
+    const local = new Date(date);
+    local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
+    return local.toISOString().slice(0, 16);
+  };
+  startInput.value = formatDateTimeInput(defaultStart);
+  endInput.value = formatDateTimeInput(defaultEnd);
+
+  rangeGrid.append(startInput, endInput);
+  content.appendChild(rangeGrid);
+
+  const loadTracksBtn = document.createElement('button');
+  assignIdIfMissing(loadTracksBtn, 'ais-load-tracks-btn');
+  loadTracksBtn.type = 'button';
+  loadTracksBtn.className = 'btn btn-primary';
+  loadTracksBtn.textContent = 'Load Tracks';
+  loadTracksBtn.style.width = '100%';
+  loadTracksBtn.style.marginTop = '8px';
+  loadTracksBtn.addEventListener('click', async () => {
+    const start = startInput.value ? new Date(startInput.value).toISOString() : null;
+    const end = endInput.value ? new Date(endInput.value).toISOString() : null;
+    await loadAisTracksForSelection({ start, end });
+  });
+  content.appendChild(loadTracksBtn);
 
   return createAccordionItem('🚢 Ships', content, false);
 }
