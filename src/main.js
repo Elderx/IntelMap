@@ -146,6 +146,13 @@ async function bootstrap() {
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
     });
+    // Sync traffic camera layers to split maps
+    import('./trafficCameras/trafficCameraManager.js').then(({ rebuildTrafficCameraLayers }) => {
+      rebuildTrafficCameraLayers();
+    });
+    import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
+      setupTrafficCameraClickHandlers();
+    });
     // Sync GPX layers to split maps
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
       rebuildGpxLayers();
@@ -176,6 +183,13 @@ async function bootstrap() {
     // Sync weather station layers to single map
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
+    });
+    // Sync traffic camera layers to single map
+    import('./trafficCameras/trafficCameraManager.js').then(({ rebuildTrafficCameraLayers }) => {
+      rebuildTrafficCameraLayers();
+    });
+    import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
+      setupTrafficCameraClickHandlers();
     });
     // Sync GPX layers to single map
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {

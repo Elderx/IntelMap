@@ -146,4 +146,56 @@ test.describe('Traffic Cameras Overlay', () => {
     await expect(popup.locator('img')).toHaveAttribute('src', /C0162202\.jpg/);
     await expect(popup.locator('a')).toHaveAttribute('href', /cameraId=C01622/);
   });
+
+  test('shows fallback text when no preset image exists', async ({ page }) => {
+    await page.unroute('**/ArcGIS/rest/services/WeatherCams/FeatureServer/1/query**');
+    await page.route('**/ArcGIS/rest/services/WeatherCams/FeatureServer/1/query**', async route => {
+      await route.fulfill({ json: { features: [] } });
+    });
+
+    await signIn(page);
+    await page.click('#layers-toggle');
+
+    const accordionHeader = page.locator('.header-accordion-item')
+      .filter({ hasText: 'Traffic Cameras' })
+      .locator('.header-accordion-header');
+    await accordionHeader.click();
+
+    await page.check('#traffic-cameras-enabled');
+    await page.click('#layers-toggle');
+
+    const map = page.locator('#map');
+    const box = await map.boundingBox();
+    if (!box) {
+      throw new Error('Map bounding box not available');
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(page.locator('.traffic-camera-popup')).toContainText('Latest image unavailable');
+  });
+
+  test('keeps traffic cameras working after switching to split view', async ({ page }) => {
+    await signIn(page);
+    await page.click('#layers-toggle');
+
+    const accordionHeader = page.locator('.header-accordion-item')
+      .filter({ hasText: 'Traffic Cameras' })
+      .locator('.header-accordion-header');
+    await accordionHeader.click();
+
+    await page.check('#traffic-cameras-enabled');
+    await page.click('#layers-toggle');
+
+    await page.click('#split-toggle');
+    await expect(page.locator('#map-left')).toBeVisible();
+
+    const leftMap = page.locator('#map-left');
+    const box = await leftMap.boundingBox();
+    if (!box) {
+      throw new Error('Left map bounding box not available');
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(page.locator('.traffic-camera-popup')).toBeVisible({ timeout: 10000 });
+  });
 });

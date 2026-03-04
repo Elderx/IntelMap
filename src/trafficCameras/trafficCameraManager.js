@@ -118,4 +118,18 @@ export function stopTrafficCameraUpdates() {
   refreshActiveLayersPanel();
 }
 
-export function rebuildTrafficCameraLayers() {}
+export function rebuildTrafficCameraLayers() {
+  if (!state.trafficCameraEnabled || !state.trafficCameraFeatures.length) {
+    return;
+  }
+
+  removeLayers();
+  attachLayers();
+
+  if (state.isSplit) {
+    updateTrafficCameraLayer('left', state.trafficCameraFeatures);
+    updateTrafficCameraLayer('right', state.trafficCameraFeatures);
+  } else {
+    updateTrafficCameraLayer('main', state.trafficCameraFeatures);
+  }
+}

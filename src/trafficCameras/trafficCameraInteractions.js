@@ -10,6 +10,14 @@ function formatTimestamp(value) {
   return new Date(value).toLocaleString();
 }
 
+function setImageFallback(imageRegion, message) {
+  imageRegion.innerHTML = '';
+  const fallback = document.createElement('div');
+  fallback.className = 'traffic-camera-image-fallback';
+  fallback.textContent = message;
+  imageRegion.appendChild(fallback);
+}
+
 function buildPopupContent(feature) {
   const container = document.createElement('div');
   container.className = 'traffic-camera-popup';
@@ -33,11 +41,18 @@ function buildPopupContent(feature) {
   const imageRegion = document.createElement('div');
   imageRegion.className = 'traffic-camera-image-region';
 
-  const img = document.createElement('img');
-  img.src = feature.get('imageUrl');
-  img.alt = `${feature.get('name')} latest image`;
-  img.className = 'traffic-camera-image';
-  imageRegion.appendChild(img);
+  if (feature.get('imageUrl')) {
+    const img = document.createElement('img');
+    img.src = feature.get('imageUrl');
+    img.alt = `${feature.get('name')} latest image`;
+    img.className = 'traffic-camera-image';
+    img.addEventListener('error', () => {
+      setImageFallback(imageRegion, 'Image failed to load');
+    });
+    imageRegion.appendChild(img);
+  } else {
+    setImageFallback(imageRegion, 'Latest image unavailable');
+  }
 
   const link = document.createElement('a');
   link.href = feature.get('cameraPageUrl');
