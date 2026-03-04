@@ -342,6 +342,12 @@ async function bootstrap() {
         import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());
       }, 100);
     }
+    if (params.trafficCameras === '1') {
+      state.trafficCameraEnabled = true;
+      setTimeout(() => {
+        import('./trafficCameras/trafficCameraManager.js').then(m => m.startTrafficCameraUpdates());
+      }, 100);
+    }
     if (params.radar === '1') {
       state.radarEnabled = true;
       // Defer until maps are ready

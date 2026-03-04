@@ -91,6 +91,13 @@ export const AISSTREAM_CONFIG = {
   reconnectDelay: 5000
 };
 
+export const TRAFFIC_CAMERA_CONFIG = {
+  locationsUrl: 'https://services1.arcgis.com/rhs5fjYxdOG1Et61/ArcGIS/rest/services/WeatherCams/FeatureServer/0/query?f=json&spatialRel=esriSpatialRelIntersects&returnGeometry=true&outFields=CameraId%2C%20Municipality%2C%20Region%2C%20RegionCode%2C%20Name_FI%2C%20Name_SV%2C%20Name_EN%2C%20RoadAddress%2C%20CameraActive%2C%20NearestWeatherStationId%2C%20Region_SV%2C%20Region_EN%2C%20RoadStationId%2C%20CollectionStatus%2C%20State&where=CollectionStatus%20NOT%20IN%20(%27REMOVED_PERMANENTLY%27)',
+  presetsUrl: 'https://services1.arcgis.com/rhs5fjYxdOG1Et61/ArcGIS/rest/services/WeatherCams/FeatureServer/1/query?f=json&outFields=CameraId%2C%20PresetId%2C%20DirectionName%2C%20ImageUrl%2C%20PicLastModified%2C%20PresetActive%2C%20InCollection%2C%20CameraResolution&where=1%3D1',
+  cameraPageBaseUrl: 'https://liikennetilanne.fintraffic.fi/kelikamerat/',
+  zIndex: 107
+};
+
 // FMI (Finnish Meteorological Institute) API configuration
 export const FMI_CONFIG = {
   // WMS Service (pre-rendered weather maps)
@@ -126,5 +133,4 @@ export const FMI_CONFIG = {
     stations: 106
   }
 };
-
 
