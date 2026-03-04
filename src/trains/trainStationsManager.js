@@ -87,17 +87,19 @@ export function stopTrainStations() {
 }
 
 export function rebuildTrainStationLayers() {
-  if (!state.trainStationsEnabled || !state.trainStationFeatures.length) {
+  if (!state.trainStationsEnabled) {
     return;
   }
 
   removeTrainStationLayers();
   attachTrainStationLayers();
 
-  if (state.isSplit) {
-    updateTrainStationLayer('left', state.trainStationFeatures);
-    updateTrainStationLayer('right', state.trainStationFeatures);
-  } else {
-    updateTrainStationLayer('main', state.trainStationFeatures);
+  if (state.trainStationFeatures.length) {
+    if (state.isSplit) {
+      updateTrainStationLayer('left', state.trainStationFeatures);
+      updateTrainStationLayer('right', state.trainStationFeatures);
+    } else {
+      updateTrainStationLayer('main', state.trainStationFeatures);
+    }
   }
 }

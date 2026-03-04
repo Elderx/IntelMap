@@ -154,6 +154,22 @@ async function bootstrap() {
     import('./radar/radarManager.js').then(({ initRadarLayers }) => {
       initRadarLayers();
     });
+    import('./trains/trainLocationsManager.js').then(({ rebuildTrainLocationLayers }) => {
+      rebuildTrainLocationLayers();
+    });
+    import('./trains/trainStationsManager.js').then(({ rebuildTrainStationLayers }) => {
+      rebuildTrainStationLayers();
+    });
+    import('./trains/trainLocationsInteractions.js').then(({ setupTrainLocationClickHandlers }) => {
+      if (state.trainLocationsEnabled) {
+        setupTrainLocationClickHandlers();
+      }
+    });
+    import('./trains/trainStationsInteractions.js').then(({ setupTrainStationClickHandlers }) => {
+      if (state.trainStationsEnabled) {
+        setupTrainStationClickHandlers();
+      }
+    });
   }
 
   function deactivateSplitScreen() {
@@ -184,6 +200,22 @@ async function bootstrap() {
     // Sync radar layers to single map
     import('./radar/radarManager.js').then(({ initRadarLayers }) => {
       initRadarLayers();
+    });
+    import('./trains/trainLocationsManager.js').then(({ rebuildTrainLocationLayers }) => {
+      rebuildTrainLocationLayers();
+    });
+    import('./trains/trainStationsManager.js').then(({ rebuildTrainStationLayers }) => {
+      rebuildTrainStationLayers();
+    });
+    import('./trains/trainLocationsInteractions.js').then(({ setupTrainLocationClickHandlers }) => {
+      if (state.trainLocationsEnabled) {
+        setupTrainLocationClickHandlers();
+      }
+    });
+    import('./trains/trainStationsInteractions.js').then(({ setupTrainStationClickHandlers }) => {
+      if (state.trainStationsEnabled) {
+        setupTrainStationClickHandlers();
+      }
     });
   }
 

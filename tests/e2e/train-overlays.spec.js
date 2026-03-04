@@ -260,4 +260,31 @@ test.describe('Train Overlays', () => {
     expect(colors.passenger).toBe('#1565c0');
     expect(colors.nonPassenger).toBe('#6d4c41');
   });
+
+  test('rebuilds train locations in split view', async ({ page }) => {
+    await mockTrainDetail(page);
+    await signIn(page);
+
+    await openLayersAccordion(page, 'Train Locations');
+    await page.check('#train-locations-enabled');
+    await page.click('#split-toggle');
+
+    await expect(page.locator('#map-left .ol-viewport')).toBeVisible({ timeout: 10000 });
+    await clickRenderedFeature(page, 'trainLocationFeatures', '#map-left', 'left');
+
+    await expect(page.locator('.train-location-popup')).toContainText('Train 7', { timeout: 10000 });
+  });
+
+  test('rebuilds train stations in split view', async ({ page }) => {
+    await signIn(page);
+
+    await openLayersAccordion(page, 'Train Stations');
+    await page.check('#train-stations-enabled');
+    await page.click('#split-toggle');
+
+    await expect(page.locator('#map-right .ol-viewport')).toBeVisible({ timeout: 10000 });
+    await clickRenderedFeature(page, 'trainStationFeatures', '#map-right', 'right');
+
+    await expect(page.locator('.train-station-popup')).toContainText('Helsinki Central', { timeout: 10000 });
+  });
 });

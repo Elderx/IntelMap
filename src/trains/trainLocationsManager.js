@@ -103,17 +103,19 @@ export function stopTrainLocationUpdates() {
 }
 
 export function rebuildTrainLocationLayers() {
-  if (!state.trainLocationsEnabled || !state.trainLocationFeatures.length) {
+  if (!state.trainLocationsEnabled) {
     return;
   }
 
   removeTrainLocationLayers();
   attachTrainLocationLayers();
 
-  if (state.isSplit) {
-    updateTrainLocationLayer('left', state.trainLocationFeatures);
-    updateTrainLocationLayer('right', state.trainLocationFeatures);
-  } else {
-    updateTrainLocationLayer('main', state.trainLocationFeatures);
+  if (state.trainLocationFeatures.length) {
+    if (state.isSplit) {
+      updateTrainLocationLayer('left', state.trainLocationFeatures);
+      updateTrainLocationLayer('right', state.trainLocationFeatures);
+    } else {
+      updateTrainLocationLayer('main', state.trainLocationFeatures);
+    }
   }
 }
