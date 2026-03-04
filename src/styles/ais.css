@@ -61,6 +61,28 @@
   gap: 6px;
 }
 
+.ais-track-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.ais-track-preset-btn {
+  border: 1px solid #c4d0db;
+  background: #f8fafc;
+  color: #334155;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.ais-track-preset-btn:hover {
+  background: #eef3f8;
+}
+
 .ais-playback-bar {
   position: fixed;
   bottom: 20px;
@@ -123,5 +145,15 @@
 }
 
 [data-theme="dark"] .ais-popup-search-btn:hover {
+  background: #2a3a4c;
+}
+
+[data-theme="dark"] .ais-track-preset-btn {
+  background: #1f2933;
+  border-color: #4f6579;
+  color: #dce7f1;
+}
+
+[data-theme="dark"] .ais-track-preset-btn:hover {
   background: #2a3a4c;
 }

@@ -38,12 +38,13 @@ function createLocationMessage(overrides = {}) {
 }
 
 async function installMockAisBroker(page, options = {}) {
-  await page.addInitScript(({ staleAfterMs, pruneIntervalMs, persistenceFlushIntervalMs, persistenceBatchSize }) => {
+  await page.addInitScript(({ staleAfterMs, pruneIntervalMs, persistenceFlushIntervalMs, persistenceBatchSize, trackRangeAutoRefreshMs }) => {
     window.__INTELMAP_AIS_TEST_CONFIG__ = {
       staleAfterMs,
       pruneIntervalMs,
       persistenceFlushIntervalMs,
-      persistenceBatchSize
+      persistenceBatchSize,
+      trackRangeAutoRefreshMs
     };
 
     window.__INTELMAP_AIS_TEST_SESSIONS__ = [];
@@ -105,7 +106,8 @@ async function installMockAisBroker(page, options = {}) {
     staleAfterMs: options.staleAfterMs ?? 30 * 60 * 1000,
     pruneIntervalMs: options.pruneIntervalMs ?? 60 * 1000,
     persistenceFlushIntervalMs: options.persistenceFlushIntervalMs ?? 100,
-    persistenceBatchSize: options.persistenceBatchSize ?? 2
+    persistenceBatchSize: options.persistenceBatchSize ?? 2,
+    trackRangeAutoRefreshMs: options.trackRangeAutoRefreshMs ?? 60 * 1000
   });
 }
 
@@ -119,6 +121,12 @@ async function installAisApiMocks(page, options = {}) {
 
   const tracksResponse = options.tracksResponse || {
     tracks: []
+  };
+  const snapshotResponse = options.snapshotResponse || {
+    vessels: [],
+    range: {
+      minutes: 60
+    }
   };
 
   const latestLocations = options.latestLocations || {};
@@ -184,6 +192,20 @@ async function installAisApiMocks(page, options = {}) {
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify(tracksResponse)
+    });
+  });
+
+  await page.route('**/api/ais/snapshot**', async (route) => {
+    const request = route.request();
+    if (request.method() !== 'GET') {
+      await route.continue();
+      return;
+    }
+
+    await route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify(snapshotResponse)
     });
   });
 
@@ -418,6 +440,54 @@ test.describe('AIS Ships Overlay', () => {
     await expect(page.locator('.active-layers-panel')).toContainText('Ships (1)', { timeout: 10000 });
   });
 
+  test('loads AIS vessels from 60-minute history snapshot on enable', async ({ page }) => {
+    await installMockAisBroker(page);
+    await installAisApiMocks(page, {
+      snapshotResponse: {
+        vessels: [
+          {
+            mmsi: '230145250',
+            location: {
+              observedAt: '2026-03-05T08:10:00.000Z',
+              lon: 24.94,
+              lat: 60.19,
+              sog: 8.2,
+              cog: 312,
+              heading: 311,
+              navStat: 0,
+              rot: 0,
+              posAcc: true,
+              raim: false
+            },
+            metadata: {
+              name: 'SNAPSHOT VESSEL',
+              destination: 'HELSINKI',
+              callSign: 'OH1234',
+              imo: '9543756',
+              draught: 64,
+              type: 70,
+              posType: 15,
+              refA: 150,
+              refB: 34,
+              refC: 20,
+              refD: 12
+            }
+          }
+        ]
+      }
+    });
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(1);
+    await expect(page.locator('.active-layers-panel')).toContainText('Ships (1)', { timeout: 10000 });
+
+    await clickRenderedFeature(page);
+    await expect(page.locator('.ais-popup')).toContainText('SNAPSHOT VESSEL', { timeout: 10000 });
+  });
+
   test('opens an AIS popup with merged MQTT data', async ({ page }) => {
     await installMockAisBroker(page);
     await installAisApiMocks(page);
@@ -610,5 +680,99 @@ test.describe('AIS Ships Overlay', () => {
     await expect.poll(async () => {
       return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisTrackFeatures?.length || 0);
     }).toBe(2);
+  });
+
+  test('auto-refreshes default AIS track range time values', async ({ page }) => {
+    await installMockAisBroker(page, {
+      trackRangeAutoRefreshMs: 100
+    });
+    await installAisApiMocks(page);
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    const content = await getAisAccordionContent(page);
+    await expect(content.locator('#ais-track-start')).toBeVisible();
+    await expect(content.locator('#ais-track-end')).toBeVisible();
+
+    await page.evaluate(() => {
+      const state = window.__INTELMAP_APP_STATE__;
+      const startInput = document.getElementById('ais-track-start');
+      const endInput = document.getElementById('ais-track-end');
+      if (!state || !startInput || !endInput) {
+        throw new Error('AIS track range inputs not available');
+      }
+
+      startInput.value = '2000-01-01T00:00';
+      endInput.value = '2000-01-01T00:00';
+      startInput.dispatchEvent(new Event('input', { bubbles: true }));
+      startInput.dispatchEvent(new Event('change', { bubbles: true }));
+      endInput.dispatchEvent(new Event('input', { bubbles: true }));
+      endInput.dispatchEvent(new Event('change', { bubbles: true }));
+
+      state.aisTrackRangeFollowNow = true;
+    });
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const startInput = document.getElementById('ais-track-start');
+        const endInput = document.getElementById('ais-track-end');
+        if (!startInput || !endInput) {
+          return false;
+        }
+
+        return startInput.value !== '2000-01-01T00:00' && endInput.value !== '2000-01-01T00:00';
+      });
+    }, { timeout: 10000 }).toBeTruthy();
+  });
+
+  test('shows and applies AIS preset track ranges', async ({ page }) => {
+    await installMockAisBroker(page);
+    await installAisApiMocks(page);
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    const content = await getAisAccordionContent(page);
+    await expect(content.locator('#ais-range-preset-15m')).toHaveText('Last 15min');
+    await expect(content.locator('#ais-range-preset-1h')).toHaveText('Last 1h');
+    await expect(content.locator('#ais-range-preset-6h')).toHaveText('Last 6h');
+    await expect(content.locator('#ais-range-preset-12h')).toHaveText('Last 12h');
+    await expect(content.locator('#ais-range-preset-24h')).toHaveText('Last 24h');
+
+    await content.locator('#ais-range-preset-1h').click();
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const startInput = document.getElementById('ais-track-start');
+        const endInput = document.getElementById('ais-track-end');
+        if (!startInput || !endInput || !startInput.value || !endInput.value) {
+          return null;
+        }
+
+        const start = new Date(startInput.value).getTime();
+        const end = new Date(endInput.value).getTime();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+          return null;
+        }
+
+        return Math.round((end - start) / (60 * 1000));
+      });
+    }, { timeout: 10000 }).toBeGreaterThanOrEqual(59);
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const startInput = document.getElementById('ais-track-start');
+        const endInput = document.getElementById('ais-track-end');
+        if (!startInput || !endInput || !startInput.value || !endInput.value) {
+          return null;
+        }
+        const start = new Date(startInput.value).getTime();
+        const end = new Date(endInput.value).getTime();
+        if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) {
+          return null;
+        }
+
+        return Math.round((end - start) / (60 * 1000));
+      });
+    }, { timeout: 10000 }).toBeLessThanOrEqual(61);
   });
 });
