@@ -84,6 +84,7 @@ export const OPENSKY_CONFIG = {
 export const AIS_OVERLAY_CONFIG = {
   wsUrl: 'wss://meri.digitraffic.fi:443/mqtt',
   clientName: 'IntelMap AIS/1.0',
+  bootstrapHistoryMinutes: 60,
   topics: {
     location: 'vessels-v2/+/location',
     metadata: 'vessels-v2/+/metadata'
@@ -93,6 +94,7 @@ export const AIS_OVERLAY_CONFIG = {
   keepaliveSeconds: 30,
   staleAfterMs: 30 * 60 * 1000,
   pruneIntervalMs: 60 * 1000,
+  trackRangeAutoRefreshMs: 60 * 1000,
   persistenceFlushIntervalMs: 3000,
   persistenceBatchSize: 200,
   zIndex: 105,
@@ -113,8 +115,10 @@ export function getAisOverlayRuntimeConfig() {
   const overrides = window.__INTELMAP_AIS_TEST_CONFIG__ || {};
   return {
     ...AIS_OVERLAY_CONFIG,
+    bootstrapHistoryMinutes: overrides.bootstrapHistoryMinutes ?? AIS_OVERLAY_CONFIG.bootstrapHistoryMinutes,
     staleAfterMs: overrides.staleAfterMs ?? AIS_OVERLAY_CONFIG.staleAfterMs,
     pruneIntervalMs: overrides.pruneIntervalMs ?? AIS_OVERLAY_CONFIG.pruneIntervalMs,
+    trackRangeAutoRefreshMs: overrides.trackRangeAutoRefreshMs ?? AIS_OVERLAY_CONFIG.trackRangeAutoRefreshMs,
     persistenceFlushIntervalMs: overrides.persistenceFlushIntervalMs ?? AIS_OVERLAY_CONFIG.persistenceFlushIntervalMs,
     persistenceBatchSize: overrides.persistenceBatchSize ?? AIS_OVERLAY_CONFIG.persistenceBatchSize
   };

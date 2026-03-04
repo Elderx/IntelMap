@@ -1,6 +1,7 @@
 import { state } from '../state/store.js';
 import { AIS_OVERLAY_CONFIG, getAisOverlayRuntimeConfig } from '../config/constants.js';
 import { connectToAisMqtt } from '../api/aisMqtt.js';
+import { fetchAisSnapshot } from '../api/client.js';
 import { createAisLayer, vesselToFeature } from './aisLayer.js';
 import { clearAisSelection } from './aisSelection.js';
 import { clearAisTracks } from './aisTracksManager.js';
@@ -150,6 +151,56 @@ function startPruneLoop() {
   state.aisPruneInterval = setInterval(pruneStaleVessels, config.pruneIntervalMs);
 }
 
+async function loadAisSnapshotFromHistory() {
+  const config = getAisOverlayRuntimeConfig();
+  const minutes = Math.max(1, Number(config.bootstrapHistoryMinutes) || 60);
+  const snapshot = await fetchAisSnapshot({ minutes });
+  if (!snapshot || !Array.isArray(snapshot.vessels)) {
+    return;
+  }
+
+  let changed = false;
+  snapshot.vessels.forEach((vessel) => {
+    const key = String(vessel?.mmsi || '').trim();
+    if (!key) {
+      return;
+    }
+
+    const current = state.aisVesselsByMmsi.get(key) || {
+      mmsi: key,
+      metadata: null,
+      location: null,
+      lastSeenAt: 0
+    };
+
+    const next = {
+      ...current,
+      lastSeenAt: Date.now()
+    };
+
+    if (vessel.location && typeof vessel.location === 'object') {
+      next.location = {
+        ...(current.location || {}),
+        ...vessel.location
+      };
+    }
+
+    if (vessel.metadata && typeof vessel.metadata === 'object') {
+      next.metadata = {
+        ...(current.metadata || {}),
+        ...vessel.metadata
+      };
+    }
+
+    state.aisVesselsByMmsi.set(key, next);
+    changed = true;
+  });
+
+  if (changed) {
+    renderAisFeatures();
+  }
+}
+
 function enableAisLegend() {
   setMapLegendSection('ais', {
     title: 'Ships (AIS)',
@@ -180,6 +231,7 @@ export function startAisUpdates() {
   enableAisLegend();
   renderAisFeatures();
   startPruneLoop();
+  loadAisSnapshotFromHistory();
 
   state.aisClient = connectToAisMqtt({
     onConnect() {

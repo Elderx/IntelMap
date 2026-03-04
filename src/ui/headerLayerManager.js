@@ -11,6 +11,7 @@ import { updateOSMLegend } from './osmLegend.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { toggleLayerGroup } from './layerGroupMenu.js';
 import { fetchAisLatestLocationByMmsi } from '../api/client.js';
+import { getAisOverlayRuntimeConfig } from '../config/constants.js';
 import { startTrainLocationUpdates, stopTrainLocationUpdates } from '../trains/trainLocationsManager.js';
 import { startTrainStations, stopTrainStations } from '../trains/trainStationsManager.js';
 import { setupTrainLocationClickHandlers, cleanupTrainLocationInteractions } from '../trains/trainLocationsInteractions.js';
@@ -601,18 +602,111 @@ function createAisAccordion() {
   endInput.type = 'datetime-local';
   endInput.className = 'form-input';
 
-  const now = new Date();
-  const defaultEnd = state.aisTrackRangeEnd ? new Date(state.aisTrackRangeEnd) : now;
-  const defaultStart = state.aisTrackRangeStart
-    ? new Date(state.aisTrackRangeStart)
-    : new Date(defaultEnd.getTime() - (6 * 60 * 60 * 1000));
+  const SIX_HOURS_MS = 6 * 60 * 60 * 1000;
   const formatDateTimeInput = (date) => {
     const local = new Date(date);
     local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
     return local.toISOString().slice(0, 16);
   };
-  startInput.value = formatDateTimeInput(defaultStart);
-  endInput.value = formatDateTimeInput(defaultEnd);
+  const applyNowTrackRange = () => {
+    if (!state.aisTrackRangeFollowNow) {
+      return;
+    }
+
+    const now = new Date();
+    const start = new Date(now.getTime() - SIX_HOURS_MS);
+    startInput.value = formatDateTimeInput(start);
+    endInput.value = formatDateTimeInput(now);
+    state.aisTrackRangeStart = start.toISOString();
+    state.aisTrackRangeEnd = now.toISOString();
+  };
+  const applyStateTrackRange = () => {
+    const now = new Date();
+    const endDate = state.aisTrackRangeEnd ? new Date(state.aisTrackRangeEnd) : now;
+    const startDate = state.aisTrackRangeStart
+      ? new Date(state.aisTrackRangeStart)
+      : new Date(endDate.getTime() - SIX_HOURS_MS);
+    startInput.value = formatDateTimeInput(startDate);
+    endInput.value = formatDateTimeInput(endDate);
+  };
+  const parseInputToIso = (value) => {
+    if (!value) {
+      return null;
+    }
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return null;
+    }
+    return parsed.toISOString();
+  };
+  const setManualTrackRangeMode = () => {
+    state.aisTrackRangeFollowNow = false;
+    state.aisTrackRangeStart = parseInputToIso(startInput.value);
+    state.aisTrackRangeEnd = parseInputToIso(endInput.value);
+  };
+  const applyPresetTrackRange = (minutes) => {
+    const end = new Date();
+    const start = new Date(end.getTime() - (minutes * 60 * 1000));
+    state.aisTrackRangeFollowNow = false;
+    state.aisTrackRangeStart = start.toISOString();
+    state.aisTrackRangeEnd = end.toISOString();
+    startInput.value = formatDateTimeInput(start);
+    endInput.value = formatDateTimeInput(end);
+  };
+
+  startInput.addEventListener('input', setManualTrackRangeMode);
+  endInput.addEventListener('input', setManualTrackRangeMode);
+
+  if (state.aisTrackRangeFollowNow || !state.aisTrackRangeStart || !state.aisTrackRangeEnd) {
+    state.aisTrackRangeFollowNow = true;
+    applyNowTrackRange();
+  } else {
+    applyStateTrackRange();
+  }
+
+  if (state.aisTrackRangeNowTimer) {
+    clearInterval(state.aisTrackRangeNowTimer);
+    state.aisTrackRangeNowTimer = null;
+  }
+
+  const runtimeConfig = getAisOverlayRuntimeConfig();
+  const refreshMs = Math.max(1000, Number(runtimeConfig.trackRangeAutoRefreshMs) || 60 * 1000);
+  state.aisTrackRangeNowTimer = setInterval(() => {
+    if (!document.body.contains(startInput) || !document.body.contains(endInput)) {
+      clearInterval(state.aisTrackRangeNowTimer);
+      state.aisTrackRangeNowTimer = null;
+      return;
+    }
+    if (!state.aisTrackRangeFollowNow) {
+      return;
+    }
+    if (document.activeElement === startInput || document.activeElement === endInput) {
+      return;
+    }
+    applyNowTrackRange();
+  }, refreshMs);
+
+  const presetWrap = document.createElement('div');
+  presetWrap.className = 'ais-track-presets';
+  const presetOptions = [
+    { id: 'ais-range-preset-15m', label: 'Last 15min', minutes: 15 },
+    { id: 'ais-range-preset-1h', label: 'Last 1h', minutes: 60 },
+    { id: 'ais-range-preset-6h', label: 'Last 6h', minutes: 6 * 60 },
+    { id: 'ais-range-preset-12h', label: 'Last 12h', minutes: 12 * 60 },
+    { id: 'ais-range-preset-24h', label: 'Last 24h', minutes: 24 * 60 }
+  ];
+  presetOptions.forEach((preset) => {
+    const btn = document.createElement('button');
+    assignIdIfMissing(btn, preset.id);
+    btn.type = 'button';
+    btn.className = 'ais-track-preset-btn';
+    btn.textContent = preset.label;
+    btn.addEventListener('click', () => {
+      applyPresetTrackRange(preset.minutes);
+    });
+    presetWrap.appendChild(btn);
+  });
+  content.appendChild(presetWrap);
 
   rangeGrid.append(startInput, endInput);
   content.appendChild(rangeGrid);
@@ -625,13 +719,26 @@ function createAisAccordion() {
   loadTracksBtn.style.width = '100%';
   loadTracksBtn.style.marginTop = '8px';
   loadTracksBtn.addEventListener('click', async () => {
-    const start = startInput.value ? new Date(startInput.value).toISOString() : null;
-    const end = endInput.value ? new Date(endInput.value).toISOString() : null;
+    const start = parseInputToIso(startInput.value);
+    const end = parseInputToIso(endInput.value);
     await loadAisTracksForSelection({ start, end });
   });
   content.appendChild(loadTracksBtn);
 
-  return createAccordionItem('🚢 Ships', content, false);
+  const item = createAccordionItem('🚢 Ships', content, false);
+  const header = item.querySelector('.header-accordion-header');
+  if (header) {
+    header.addEventListener('click', () => {
+      setTimeout(() => {
+        if (!item.classList.contains('open')) {
+          return;
+        }
+        applyNowTrackRange();
+      }, 0);
+    });
+  }
+
+  return item;
 }
 
 function createTrainLocationsAccordion() {

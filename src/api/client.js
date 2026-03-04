@@ -168,6 +168,15 @@ export async function fetchAisTracks({ mmsis, start, end }) {
   return await apiGet(`/api/ais/tracks${suffix}`);
 }
 
+export async function fetchAisSnapshot({ minutes } = {}) {
+  const params = new URLSearchParams();
+  if (Number.isFinite(Number(minutes))) {
+    params.set('minutes', String(Math.round(Number(minutes))));
+  }
+  const suffix = params.toString() ? `?${params.toString()}` : '';
+  return await apiGet(`/api/ais/snapshot${suffix}`);
+}
+
 export async function fetchAisLatestLocationByMmsi(mmsi) {
   if (!mmsi) return null;
   return await apiGet(`/api/ais/latest-location?mmsi=${encodeURIComponent(String(mmsi))}`);

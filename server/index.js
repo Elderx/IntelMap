@@ -922,6 +922,114 @@ app.get('/api/ais/tracks', ensureAuth, async (req, res) => {
   }
 });
 
+app.get('/api/ais/snapshot', ensureAuth, async (req, res) => {
+  try {
+    const requestedMinutes = Number(req.query?.minutes);
+    const minutes = Number.isFinite(requestedMinutes)
+      ? Math.min(24 * 60, Math.max(1, Math.round(requestedMinutes)))
+      : 60;
+
+    const end = new Date();
+    const start = new Date(end.getTime() - (minutes * 60 * 1000));
+
+    const locationsResult = await pool.query(
+      `SELECT DISTINCT ON (mmsi)
+          mmsi,
+          observed_at,
+          lon,
+          lat,
+          sog,
+          cog,
+          heading,
+          nav_stat,
+          rot,
+          pos_acc,
+          raim
+       FROM ais_location_history
+       WHERE owner_user_id = $1
+         AND observed_at >= $2
+         AND observed_at <= $3
+       ORDER BY mmsi ASC, observed_at DESC`,
+      [req.user.id, start.toISOString(), end.toISOString()]
+    );
+
+    const mmsis = locationsResult.rows.map((row) => row.mmsi).filter(Boolean);
+    const metadataByMmsi = new Map();
+
+    if (mmsis.length) {
+      const metadataResult = await pool.query(
+        `SELECT DISTINCT ON (mmsi)
+            mmsi,
+            observed_at,
+            name,
+            destination,
+            call_sign,
+            imo,
+            draught,
+            eta,
+            type,
+            pos_type,
+            ref_a,
+            ref_b,
+            ref_c,
+            ref_d
+         FROM ais_metadata_history
+         WHERE owner_user_id = $1
+           AND mmsi = ANY($2::text[])
+         ORDER BY mmsi ASC, observed_at DESC`,
+        [req.user.id, mmsis]
+      );
+
+      metadataResult.rows.forEach((row) => {
+        metadataByMmsi.set(row.mmsi, {
+          observedAt: row.observed_at,
+          name: row.name,
+          destination: row.destination,
+          callSign: row.call_sign,
+          imo: row.imo,
+          draught: row.draught,
+          eta: row.eta,
+          type: row.type,
+          posType: row.pos_type,
+          refA: row.ref_a,
+          refB: row.ref_b,
+          refC: row.ref_c,
+          refD: row.ref_d
+        });
+      });
+    }
+
+    const vessels = locationsResult.rows.map((row) => ({
+      mmsi: row.mmsi,
+      location: {
+        observedAt: row.observed_at,
+        lon: row.lon,
+        lat: row.lat,
+        sog: row.sog,
+        cog: row.cog,
+        heading: row.heading,
+        navStat: row.nav_stat,
+        rot: row.rot,
+        posAcc: row.pos_acc,
+        raim: row.raim
+      },
+      metadata: metadataByMmsi.get(row.mmsi) || null
+    }));
+
+    res.json({
+      vessels,
+      range: {
+        minutes,
+        start: start.toISOString(),
+        end: end.toISOString()
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
 app.get('/api/ais/latest-location', ensureAuth, async (req, res) => {
   try {
     const mmsi = String(req.query?.mmsi || '').trim();

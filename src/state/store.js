@@ -156,6 +156,8 @@ export const state = {
   aisTrackDataByMmsi: new Map(),
   aisTrackRangeStart: null,
   aisTrackRangeEnd: null,
+  aisTrackRangeFollowNow: true,
+  aisTrackRangeNowTimer: null,
   aisTrackLoading: false,
   aisTrackError: null,
   aisTrackPlaybackTimestamps: [],
