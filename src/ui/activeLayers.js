@@ -272,7 +272,29 @@ export function updateActiveLayersPanel() {
         });
     }
 
-    // 7. Weather overlay
+    // 7. Train locations overlay
+    if (state.trainLocationsEnabled) {
+        const title = `Train Locations (${state.trainLocationFeatures.length})${state.trainLocationsError ? ' ⚠️' : ''}`;
+        addRow(title, '#d32f2f', async () => {
+            const { stopTrainLocationUpdates } = await import('../trains/trainLocationsManager.js');
+            stopTrainLocationUpdates();
+            updateActiveLayersPanel();
+            updatePermalinkWithFeatures();
+        });
+    }
+
+    // 8. Train stations overlay
+    if (state.trainStationsEnabled) {
+        const title = `Train Stations (${state.trainStationFeatures.length})${state.trainStationsError ? ' ⚠️' : ''}`;
+        addRow(title, '#1565c0', async () => {
+            const { stopTrainStations } = await import('../trains/trainStationsManager.js');
+            stopTrainStations();
+            updateActiveLayersPanel();
+            updatePermalinkWithFeatures();
+        });
+    }
+
+    // 9. Weather overlay
     if (state.weatherEnabled && state.weatherStationFeatures.length > 0) {
         const stationCount = state.weatherStationFeatures.length;
         // For now, just show basic title (time updates happen via updateWeatherTimeDisplay)
@@ -282,7 +304,7 @@ export function updateActiveLayersPanel() {
         });
     }
 
-    // 8. FMI Radar overlay
+    // 10. FMI Radar overlay
     if (state.radarEnabled) {
         const currentTime = state.radarLayer.main?.radarTimeSteps?.[state.radarLayer.main?.radarTimeIndex];
         const timeStr = currentTime ? new Date(currentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -293,7 +315,7 @@ export function updateActiveLayersPanel() {
         });
     }
 
-    // 9. UAS Airspace overlay
+    // 11. UAS Airspace overlay
     if (state.uasEnabled) {
         const count = state.uasFeatures.length;
         const title = `🚁 UAS Zones (${count})${state.uasError ? ' ⚠️' : ''}`;

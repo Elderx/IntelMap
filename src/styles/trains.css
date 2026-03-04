@@ -1,0 +1,9 @@
+.train-location-popup,
+.train-station-popup {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d7d7d7;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  min-width: 240px;
+  padding: 12px 14px;
+}

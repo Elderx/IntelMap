@@ -127,4 +127,21 @@ export const FMI_CONFIG = {
   }
 };
 
+export const TRAIN_OVERLAY_CONFIG = {
+  locationsUrl: 'https://rata.digitraffic.fi/api/v1/train-locations.geojson/latest/',
+  trainDetailsBaseUrl: 'https://rata.digitraffic.fi/api/v1/trains/latest',
+  stationsUrl: 'https://rata.digitraffic.fi/api/v1/metadata/stations.geojson',
+  locationsRefreshIntervalMs: 10000,
+  zIndex: {
+    stations: 204,
+    locations: 205
+  },
+  colors: {
+    moving: '#d32f2f',
+    slow: '#f9a825',
+    unknown: '#546e7a',
+    passengerStation: '#1565c0',
+    nonPassengerStation: '#6d4c41'
+  }
+};
 

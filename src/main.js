@@ -326,6 +326,18 @@ async function bootstrap() {
         import('./ais/aisManager.js').then(m => m.startAisUpdates());
       }, 100);
     }
+    if (params.trainLocations === '1') {
+      state.trainLocationsEnabled = true;
+      setTimeout(() => {
+        import('./trains/trainLocationsManager.js').then(m => m.startTrainLocationUpdates());
+      }, 100);
+    }
+    if (params.trainStations === '1') {
+      state.trainStationsEnabled = true;
+      setTimeout(() => {
+        import('./trains/trainStationsManager.js').then(m => m.startTrainStations());
+      }, 100);
+    }
     if (params.weather === '1') {
       state.weatherEnabled = true;
       // Parse display options (default to temperature if none specified)

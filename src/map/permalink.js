@@ -53,6 +53,14 @@ export function updatePermalinkWithFeatures() {
   if (state.aisEnabled) {
     aisStr = `&ais=1`;
   }
+  let trainLocationsStr = '';
+  if (state.trainLocationsEnabled) {
+    trainLocationsStr = '&trainLocations=1';
+  }
+  let trainStationsStr = '';
+  if (state.trainStationsEnabled) {
+    trainStationsStr = '&trainStations=1';
+  }
   let weatherStr = '';
   if (state.weatherEnabled) {
     weatherStr = `&weather=1`;
@@ -84,8 +92,7 @@ export function updatePermalinkWithFeatures() {
   } else {
     params += `&layer=${state.currentLayerId}`;
   }
-  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + weatherStr + radarStr + gpxStr + uasStr;
+  params += lineStr + measureStr + overlaysStr + osmStr + groupsStr + aircraftStr + aisStr + trainLocationsStr + trainStationsStr + weatherStr + radarStr + gpxStr + uasStr;
   window.history.replaceState({}, '', params);
 }
-
 
