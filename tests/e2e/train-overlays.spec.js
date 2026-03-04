@@ -22,6 +22,27 @@ const LIVE_TRAINS = {
   ]
 };
 
+const LIVE_TRAINS_REFRESHED = {
+  type: 'FeatureCollection',
+  features: [
+    LIVE_TRAINS.features[0],
+    {
+      type: 'Feature',
+      geometry: {
+        type: 'Point',
+        coordinates: [25.2, 60.3]
+      },
+      properties: {
+        trainNumber: 55,
+        departureDate: '2026-03-04',
+        timestamp: '2026-03-04T17:32:17.000Z',
+        speed: 0,
+        accuracy: 3
+      }
+    }
+  ]
+};
+
 const STATIONS = {
   type: 'FeatureCollection',
   features: [
@@ -50,6 +71,17 @@ async function mockTrainApis(page) {
 
   await page.route('**/metadata/stations.geojson**', async route => {
     await route.fulfill({ json: STATIONS });
+  });
+}
+
+async function mockTrainLocationPolling(page) {
+  let callCount = 0;
+
+  await page.unroute('**/train-locations.geojson/latest/**');
+  await page.route('**/train-locations.geojson/latest/**', async route => {
+    callCount += 1;
+    const payload = callCount === 1 ? LIVE_TRAINS : LIVE_TRAINS_REFRESHED;
+    await route.fulfill({ json: payload });
   });
 }
 
@@ -105,5 +137,16 @@ test.describe('Train Overlays', () => {
 
     await expect(page.locator('#train-locations-enabled')).toBeChecked();
     await expect(page.locator('#train-stations-enabled')).toBeChecked();
+  });
+
+  test('polls live train locations every 10 seconds', async ({ page }) => {
+    await mockTrainLocationPolling(page);
+    await signIn(page);
+
+    await openLayersAccordion(page, 'Train Locations');
+    await page.check('#train-locations-enabled');
+
+    await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (1)', { timeout: 10000 });
+    await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (2)', { timeout: 12000 });
   });
 });
