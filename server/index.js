@@ -5,7 +5,6 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
 const { Pool } = require('pg');
-const { getVesselHistory, saveVesselPosition } = require('./routes/ais.js');
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/mmlmap';
@@ -52,35 +51,6 @@ async function initDb() {
       owner_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
     );
-  `);
-
-  // Vessel positions for AIS historical tracking
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS vessel_positions (
-      id BIGSERIAL PRIMARY KEY,
-      mmsi VARCHAR(9) NOT NULL,
-      timestamp BIGINT NOT NULL,
-      geom GEOMETRY(POINT, 4326) NOT NULL,
-      speed REAL,
-      course REAL,
-      navigation_status VARCHAR(50),
-      raw_data JSONB,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `);
-
-  // Create indexes for vessel_positions
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_vessel_positions_mmsi_time
-      ON vessel_positions (mmsi, timestamp DESC)
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_vessel_positions_time
-      ON vessel_positions (timestamp DESC)
-  `);
-  await pool.query(`
-    CREATE INDEX IF NOT EXISTS idx_vessel_positions_geom
-      ON vessel_positions USING GIST (geom)
   `);
 
   // Backfill schema for existing deployments
@@ -700,23 +670,6 @@ app.delete('/api/osm-tiles', ensureAuth, async (req, res) => {
     res.status(204).end();
   } catch (e) {
     console.error(e); res.status(500).json({ error: 'db_error' });
-  }
-});
-
-// AIS historical data
-app.get('/api/ais/history', (req, res) => {
-  req.pool = pool;
-  getVesselHistory(req, res);
-});
-
-// AIS save vessel position
-app.post('/api/ais/save', async (req, res) => {
-  try {
-    await saveVesselPosition(pool, req.body);
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[AIS] Failed to save vessel position:', err);
-    res.status(500).json({ error: 'save_failed' });
   }
 });
 

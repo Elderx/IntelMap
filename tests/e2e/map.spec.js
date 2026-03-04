@@ -43,14 +43,32 @@ test.describe('Map Interaction', () => {
         await expect(page.locator('#map canvas')).toBeVisible();
     });
 
-    test('should have zoom controls', async ({ page }) => {
-        await expect(page.locator('.ol-zoom-in')).toBeVisible();
-        await expect(page.locator('.ol-zoom-out')).toBeVisible();
+    test('should hide default zoom controls', async ({ page }) => {
+        await expect(page.locator('.ol-zoom-in')).toHaveCount(0);
+        await expect(page.locator('.ol-zoom-out')).toHaveCount(0);
     });
 
     test('should zoom in and out', async ({ page }) => {
-        await page.click('.ol-zoom-in');
-        await page.waitForTimeout(500);
-        await page.click('.ol-zoom-out');
+        const initialZoom = await page.evaluate(() => {
+            return window.__INTELMAP_APP_STATE__.map.getView().getZoom();
+        });
+
+        const viewport = page.locator('#map .ol-viewport');
+        await viewport.hover();
+        await page.mouse.wheel(0, -600);
+        await page.waitForTimeout(400);
+
+        const zoomedIn = await page.evaluate(() => {
+            return window.__INTELMAP_APP_STATE__.map.getView().getZoom();
+        });
+        expect(zoomedIn).toBeGreaterThan(initialZoom);
+
+        await page.mouse.wheel(0, 600);
+        await page.waitForTimeout(400);
+
+        const zoomedOut = await page.evaluate(() => {
+            return window.__INTELMAP_APP_STATE__.map.getView().getZoom();
+        });
+        expect(zoomedOut).toBeLessThanOrEqual(zoomedIn);
     });
 });

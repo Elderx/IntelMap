@@ -138,9 +138,9 @@ async function signIn(page, path = '/') {
 }
 
 async function waitForLayerControls(page) {
-  await page.waitForFunction(async () => {
-    const { state } = await import('/src/state/store.js');
-    return Array.isArray(state.digiroadOverlayList) && state.digiroadOverlayList.length > 0;
+  await page.waitForFunction(() => {
+    const state = window.__INTELMAP_APP_STATE__;
+    return Array.isArray(state?.digiroadOverlayList) && state.digiroadOverlayList.length > 0;
   });
 }
 
@@ -173,20 +173,21 @@ async function enableLayerToggle(page, title, selector) {
 
 async function clickRenderedFeature(page, stateKey, selector = '#map', mapKey = 'main', index = 0) {
   await page.keyboard.press('Escape');
-  await page.waitForFunction(async ({ featureStateKey, featureIndex }) => {
-    const { state } = await import('/src/state/store.js');
-    return Array.isArray(state[featureStateKey]) && Boolean(state[featureStateKey][featureIndex]);
+  await page.waitForFunction(({ featureStateKey, featureIndex }) => {
+    const state = window.__INTELMAP_APP_STATE__;
+    return Array.isArray(state?.[featureStateKey]) && Boolean(state[featureStateKey][featureIndex]);
   }, { featureStateKey: stateKey, featureIndex: index });
 
-  const pixel = await page.evaluate(async ({ featureStateKey, currentMapKey, featureIndex }) => {
-    const { state } = await import('/src/state/store.js');
+  const pixel = await page.evaluate(({ featureStateKey, currentMapKey, featureIndex }) => {
+    const state = window.__INTELMAP_APP_STATE__;
     const map = currentMapKey === 'main'
       ? state.map
       : currentMapKey === 'left'
         ? state.leftMap
         : state.rightMap;
     const feature = state[featureStateKey][featureIndex];
-    return map.getPixelFromCoordinate(feature.getGeometry().getCoordinates());
+    const coordinate = feature.getGeometry().getCoordinates();
+    return map.getPixelFromCoordinate(coordinate);
   }, { featureStateKey: stateKey, currentMapKey: mapKey, featureIndex: index });
 
   const viewport = page.locator(`${selector} .ol-viewport`);

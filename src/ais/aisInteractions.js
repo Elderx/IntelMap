@@ -1,162 +1,135 @@
-/**
- * AIS Interactions Module
- * Hover preview and click-to-pin popups
- */
-
-import { state } from '../state/store.js';
 import Overlay from 'ol/Overlay.js';
+import { unByKey } from 'ol/Observable.js';
+import { state } from '../state/store.js';
 
-let hoverPopup = null;
-let pinnedPopup = null;
+const popupOverlays = { main: null, left: null, right: null };
+const clickKeys = { main: null, left: null, right: null };
 
-/**
- * Create hover popup content
- * @param {Feature} feature - OpenLayers Feature
- * @returns {string} HTML content
- */
-function createHoverPopupContent(feature) {
-  const mmsi = feature.get('mmsi');
-  const name = feature.get('name');
-  const shipType = feature.get('shipType');
-  const destination = feature.get('destination');
-  const speed = feature.get('speed');
-
-  return `
-    <div class="ais-popup hover">
-      <strong>${name}</strong> <span class="text-muted">(${shipType})</span><br>
-      MMSI: ${mmsi}<br>
-      ${destination ? `Destination: ${destination}<br>` : ''}
-      Speed: ${speed.toFixed(1)} knots
-    </div>
-  `;
+function getMap(mapKey) {
+  return mapKey === 'main' ? state.map : mapKey === 'left' ? state.leftMap : state.rightMap;
 }
 
-/**
- * Create pinned popup content
- * @param {Feature} feature - OpenLayers Feature
- * @returns {string} HTML content
- */
-function createPinnedPopupContent(feature) {
-  const mmsi = feature.get('mmsi');
-  const name = feature.get('name');
-  const shipType = feature.get('shipType');
-  const destination = feature.get('destination');
-  const speed = feature.get('speed');
-  const course = feature.get('course');
-  const imo = feature.get('imo');
-  const callSign = feature.get('callSign');
-  const dimension = feature.get('dimension');
-  const draft = feature.get('draft');
-  const cargo = feature.get('cargo');
+function findAisFeatureNearPixel(map, pixel, maxDistance = 18) {
+  let closestFeature = null;
+  let closestDistance = Number.POSITIVE_INFINITY;
 
-  const length = dimension?.length || 'N/A';
-  const width = dimension?.width || 'N/A';
+  state.aisFeatures.forEach((feature) => {
+    const geometry = feature.getGeometry();
+    if (!geometry) {
+      return;
+    }
 
-  return `
-    <div class="ais-popup pinned">
-      <button class="popup-close">&times;</button>
-      <h3>${name}</h3>
-      <table class="popup-table">
-        <tr><td>MMSI:</td><td>${mmsi}</td></tr>
-        ${imo ? `<tr><td>IMO:</td><td>${imo}</td></tr>` : ''}
-        ${callSign ? `<tr><td>Call Sign:</td><td>${callSign}</td></tr>` : ''}
-        <tr><td>Type:</td><td>${shipType}</td></tr>
-        ${destination ? `<tr><td>Destination:</td><td>${destination}</td></tr>` : ''}
-        <tr><td>Speed:</td><td>${speed.toFixed(1)} knots</td></tr>
-        <tr><td>Course:</td><td>${course.toFixed(0)}°</td></tr>
-        ${length !== 'N/A' ? `<tr><td>Length:</td><td>${length}m</td></tr>` : ''}
-        ${width !== 'N/A' ? `<tr><td>Width:</td><td>${width}m</td></tr>` : ''}
-        ${draft ? `<tr><td>Draft:</td><td>${draft}m</td></tr>` : ''}
-        ${cargo ? `<tr><td>Cargo:</td><td>${cargo}</td></tr>` : ''}
-      </table>
-    </div>
-  `;
+    const candidatePixel = map.getPixelFromCoordinate(geometry.getCoordinates());
+    const deltaX = candidatePixel[0] - pixel[0];
+    const deltaY = candidatePixel[1] - pixel[1];
+    const distance = Math.sqrt((deltaX * deltaX) + (deltaY * deltaY));
+
+    if (distance <= maxDistance && distance < closestDistance) {
+      closestDistance = distance;
+      closestFeature = feature;
+    }
+  });
+
+  return closestFeature;
 }
 
-/**
- * Setup hover and click interactions for AIS layer
- * @param {Object} mapObj - OpenLayers Map instance
- * @param {string} mapKey - 'main', 'left', or 'right'
- */
-export function setupAisInteractions(mapObj, mapKey) {
-  const layer = state.aisLayer[mapKey];
-  if (!layer) return;
+function formatTimestamp(value) {
+  if (!value) {
+    return '-';
+  }
 
-  // Create hover popup overlay
-  hoverPopup = new Overlay({
-    element: document.createElement('div'),
+  return new Date(value).toLocaleString();
+}
+
+function buildPopupContent(feature) {
+  const container = document.createElement('div');
+  container.className = 'ais-popup';
+  container.innerHTML = `
+    <h3>${feature.get('name')}</h3>
+    <table class="ais-popup-table">
+      <tr><td>MMSI</td><td>${feature.get('mmsi')}</td></tr>
+      ${feature.get('imo') ? `<tr><td>IMO</td><td>${feature.get('imo')}</td></tr>` : ''}
+      ${feature.get('callSign') ? `<tr><td>Call sign</td><td>${feature.get('callSign')}</td></tr>` : ''}
+      <tr><td>Type</td><td>${feature.get('vesselType')}</td></tr>
+      ${feature.get('destination') ? `<tr><td>Destination</td><td>${feature.get('destination')}</td></tr>` : ''}
+      <tr><td>Speed</td><td>${(feature.get('speed') || 0).toFixed(1)} kn</td></tr>
+      <tr><td>Course</td><td>${feature.get('course') ?? '-'}</td></tr>
+      <tr><td>Status</td><td>${feature.get('navStatus')}</td></tr>
+      ${feature.get('draught') ? `<tr><td>Draught</td><td>${feature.get('draught')}</td></tr>` : ''}
+      ${feature.get('length') ? `<tr><td>Length</td><td>${feature.get('length')} m</td></tr>` : ''}
+      ${feature.get('width') ? `<tr><td>Width</td><td>${feature.get('width')} m</td></tr>` : ''}
+      <tr><td>Updated</td><td>${formatTimestamp(feature.get('lastUpdate'))}</td></tr>
+    </table>
+  `;
+
+  return container;
+}
+
+function showPopup(feature, mapKey, coordinate) {
+  const map = getMap(mapKey);
+  if (!map) {
+    return;
+  }
+
+  if (popupOverlays[mapKey]) {
+    map.removeOverlay(popupOverlays[mapKey]);
+  }
+
+  const overlay = new Overlay({
+    element: buildPopupContent(feature),
+    position: coordinate,
     positioning: 'bottom-center',
     stopEvent: false,
-    className: 'ais-hover-popup'
+    autoPan: { margin: 40 }
   });
-  mapObj.addOverlay(hoverPopup);
 
-  // Create pinned popup overlay
-  pinnedPopup = new Overlay({
-    element: document.createElement('div'),
-    positioning: 'bottom-center',
-    className: 'ais-pinned-popup'
-  });
-  mapObj.addOverlay(pinnedPopup);
+  map.addOverlay(overlay);
+  popupOverlays[mapKey] = overlay;
+}
 
-  let hoveredFeature = null;
+export function setupAisClickHandlers() {
+  cleanupAisInteractions();
 
-  // Pointer move handler (hover preview)
-  mapObj.on('pointermove', (evt) => {
-    if (state.dragging) return;
-
-    const feature = mapObj.forEachFeatureAtPixel(evt.pixel, (f) => {
-      if (f.get('mmsi')) return f;
-      return null;
-    });
-
-    if (feature && feature.get('mmsi')) {
-      const coordinate = feature.getGeometry().getCoordinates();
-      hoverPopup.getElement().innerHTML = createHoverPopupContent(feature);
-      hoverPopup.setPosition(coordinate);
-      hoveredFeature = feature;
-      mapObj.getTargetElement().style.cursor = 'pointer';
-    } else {
-      hoverPopup.setPosition(undefined);
-      hoveredFeature = null;
-      mapObj.getTargetElement().style.cursor = '';
+  ['main', 'left', 'right'].forEach((mapKey) => {
+    const map = getMap(mapKey);
+    if (!map) {
+      return;
     }
-  });
 
-  // Click handler (pin popup)
-  mapObj.on('click', (evt) => {
-    const feature = mapObj.forEachFeatureAtPixel(evt.pixel, (f) => {
-      if (f.get('mmsi')) return f;
-      return null;
-    });
+    clickKeys[mapKey] = map.on('click', (evt) => {
+      let feature = map.forEachFeatureAtPixel(evt.pixel, (candidate) => {
+        return candidate.get('isAisVessel') ? candidate : null;
+      });
 
-    if (feature && feature.get('mmsi')) {
-      const coordinate = feature.getGeometry().getCoordinates();
-      pinnedPopup.getElement().innerHTML = createPinnedPopupContent(feature);
-      pinnedPopup.setPosition(coordinate);
-
-      // Add close button handler
-      const closeBtn = pinnedPopup.getElement().querySelector('.popup-close');
-      if (closeBtn) {
-        closeBtn.onclick = () => {
-          pinnedPopup.setPosition(undefined);
-        };
+      if (!feature) {
+        feature = findAisFeatureNearPixel(map, evt.pixel);
       }
-    } else {
-      pinnedPopup.setPosition(undefined);
-    }
+
+      if (!feature) {
+        if (popupOverlays[mapKey]) {
+          map.removeOverlay(popupOverlays[mapKey]);
+          popupOverlays[mapKey] = null;
+        }
+        return;
+      }
+
+      showPopup(feature, mapKey, feature.getGeometry().getCoordinates());
+    });
   });
 }
 
-/**
- * Remove AIS interactions from map
- * @param {Object} mapObj - OpenLayers Map instance
- */
-export function removeAisInteractions(mapObj) {
-  if (hoverPopup && mapObj.getOverlays().getArray().includes(hoverPopup)) {
-    mapObj.removeOverlay(hoverPopup);
-  }
-  if (pinnedPopup && mapObj.getOverlays().getArray().includes(pinnedPopup)) {
-    mapObj.removeOverlay(pinnedPopup);
-  }
+export function cleanupAisInteractions() {
+  ['main', 'left', 'right'].forEach((mapKey) => {
+    const map = getMap(mapKey);
+
+    if (clickKeys[mapKey]) {
+      unByKey(clickKeys[mapKey]);
+      clickKeys[mapKey] = null;
+    }
+
+    if (map && popupOverlays[mapKey]) {
+      map.removeOverlay(popupOverlays[mapKey]);
+      popupOverlays[mapKey] = null;
+    }
+  });
 }

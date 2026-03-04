@@ -268,7 +268,11 @@ export function updateActiveLayersPanel() {
         const title = `🚢 Ships (${count})${state.aisError ? ' ⚠️' : ''}`;
         addRow(title, '#2196F3', async () => {
             const { stopAisUpdates } = await import('../ais/aisManager.js');
+            const { cleanupAisInteractions } = await import('../ais/aisInteractions.js');
+            cleanupAisInteractions();
             stopAisUpdates();
+            updateActiveLayersPanel();
+            updatePermalinkWithFeatures();
         });
     }
 

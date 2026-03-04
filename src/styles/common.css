@@ -119,6 +119,25 @@ body {
   color: #b0b0b0;
 }
 
+[data-theme="dark"] .map-legend-panel {
+  background: rgba(30, 30, 30, 0.96);
+  border-color: #404040;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+[data-theme="dark"] .map-legend-panel-title {
+  color: #e0e0e0;
+  border-bottom-color: #404040;
+}
+
+[data-theme="dark"] .map-legend-section-title {
+  color: #c9d3df;
+}
+
+[data-theme="dark"] .map-legend-row {
+  color: #e0e0e0;
+}
+
 /* ============================================
    PANEL OVERLAY
    ============================================ */
@@ -154,6 +173,67 @@ body {
 
 .panel-overlay::-webkit-scrollbar-thumb:hover {
   background: #999;
+}
+
+/* ============================================
+   MAP LEGEND PANEL
+   ============================================ */
+.map-legend-panel {
+  position: absolute;
+  top: 74px;
+  left: 10px;
+  min-width: 190px;
+  max-width: 260px;
+  max-height: calc(100vh - 90px);
+  overflow-y: auto;
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d4d8de;
+  border-radius: 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.18);
+  z-index: 1000;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.map-legend-panel-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #334155;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.map-legend-panel-body {
+  display: grid;
+  gap: 8px;
+}
+
+.map-legend-section {
+  display: grid;
+  gap: 4px;
+}
+
+.map-legend-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.map-legend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #1f2937;
+}
+
+.map-legend-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 1px solid rgba(15, 23, 42, 0.35);
+  flex: 0 0 12px;
 }
 
 /* ============================================

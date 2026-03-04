@@ -116,6 +116,11 @@ export const state = {
   // Theme preference
   theme: 'light', // 'light' | 'dark'
 
+  // Generic map legend panel state
+  mapLegendPanel: null,
+  mapLegendBody: null,
+  mapLegendSections: new Map(),
+
   // Aircraft overlay state
   aircraftLayer: { main: null, left: null, right: null },
   aircraftFeatures: [],              // Latest OpenSky state vectors
@@ -127,12 +132,15 @@ export const state = {
 
   // AIS/Ships overlay state
   aisEnabled: false,
-  aisUpdateInterval: null,
-  aisRefreshInterval: 30,            // Default 30 seconds
+  aisConnected: false,
+  aisClient: null,
+  aisPruneInterval: null,
   aisLayer: { main: null, left: null, right: null },
   aisFeatures: [],
+  aisVesselsByMmsi: new Map(),
   aisError: null,
   aisLastUpdate: null,
+  aisLastMessageAt: null,
 
   // Weather overlay
   weatherEnabled: false,
