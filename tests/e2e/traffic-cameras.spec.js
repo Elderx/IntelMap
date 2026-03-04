@@ -212,7 +212,9 @@ test.describe('Traffic Cameras Overlay', () => {
       .locator('.header-accordion-header');
     await accordionHeader.click();
 
-    await page.check('#traffic-cameras-enabled');
+    const toggle = page.locator('#traffic-cameras-enabled');
+    await expect(toggle).toBeVisible();
+    await toggle.check();
     await page.click('#layers-toggle');
 
     const map = page.locator('#map');
