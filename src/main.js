@@ -346,6 +346,7 @@ async function bootstrap() {
       state.trafficCameraEnabled = true;
       setTimeout(() => {
         import('./trafficCameras/trafficCameraManager.js').then(m => m.startTrafficCameraUpdates());
+        import('./trafficCameras/trafficCameraInteractions.js').then(m => m.setupTrafficCameraClickHandlers());
       }, 100);
     }
     if (params.radar === '1') {

@@ -820,7 +820,11 @@ function createTrafficCamerasAccordion() {
       state.trafficCameraEnabled = checked;
       if (checked) {
         await startTrafficCameraUpdates();
+        const { setupTrafficCameraClickHandlers } = await import('../trafficCameras/trafficCameraInteractions.js');
+        setupTrafficCameraClickHandlers();
       } else {
+        const { cleanupTrafficCameraInteractions } = await import('../trafficCameras/trafficCameraInteractions.js');
+        cleanupTrafficCameraInteractions();
         stopTrafficCameraUpdates();
       }
       updateHeaderActiveLayers();

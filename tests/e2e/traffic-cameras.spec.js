@@ -26,9 +26,21 @@ const CAMERA_PRESETS = {
       attributes: {
         CameraId: 'C01622',
         PresetId: 'C0162201',
-        DirectionName: 'Westbound',
+        DirectionName: 'Older direction',
         ImageUrl: 'https://weathercam.digitraffic.fi/C0162201.jpg',
         PicLastModified: 1772625400000,
+        PresetActive: 1,
+        InCollection: 1,
+        CameraResolution: '1280x720'
+      }
+    },
+    {
+      attributes: {
+        CameraId: 'C01622',
+        PresetId: 'C0162202',
+        DirectionName: 'Freshest direction',
+        ImageUrl: 'https://weathercam.digitraffic.fi/C0162202.jpg',
+        PicLastModified: 1772625900000,
         PresetActive: 1,
         InCollection: 1,
         CameraResolution: '1280x720'
@@ -107,5 +119,31 @@ test.describe('Traffic Cameras Overlay', () => {
 
     await page.check('#traffic-cameras-enabled');
     await expect(page.locator('.active-layers-panel')).toContainText('Traffic Cameras (1)', { timeout: 10000 });
+  });
+
+  test('opens popup with freshest traffic camera image', async ({ page }) => {
+    await signIn(page);
+    await page.click('#layers-toggle');
+
+    const accordionHeader = page.locator('.header-accordion-item')
+      .filter({ hasText: 'Traffic Cameras' })
+      .locator('.header-accordion-header');
+    await accordionHeader.click();
+
+    await page.check('#traffic-cameras-enabled');
+    await page.click('#layers-toggle');
+
+    const map = page.locator('#map');
+    const box = await map.boundingBox();
+    if (!box) {
+      throw new Error('Map bounding box not available');
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    const popup = page.locator('.traffic-camera-popup');
+    await expect(popup).toBeVisible({ timeout: 10000 });
+    await expect(popup).toContainText('Freshest direction');
+    await expect(popup.locator('img')).toHaveAttribute('src', /C0162202\.jpg/);
+    await expect(popup.locator('a')).toHaveAttribute('href', /cameraId=C01622/);
   });
 });
