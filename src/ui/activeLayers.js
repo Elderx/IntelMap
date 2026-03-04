@@ -284,7 +284,8 @@ export function updateActiveLayersPanel() {
 
     // 8. Traffic camera overlay
     if (state.trafficCameraEnabled) {
-        const title = `Traffic Cameras${state.trafficCameraError ? ' ⚠️' : ''}`;
+        const count = state.trafficCameraFeatures.length;
+        const title = `Traffic Cameras (${count})${state.trafficCameraError ? ' ⚠️' : ''}`;
         addRow(title, '#c0392b', async () => {
             const { stopTrafficCameraUpdates } = await import('../trafficCameras/trafficCameraManager.js');
             stopTrafficCameraUpdates();

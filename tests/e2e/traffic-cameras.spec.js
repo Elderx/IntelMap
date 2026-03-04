@@ -95,4 +95,17 @@ test.describe('Traffic Cameras Overlay', () => {
     await page.click('#layers-toggle');
     await expect(page.locator('#traffic-cameras-enabled')).toBeChecked();
   });
+
+  test('preloads traffic camera markers', async ({ page }) => {
+    await signIn(page);
+    await page.click('#layers-toggle');
+
+    const accordionHeader = page.locator('.header-accordion-item')
+      .filter({ hasText: 'Traffic Cameras' })
+      .locator('.header-accordion-header');
+    await accordionHeader.click();
+
+    await page.check('#traffic-cameras-enabled');
+    await expect(page.locator('.active-layers-panel')).toContainText('Traffic Cameras (1)', { timeout: 10000 });
+  });
 });
