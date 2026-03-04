@@ -9,6 +9,11 @@ import { updateOsmDynamicLayers } from '../map/osmDynamicLayers.js';
 import { updateOSMLegend } from './osmLegend.js';
 import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { toggleLayerGroup } from './layerGroupMenu.js';
+import { startTrainLocationUpdates, stopTrainLocationUpdates } from '../trains/trainLocationsManager.js';
+import { startTrainStations, stopTrainStations } from '../trains/trainStationsManager.js';
+import { setupTrainLocationClickHandlers, cleanupTrainLocationInteractions } from '../trains/trainLocationsInteractions.js';
+import { setupTrainStationClickHandlers, cleanupTrainStationInteractions } from '../trains/trainStationsInteractions.js';
+import '../styles/trains.css';
 
 // AIS imports
 import { startAisUpdates, stopAisUpdates, setUpdateInterval as setAisUpdateInterval } from '../ais/aisManager.js';
@@ -89,6 +94,14 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   // AIS Section
   const aisItem = createAisAccordion();
   accordion.appendChild(aisItem);
+
+  // Train Locations Section
+  const trainLocationsItem = createTrainLocationsAccordion();
+  accordion.appendChild(trainLocationsItem);
+
+  // Train Stations Section
+  const trainStationsItem = createTrainStationsAccordion();
+  accordion.appendChild(trainStationsItem);
 
   // Weather Section
   const weatherItem = createWeatherAccordion();
@@ -174,6 +187,14 @@ function createMapControlAccordion(mapKey) {
   // AIS Section
   const aisItem = createAisAccordion();
   accordion.appendChild(aisItem);
+
+  // Train Locations Section
+  const trainLocationsItem = createTrainLocationsAccordion();
+  accordion.appendChild(trainLocationsItem);
+
+  // Train Stations Section
+  const trainStationsItem = createTrainStationsAccordion();
+  accordion.appendChild(trainStationsItem);
 
   // Weather Section
   const weatherItem = createWeatherAccordion();
@@ -543,6 +564,58 @@ function createAisAccordion() {
   content.appendChild(historyDiv);
 
   return createAccordionItem('🚢 Ships', content, false);
+}
+
+function createTrainLocationsAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  const row = createCheckboxRow(
+    'Train Locations',
+    state.trainLocationsEnabled,
+    async (checked) => {
+      state.trainLocationsEnabled = checked;
+      if (checked) {
+        await startTrainLocationUpdates();
+        setupTrainLocationClickHandlers();
+      } else {
+        cleanupTrainLocationInteractions();
+        stopTrainLocationUpdates();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+    },
+    'train-locations-enabled'
+  );
+
+  content.appendChild(row);
+  return createAccordionItem('Train Locations', content, false);
+}
+
+function createTrainStationsAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  const row = createCheckboxRow(
+    'Train Stations',
+    state.trainStationsEnabled,
+    async (checked) => {
+      state.trainStationsEnabled = checked;
+      if (checked) {
+        await startTrainStations();
+        setupTrainStationClickHandlers();
+      } else {
+        cleanupTrainStationInteractions();
+        stopTrainStations();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+    },
+    'train-stations-enabled'
+  );
+
+  content.appendChild(row);
+  return createAccordionItem('Train Stations', content, false);
 }
 
 /**

@@ -161,6 +161,22 @@ async function bootstrap() {
     import('./radar/radarManager.js').then(({ initRadarLayers }) => {
       initRadarLayers();
     });
+    import('./trains/trainLocationsManager.js').then(({ rebuildTrainLocationLayers }) => {
+      rebuildTrainLocationLayers();
+    });
+    import('./trains/trainStationsManager.js').then(({ rebuildTrainStationLayers }) => {
+      rebuildTrainStationLayers();
+    });
+    import('./trains/trainLocationsInteractions.js').then(({ setupTrainLocationClickHandlers }) => {
+      if (state.trainLocationsEnabled) {
+        setupTrainLocationClickHandlers();
+      }
+    });
+    import('./trains/trainStationsInteractions.js').then(({ setupTrainStationClickHandlers }) => {
+      if (state.trainStationsEnabled) {
+        setupTrainStationClickHandlers();
+      }
+    });
   }
 
   function deactivateSplitScreen() {
@@ -198,6 +214,22 @@ async function bootstrap() {
     // Sync radar layers to single map
     import('./radar/radarManager.js').then(({ initRadarLayers }) => {
       initRadarLayers();
+    });
+    import('./trains/trainLocationsManager.js').then(({ rebuildTrainLocationLayers }) => {
+      rebuildTrainLocationLayers();
+    });
+    import('./trains/trainStationsManager.js').then(({ rebuildTrainStationLayers }) => {
+      rebuildTrainStationLayers();
+    });
+    import('./trains/trainLocationsInteractions.js').then(({ setupTrainLocationClickHandlers }) => {
+      if (state.trainLocationsEnabled) {
+        setupTrainLocationClickHandlers();
+      }
+    });
+    import('./trains/trainStationsInteractions.js').then(({ setupTrainStationClickHandlers }) => {
+      if (state.trainStationsEnabled) {
+        setupTrainStationClickHandlers();
+      }
     });
   }
 
@@ -338,6 +370,20 @@ async function bootstrap() {
       // Defer until maps are ready
       setTimeout(() => {
         import('./ais/aisManager.js').then(m => m.startAisUpdates());
+      }, 100);
+    }
+    if (params.trainLocations === '1') {
+      state.trainLocationsEnabled = true;
+      setTimeout(() => {
+        import('./trains/trainLocationsManager.js').then(m => m.startTrainLocationUpdates());
+        import('./trains/trainLocationsInteractions.js').then(m => m.setupTrainLocationClickHandlers());
+      }, 100);
+    }
+    if (params.trainStations === '1') {
+      state.trainStationsEnabled = true;
+      setTimeout(() => {
+        import('./trains/trainStationsManager.js').then(m => m.startTrainStations());
+        import('./trains/trainStationsInteractions.js').then(m => m.setupTrainStationClickHandlers());
       }, 100);
     }
     if (params.weather === '1') {

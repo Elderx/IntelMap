@@ -1,0 +1,37 @@
+.train-location-popup,
+.train-station-popup {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #d7d7d7;
+  border-radius: 10px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+  min-width: 240px;
+  padding: 12px 14px;
+}
+
+.train-location-popup h3,
+.train-station-popup h3 {
+  font-size: 1rem;
+  margin: 0 0 8px;
+}
+
+.train-popup-table {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.train-popup-table td {
+  padding: 2px 0;
+  vertical-align: top;
+}
+
+.train-popup-table td:first-child {
+  color: #5f6b76;
+  padding-right: 12px;
+}
+
+.train-popup-message {
+  color: #5f6b76;
+  font-size: 0.85rem;
+  margin: 10px 0 0;
+}

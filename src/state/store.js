@@ -152,6 +152,20 @@ export const state = {
   weatherAnimating: false,             // Animation state
   weatherAnimationSpeed: 2,            // Animation speed (fps)
 
+  // Train overlays
+  trainLocationsEnabled: false,
+  trainLocationsLayer: { main: null, left: null, right: null },
+  trainLocationFeatures: [],
+  trainLocationsUpdateInterval: null,
+  trainLocationsLastUpdate: null,
+  trainLocationsError: null,
+
+  trainStationsEnabled: false,
+  trainStationsLayer: { main: null, left: null, right: null },
+  trainStationFeatures: [],
+  trainStationsLastFetch: null,
+  trainStationsError: null,
+
   // Traffic camera overlay
   trafficCameraEnabled: false,
   trafficCameraLayer: { main: null, left: null, right: null },
@@ -189,4 +203,3 @@ export const state = {
   uasError: null,                      // { type, message, time }
   uasLastFetch: null                   // Timestamp of last successful fetch
 };
-
