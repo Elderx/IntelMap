@@ -13,7 +13,8 @@ import { getQueryParams } from './utils/query.js';
 import { updatePermalinkWithFeatures, updatePermalink } from './map/permalink.js';
 import { syncViews } from './map/sync.js';
 import { createOSMPopup } from './ui/osmPopup.js';
-import { createOSMLegend, updateOSMLegend } from './ui/osmLegend.js';
+import { updateOSMLegend } from './ui/osmLegend.js';
+import { initMapLegendPanel } from './ui/mapLegend.js';
 import { setupOSMInteractions } from './map/osmInteractions.js';
 import { fromLonLat } from 'ol/proj';
 import 'ol/ol.css';
@@ -29,6 +30,10 @@ import { updateAllOverlays } from './map/overlays.js';
 import './ui/mobileMenu.js'; // Initialize mobile menu (auto-runs)
 
 async function bootstrap() {
+  if (typeof window !== 'undefined') {
+    window.__INTELMAP_APP_STATE__ = state;
+  }
+
   const params = getQueryParams();
   const { initialCenter, initialZoom, initialIsSplit } = parseInitialFromParams(params);
   const result = await loadCapabilities();
@@ -41,16 +46,6 @@ async function bootstrap() {
     }
   } catch (e) {
     console.warn('Failed to load aircraft interval preference:', e);
-  }
-
-  // Load AIS refresh interval preference
-  try {
-    const savedInterval = localStorage.getItem('intelmap_ais_interval');
-    if (savedInterval) {
-      state.aisRefreshInterval = parseInt(savedInterval, 10);
-    }
-  } catch (e) {
-    console.warn('Failed to load AIS interval preference:', e);
   }
 
   // Pre-fetch layer groups so they are available for restoration
@@ -153,6 +148,14 @@ async function bootstrap() {
     import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
       setupTrafficCameraClickHandlers();
     });
+    import('./ais/aisManager.js').then(({ rebuildAisLayers }) => {
+      rebuildAisLayers();
+    });
+    import('./ais/aisInteractions.js').then(({ setupAisClickHandlers }) => {
+      if (state.aisEnabled) {
+        setupAisClickHandlers();
+      }
+    });
     // Sync GPX layers to split maps
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
       rebuildGpxLayers();
@@ -206,6 +209,14 @@ async function bootstrap() {
     });
     import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
       setupTrafficCameraClickHandlers();
+    });
+    import('./ais/aisManager.js').then(({ rebuildAisLayers }) => {
+      rebuildAisLayers();
+    });
+    import('./ais/aisInteractions.js').then(({ setupAisClickHandlers }) => {
+      if (state.aisEnabled) {
+        setupAisClickHandlers();
+      }
     });
     // Sync GPX layers to single map
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
@@ -278,7 +289,6 @@ async function bootstrap() {
   });
 
   state.map.on('moveend', function () { if (!state.restoringFromPermalink && state.permalinkInitialized) { updatePermalinkWithFeatures(); } });
-  import('ol/control').then(({ defaults }) => { defaults().extend([]).forEach(ctrl => state.map.addControl(ctrl)); });
 
   initOsmFeatureSearch();
   setupNominatimSearch();
@@ -304,6 +314,7 @@ async function bootstrap() {
 
   // Initialize OSM components
   createOSMPopup();
+  initMapLegendPanel();
 
   import('./ui/activeLayers.js').then(({ createActiveLayersPanel, updateActiveLayersPanel }) => {
     createActiveLayersPanel();
@@ -367,9 +378,9 @@ async function bootstrap() {
     }
     if (params.ais === '1') {
       state.aisEnabled = true;
-      // Defer until maps are ready
       setTimeout(() => {
         import('./ais/aisManager.js').then(m => m.startAisUpdates());
+        import('./ais/aisInteractions.js').then(m => m.setupAisClickHandlers());
       }, 100);
     }
     if (params.trainLocations === '1') {

@@ -81,15 +81,40 @@ export const OPENSKY_CONFIG = {
   aircraftIconColor: '#1e88e5',   // Default aircraft icon color (blue)
 };
 
-// AISStream WebSocket configuration
-export const AISSTREAM_CONFIG = {
-  wsUrl: 'wss://stream.aisstream.io/v0/stream',
-  minIntervalSeconds: 30,
-  defaultIntervalSeconds: 30,
-  maxIntervalSeconds: 300,
-  accumulationTimeout: 5000, // 5 seconds to accumulate vessels
-  reconnectDelay: 5000
+export const AIS_OVERLAY_CONFIG = {
+  wsUrl: 'wss://meri.digitraffic.fi:443/mqtt',
+  clientName: 'IntelMap AIS/1.0',
+  topics: {
+    location: 'vessels-v2/+/location',
+    metadata: 'vessels-v2/+/metadata'
+  },
+  reconnectPeriodMs: 5000,
+  connectTimeoutMs: 10000,
+  keepaliveSeconds: 30,
+  staleAfterMs: 30 * 60 * 1000,
+  pruneIntervalMs: 60 * 1000,
+  zIndex: 105,
+  colors: {
+    passenger: '#1565c0',
+    cargo: '#2e7d32',
+    tanker: '#c62828',
+    service: '#f9a825',
+    unknown: '#455a64'
+  }
 };
+
+export function getAisOverlayRuntimeConfig() {
+  if (typeof window === 'undefined') {
+    return AIS_OVERLAY_CONFIG;
+  }
+
+  const overrides = window.__INTELMAP_AIS_TEST_CONFIG__ || {};
+  return {
+    ...AIS_OVERLAY_CONFIG,
+    staleAfterMs: overrides.staleAfterMs ?? AIS_OVERLAY_CONFIG.staleAfterMs,
+    pruneIntervalMs: overrides.pruneIntervalMs ?? AIS_OVERLAY_CONFIG.pruneIntervalMs
+  };
+}
 
 export const TRAFFIC_CAMERA_CONFIG = {
   locationsUrl: 'https://services1.arcgis.com/rhs5fjYxdOG1Et61/ArcGIS/rest/services/WeatherCams/FeatureServer/0/query?f=json&spatialRel=esriSpatialRelIntersects&returnGeometry=true&outFields=CameraId%2C%20Municipality%2C%20Region%2C%20RegionCode%2C%20Name_FI%2C%20Name_SV%2C%20Name_EN%2C%20RoadAddress%2C%20CameraActive%2C%20NearestWeatherStationId%2C%20Region_SV%2C%20Region_EN%2C%20RoadStationId%2C%20CollectionStatus%2C%20State&where=CollectionStatus%20NOT%20IN%20(%27REMOVED_PERMANENTLY%27)',

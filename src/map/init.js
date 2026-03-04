@@ -5,7 +5,6 @@ import { fromLonLat } from 'ol/proj';
 import { hardcodedLayers, capsUrl, mapboxAccessToken } from '../config/constants.js';
 import { state } from '../state/store.js';
 import { createTileLayerFromList } from './layers.js';
-import { setupAisInteractions } from '../ais/aisInteractions.js';
 import { setupWeatherInteractions } from '../weather/weatherInteractions.js';
 
 export async function loadCapabilities() {
@@ -27,9 +26,6 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
     controls: []
   });
 
-  // Setup AIS interactions (will be active when AIS is enabled)
-  setupAisInteractions(state.map, 'main');
-
   // Setup weather interactions (will be active when weather is enabled)
   setupWeatherInteractions(state.map, 'main');
 
@@ -39,10 +35,6 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
 export function createSplitMaps(result, center, zoom, rotation) {
   state.leftMap = new Map({ target: 'map-left', layers: [createTileLayerFromList(result, state.leftLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
   state.rightMap = new Map({ target: 'map-right', layers: [createTileLayerFromList(result, state.rightLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
-
-  // Setup AIS interactions
-  setupAisInteractions(state.leftMap, 'left');
-  setupAisInteractions(state.rightMap, 'right');
 
   // Setup weather interactions
   setupWeatherInteractions(state.leftMap, 'left');
@@ -80,5 +72,4 @@ export function parseInitialFromParams(params) {
   state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;
   return { initialCenter, initialZoom, initialIsSplit };
 }
-
 

@@ -16,7 +16,8 @@ import { setupTrainStationClickHandlers, cleanupTrainStationInteractions } from 
 import '../styles/trains.css';
 
 // AIS imports
-import { startAisUpdates, stopAisUpdates, setUpdateInterval as setAisUpdateInterval } from '../ais/aisManager.js';
+import { startAisUpdates, stopAisUpdates } from '../ais/aisManager.js';
+import { setupAisClickHandlers, cleanupAisInteractions } from '../ais/aisInteractions.js';
 import '../styles/ais.css';
 
 // Weather imports
@@ -489,79 +490,18 @@ function createAisAccordion() {
       state.aisEnabled = checked;
       if (checked) {
         startAisUpdates();
+        setupAisClickHandlers();
       } else {
+        cleanupAisInteractions();
         stopAisUpdates();
       }
       updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
     },
     'ais-enabled'
   );
 
   content.appendChild(row);
-
-  // Refresh interval control
-  const intervalDiv = document.createElement('div');
-  intervalDiv.style.marginTop = '8px';
-  intervalDiv.style.paddingTop = '8px';
-  intervalDiv.style.borderTop = '1px solid #eee';
-
-  const intervalLabel = document.createElement('label');
-  intervalLabel.style.fontSize = '11px';
-  intervalLabel.style.fontWeight = '600';
-  intervalLabel.style.color = '#888';
-  intervalLabel.style.display = 'block';
-  intervalLabel.style.marginBottom = '4px';
-  intervalLabel.textContent = 'Refresh Interval (seconds):';
-  intervalDiv.appendChild(intervalLabel);
-
-  const intervalInputGroup = document.createElement('div');
-  intervalInputGroup.style.display = 'flex';
-  intervalInputGroup.style.gap = '4px';
-
-  const intervalInput = document.createElement('input');
-  intervalInput.type = 'number';
-  intervalInput.id = 'ais-interval-input';
-  intervalInput.min = '30';
-  intervalInput.max = '300';
-  intervalInput.value = state.aisRefreshInterval;
-  intervalInput.style.width = '70px';
-  intervalInput.className = 'form-control';
-  intervalInputGroup.appendChild(intervalInput);
-
-  const applyBtn = document.createElement('button');
-  applyBtn.id = 'ais-interval-apply';
-  applyBtn.textContent = 'Apply';
-  applyBtn.className = 'btn-small';
-  applyBtn.style.fontSize = '11px';
-  applyBtn.style.padding = '4px 8px';
-  applyBtn.addEventListener('click', () => {
-    const seconds = parseInt(intervalInput.value, 10);
-    if (setAisUpdateInterval(seconds)) {
-      // Show success feedback
-      applyBtn.textContent = '✓';
-      setTimeout(() => applyBtn.textContent = 'Apply', 1000);
-    }
-  });
-  intervalInputGroup.appendChild(applyBtn);
-
-  intervalDiv.appendChild(intervalInputGroup);
-  content.appendChild(intervalDiv);
-
-  // Historical playback placeholder
-  const historyDiv = document.createElement('div');
-  historyDiv.style.marginTop = '8px';
-  historyDiv.style.paddingTop = '8px';
-  historyDiv.style.borderTop = '1px solid #eee';
-
-  const historyText = document.createElement('p');
-  historyText.className = 'text-muted';
-  historyText.style.fontSize = '11px';
-  historyText.style.color = '#888';
-  historyText.style.margin = '0';
-  historyText.textContent = 'Historical playback coming soon';
-  historyDiv.appendChild(historyText);
-
-  content.appendChild(historyDiv);
 
   return createAccordionItem('🚢 Ships', content, false);
 }
