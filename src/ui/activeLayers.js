@@ -277,6 +277,8 @@ export function updateActiveLayersPanel() {
         const title = `Train Locations (${state.trainLocationFeatures.length})${state.trainLocationsError ? ' ⚠️' : ''}`;
         addRow(title, '#d32f2f', async () => {
             const { stopTrainLocationUpdates } = await import('../trains/trainLocationsManager.js');
+            const { cleanupTrainLocationInteractions } = await import('../trains/trainLocationsInteractions.js');
+            cleanupTrainLocationInteractions();
             stopTrainLocationUpdates();
             updateActiveLayersPanel();
             updatePermalinkWithFeatures();
@@ -288,6 +290,8 @@ export function updateActiveLayersPanel() {
         const title = `Train Stations (${state.trainStationFeatures.length})${state.trainStationsError ? ' ⚠️' : ''}`;
         addRow(title, '#1565c0', async () => {
             const { stopTrainStations } = await import('../trains/trainStationsManager.js');
+            const { cleanupTrainStationInteractions } = await import('../trains/trainStationsInteractions.js');
+            cleanupTrainStationInteractions();
             stopTrainStations();
             updateActiveLayersPanel();
             updatePermalinkWithFeatures();

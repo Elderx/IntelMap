@@ -12,6 +12,7 @@ import { toggleLayerGroup } from './layerGroupMenu.js';
 import { startTrainLocationUpdates, stopTrainLocationUpdates } from '../trains/trainLocationsManager.js';
 import { startTrainStations, stopTrainStations } from '../trains/trainStationsManager.js';
 import { setupTrainLocationClickHandlers, cleanupTrainLocationInteractions } from '../trains/trainLocationsInteractions.js';
+import { setupTrainStationClickHandlers, cleanupTrainStationInteractions } from '../trains/trainStationsInteractions.js';
 import '../styles/trains.css';
 
 // AIS imports
@@ -590,7 +591,9 @@ function createTrainStationsAccordion() {
       state.trainStationsEnabled = checked;
       if (checked) {
         await startTrainStations();
+        setupTrainStationClickHandlers();
       } else {
+        cleanupTrainStationInteractions();
         stopTrainStations();
       }
       updateHeaderActiveLayers();

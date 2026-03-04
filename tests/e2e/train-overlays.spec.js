@@ -229,4 +229,35 @@ test.describe('Train Overlays', () => {
     await expect(popup).toContainText('HKI', { timeout: 10000 });
     await expect(popup).toContainText('Track 7', { timeout: 10000 });
   });
+
+  test('opens a train station popup from cached metadata', async ({ page }) => {
+    await signIn(page);
+
+    await openLayersAccordion(page, 'Train Stations');
+    await page.check('#train-stations-enabled');
+
+    await expect(page.locator('.active-layers-panel')).toContainText('Train Stations (1)', { timeout: 10000 });
+    await clickRenderedFeature(page, 'trainStationFeatures');
+
+    const popup = page.locator('.train-station-popup');
+    await expect(popup).toContainText('Helsinki Central', { timeout: 10000 });
+    await expect(popup).toContainText('HKI', { timeout: 10000 });
+    await expect(popup).toContainText('Passenger traffic', { timeout: 10000 });
+    await expect(popup).toContainText('Yes', { timeout: 10000 });
+  });
+
+  test('styles train stations by passenger traffic', async ({ page }) => {
+    await signIn(page);
+
+    const colors = await page.evaluate(async () => {
+      const { getTrainStationStyle } = await import('/src/trains/trainStationsLayer.js');
+      return {
+        passenger: getTrainStationStyle(true).getImage().getFill().getColor(),
+        nonPassenger: getTrainStationStyle(false).getImage().getFill().getColor()
+      };
+    });
+
+    expect(colors.passenger).toBe('#1565c0');
+    expect(colors.nonPassenger).toBe('#6d4c41');
+  });
 });

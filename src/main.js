@@ -337,6 +337,7 @@ async function bootstrap() {
       state.trainStationsEnabled = true;
       setTimeout(() => {
         import('./trains/trainStationsManager.js').then(m => m.startTrainStations());
+        import('./trains/trainStationsInteractions.js').then(m => m.setupTrainStationClickHandlers());
       }, 100);
     }
     if (params.weather === '1') {
