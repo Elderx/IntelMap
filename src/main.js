@@ -146,6 +146,13 @@ async function bootstrap() {
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
     });
+    // Sync traffic camera layers to split maps
+    import('./trafficCameras/trafficCameraManager.js').then(({ rebuildTrafficCameraLayers }) => {
+      rebuildTrafficCameraLayers();
+    });
+    import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
+      setupTrafficCameraClickHandlers();
+    });
     // Sync GPX layers to split maps
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
       rebuildGpxLayers();
@@ -176,6 +183,13 @@ async function bootstrap() {
     // Sync weather station layers to single map
     import('./weather/weatherManager.js').then(({ rebuildWeatherLayers }) => {
       rebuildWeatherLayers();
+    });
+    // Sync traffic camera layers to single map
+    import('./trafficCameras/trafficCameraManager.js').then(({ rebuildTrafficCameraLayers }) => {
+      rebuildTrafficCameraLayers();
+    });
+    import('./trafficCameras/trafficCameraInteractions.js').then(({ setupTrafficCameraClickHandlers }) => {
+      setupTrafficCameraClickHandlers();
     });
     // Sync GPX layers to single map
     import('./gpx/gpxManager.js').then(({ rebuildGpxLayers }) => {
@@ -340,6 +354,13 @@ async function bootstrap() {
       // Defer until maps are ready
       setTimeout(() => {
         import('./weather/weatherManager.js').then(m => m.startWeatherUpdates());
+      }, 100);
+    }
+    if (params.trafficCameras === '1') {
+      state.trafficCameraEnabled = true;
+      setTimeout(() => {
+        import('./trafficCameras/trafficCameraManager.js').then(m => m.startTrafficCameraUpdates());
+        import('./trafficCameras/trafficCameraInteractions.js').then(m => m.setupTrafficCameraClickHandlers());
       }, 100);
     }
     if (params.radar === '1') {
