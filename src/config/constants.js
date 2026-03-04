@@ -93,6 +93,8 @@ export const AIS_OVERLAY_CONFIG = {
   keepaliveSeconds: 30,
   staleAfterMs: 30 * 60 * 1000,
   pruneIntervalMs: 60 * 1000,
+  persistenceFlushIntervalMs: 3000,
+  persistenceBatchSize: 200,
   zIndex: 105,
   colors: {
     passenger: '#1565c0',
@@ -112,7 +114,9 @@ export function getAisOverlayRuntimeConfig() {
   return {
     ...AIS_OVERLAY_CONFIG,
     staleAfterMs: overrides.staleAfterMs ?? AIS_OVERLAY_CONFIG.staleAfterMs,
-    pruneIntervalMs: overrides.pruneIntervalMs ?? AIS_OVERLAY_CONFIG.pruneIntervalMs
+    pruneIntervalMs: overrides.pruneIntervalMs ?? AIS_OVERLAY_CONFIG.pruneIntervalMs,
+    persistenceFlushIntervalMs: overrides.persistenceFlushIntervalMs ?? AIS_OVERLAY_CONFIG.persistenceFlushIntervalMs,
+    persistenceBatchSize: overrides.persistenceBatchSize ?? AIS_OVERLAY_CONFIG.persistenceBatchSize
   };
 }
 

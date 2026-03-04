@@ -4,14 +4,334 @@ const session = require('express-session');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
+const mqtt = require('mqtt');
+const { randomUUID } = require('crypto');
 const { Pool } = require('pg');
 
 const PORT = process.env.PORT || 3000;
 const DATABASE_URL = process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/mmlmap';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'dev-secret-change-me';
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin';
+const AIS_MQTT_WS_URL = process.env.AIS_MQTT_WS_URL || 'wss://meri.digitraffic.fi:443/mqtt';
+const AIS_MQTT_TOPIC_LOCATION = process.env.AIS_MQTT_TOPIC_LOCATION || 'vessels-v2/+/location';
+const AIS_MQTT_TOPIC_METADATA = process.env.AIS_MQTT_TOPIC_METADATA || 'vessels-v2/+/metadata';
+const AIS_MQTT_RECONNECT_MS = Math.max(1000, Number(process.env.AIS_MQTT_RECONNECT_MS) || 5000);
+const AIS_MQTT_CONNECT_TIMEOUT_MS = Math.max(1000, Number(process.env.AIS_MQTT_CONNECT_TIMEOUT_MS) || 10000);
+const AIS_MQTT_KEEPALIVE_SECONDS = Math.max(5, Number(process.env.AIS_MQTT_KEEPALIVE_SECONDS) || 30);
+const AIS_PERSIST_FLUSH_INTERVAL_MS = Math.max(250, Number(process.env.AIS_PERSIST_FLUSH_INTERVAL_MS) || 3000);
+const AIS_PERSIST_BATCH_SIZE = Math.max(1, Number(process.env.AIS_PERSIST_BATCH_SIZE) || 500);
 
 const pool = new Pool({ connectionString: DATABASE_URL });
+const aisIngestion = {
+  client: null,
+  locationQueue: [],
+  metadataQueue: [],
+  enabledUserIds: new Set(),
+  refreshTimer: null,
+  flushTimer: null,
+  flushing: false
+};
+
+function parseAisTopic(topic) {
+  const match = /^vessels-v2\/([^/]+)\/(location|metadata)$/.exec(String(topic || ''));
+  if (!match) {
+    return null;
+  }
+
+  return {
+    mmsi: match[1],
+    kind: match[2]
+  };
+}
+
+function parseAisPayload(payload) {
+  try {
+    return JSON.parse(payload.toString());
+  } catch (error) {
+    console.warn('[AIS ingestion] Failed to parse MQTT payload:', error.message);
+    return null;
+  }
+}
+
+function resolveObservedAt(payload, numericFieldName) {
+  const fromIso = parseIsoDate(payload?.observedAt);
+  if (fromIso) {
+    return fromIso.toISOString();
+  }
+
+  const numeric = Number(payload?.[numericFieldName]);
+  if (Number.isFinite(numeric)) {
+    const fromNumeric = new Date(numeric > 1e12 ? numeric : numeric * 1000);
+    if (!Number.isNaN(fromNumeric.getTime())) {
+      return fromNumeric.toISOString();
+    }
+  }
+
+  return new Date().toISOString();
+}
+
+function normalizeAisLocationRecord(mmsi, payload) {
+  const lon = Number(payload?.lon);
+  const lat = Number(payload?.lat);
+  if (!mmsi || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+    return null;
+  }
+
+  return {
+    mmsi,
+    observedAt: resolveObservedAt(payload, 'time'),
+    lon,
+    lat,
+    sog: Number.isFinite(Number(payload?.sog)) ? Number(payload.sog) : null,
+    cog: Number.isFinite(Number(payload?.cog)) ? Number(payload.cog) : null,
+    heading: Number.isFinite(Number(payload?.heading)) ? Number(payload.heading) : null,
+    navStat: Number.isFinite(Number(payload?.navStat)) ? Number(payload.navStat) : null,
+    rot: Number.isFinite(Number(payload?.rot)) ? Number(payload.rot) : null,
+    posAcc: typeof payload?.posAcc === 'boolean' ? payload.posAcc : null,
+    raim: typeof payload?.raim === 'boolean' ? payload.raim : null
+  };
+}
+
+function normalizeAisMetadataRecord(mmsi, payload) {
+  if (!mmsi) {
+    return null;
+  }
+
+  return {
+    mmsi,
+    observedAt: resolveObservedAt(payload, 'timestamp'),
+    name: payload?.name || null,
+    destination: payload?.destination || null,
+    callSign: payload?.callSign || payload?.call_sign || null,
+    imo: payload?.imo !== undefined && payload?.imo !== null ? String(payload.imo) : null,
+    draught: Number.isFinite(Number(payload?.draught)) ? Number(payload.draught) : null,
+    eta: Number.isFinite(Number(payload?.eta)) ? Number(payload.eta) : null,
+    type: Number.isFinite(Number(payload?.type)) ? Number(payload.type) : null,
+    posType: Number.isFinite(Number(payload?.posType)) ? Number(payload.posType) : null,
+    refA: Number.isFinite(Number(payload?.refA)) ? Number(payload.refA) : null,
+    refB: Number.isFinite(Number(payload?.refB)) ? Number(payload.refB) : null,
+    refC: Number.isFinite(Number(payload?.refC)) ? Number(payload.refC) : null,
+    refD: Number.isFinite(Number(payload?.refD)) ? Number(payload.refD) : null
+  };
+}
+
+function enqueueAisMessage(topic, payload) {
+  if (!aisIngestion.enabledUserIds.size) {
+    return;
+  }
+
+  const descriptor = parseAisTopic(topic);
+  if (!descriptor) {
+    return;
+  }
+
+  const parsed = parseAisPayload(payload);
+  if (!parsed) {
+    return;
+  }
+
+  const mmsi = String(descriptor.mmsi || '').trim();
+  if (!mmsi) {
+    return;
+  }
+
+  if (descriptor.kind === 'location') {
+    const normalized = normalizeAisLocationRecord(mmsi, parsed);
+    if (normalized) {
+      aisIngestion.locationQueue.push(normalized);
+    }
+    return;
+  }
+
+  if (descriptor.kind === 'metadata') {
+    const normalized = normalizeAisMetadataRecord(mmsi, parsed);
+    if (normalized) {
+      aisIngestion.metadataQueue.push(normalized);
+    }
+  }
+}
+
+async function refreshAisEnabledUsers() {
+  try {
+    const { rows } = await pool.query(
+      `SELECT owner_user_id
+       FROM user_settings
+       WHERE ais_persistence_enabled = TRUE`
+    );
+    aisIngestion.enabledUserIds = new Set(
+      rows
+        .map((row) => Number(row.owner_user_id))
+        .filter((userId) => Number.isFinite(userId))
+    );
+  } catch (error) {
+    console.error('[AIS ingestion] Failed to refresh enabled users:', error);
+  }
+}
+
+async function insertAisLocationBatchForUser(userId, batch) {
+  if (!batch.length) {
+    return 0;
+  }
+
+  const values = [];
+  const rowsSql = batch.map((item, index) => {
+    const base = index * 12;
+    values.push(
+      item.mmsi,
+      item.observedAt,
+      item.lon,
+      item.lat,
+      item.sog,
+      item.cog,
+      item.heading,
+      item.navStat,
+      item.rot,
+      item.posAcc,
+      item.raim,
+      userId
+    );
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12})`;
+  });
+
+  await pool.query(
+    `INSERT INTO ais_location_history
+     (mmsi, observed_at, lon, lat, sog, cog, heading, nav_stat, rot, pos_acc, raim, owner_user_id)
+     VALUES ${rowsSql.join(', ')}`,
+    values
+  );
+
+  return batch.length;
+}
+
+async function insertAisMetadataBatchForUser(userId, batch) {
+  if (!batch.length) {
+    return 0;
+  }
+
+  const values = [];
+  const rowsSql = batch.map((item, index) => {
+    const base = index * 15;
+    values.push(
+      item.mmsi,
+      item.observedAt,
+      item.name,
+      item.destination,
+      item.callSign,
+      item.imo,
+      item.draught,
+      item.eta,
+      item.type,
+      item.posType,
+      item.refA,
+      item.refB,
+      item.refC,
+      item.refD,
+      userId
+    );
+    return `($${base + 1}, $${base + 2}, $${base + 3}, $${base + 4}, $${base + 5}, $${base + 6}, $${base + 7}, $${base + 8}, $${base + 9}, $${base + 10}, $${base + 11}, $${base + 12}, $${base + 13}, $${base + 14}, $${base + 15})`;
+  });
+
+  await pool.query(
+    `INSERT INTO ais_metadata_history
+     (mmsi, observed_at, name, destination, call_sign, imo, draught, eta, type, pos_type, ref_a, ref_b, ref_c, ref_d, owner_user_id)
+     VALUES ${rowsSql.join(', ')}`,
+    values
+  );
+
+  return batch.length;
+}
+
+async function flushAisIngestionQueue() {
+  if (aisIngestion.flushing) {
+    return;
+  }
+
+  const locationBatch = aisIngestion.locationQueue.splice(0, AIS_PERSIST_BATCH_SIZE);
+  const metadataBatch = aisIngestion.metadataQueue.splice(0, AIS_PERSIST_BATCH_SIZE);
+  if (!locationBatch.length && !metadataBatch.length) {
+    return;
+  }
+
+  const enabledUserIds = Array.from(aisIngestion.enabledUserIds);
+  if (!enabledUserIds.length) {
+    return;
+  }
+
+  aisIngestion.flushing = true;
+  try {
+    await pool.query('BEGIN');
+    for (const userId of enabledUserIds) {
+      await insertAisLocationBatchForUser(userId, locationBatch);
+      await insertAisMetadataBatchForUser(userId, metadataBatch);
+    }
+    await pool.query('COMMIT');
+  } catch (error) {
+    await pool.query('ROLLBACK').catch(() => { });
+    aisIngestion.locationQueue = locationBatch.concat(aisIngestion.locationQueue);
+    aisIngestion.metadataQueue = metadataBatch.concat(aisIngestion.metadataQueue);
+    console.error('[AIS ingestion] Failed to persist queued messages:', error);
+  } finally {
+    aisIngestion.flushing = false;
+  }
+}
+
+function startAisBackgroundIngestionLoop() {
+  if (!aisIngestion.flushTimer) {
+    aisIngestion.flushTimer = setInterval(() => {
+      flushAisIngestionQueue();
+    }, AIS_PERSIST_FLUSH_INTERVAL_MS);
+  }
+
+  if (!aisIngestion.refreshTimer) {
+    aisIngestion.refreshTimer = setInterval(() => {
+      refreshAisEnabledUsers();
+    }, 30 * 1000);
+  }
+}
+
+function startAisBackgroundMqttClient() {
+  if (aisIngestion.client) {
+    return;
+  }
+
+  const clientId = `IntelMap AIS Ingestion/1.0; ${randomUUID()}`;
+  const client = mqtt.connect(AIS_MQTT_WS_URL, {
+    clientId,
+    clean: true,
+    reconnectPeriod: AIS_MQTT_RECONNECT_MS,
+    connectTimeout: AIS_MQTT_CONNECT_TIMEOUT_MS,
+    keepalive: AIS_MQTT_KEEPALIVE_SECONDS,
+    resubscribe: true
+  });
+
+  client.on('connect', () => {
+    client.subscribe([AIS_MQTT_TOPIC_LOCATION, AIS_MQTT_TOPIC_METADATA], { qos: 0 }, (error) => {
+      if (error) {
+        console.error('[AIS ingestion] MQTT subscribe failed:', error);
+      }
+    });
+  });
+
+  client.on('message', (topic, payload) => {
+    enqueueAisMessage(topic, payload);
+  });
+
+  client.on('error', (error) => {
+    console.error('[AIS ingestion] MQTT client error:', error);
+  });
+
+  client.on('close', () => {
+    console.warn('[AIS ingestion] MQTT websocket closed, waiting for reconnect');
+  });
+
+  aisIngestion.client = client;
+}
+
+async function startAisBackgroundIngestion() {
+  await refreshAisEnabledUsers();
+  startAisBackgroundIngestionLoop();
+  startAisBackgroundMqttClient();
+}
 
 async function initDb() {
   // Create extension and tables if not exist
@@ -136,6 +456,74 @@ async function initDb() {
     );
   `);
 
+  // Per-user runtime settings
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      owner_user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      ais_persistence_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+  `);
+
+  // AIS historical location stream (from MQTT ingestion batches)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ais_location_history (
+      id BIGSERIAL PRIMARY KEY,
+      mmsi TEXT NOT NULL,
+      observed_at TIMESTAMPTZ NOT NULL,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      lon DOUBLE PRECISION NOT NULL,
+      lat DOUBLE PRECISION NOT NULL,
+      sog DOUBLE PRECISION,
+      cog DOUBLE PRECISION,
+      heading DOUBLE PRECISION,
+      nav_stat INTEGER,
+      rot DOUBLE PRECISION,
+      pos_acc BOOLEAN,
+      raim BOOLEAN,
+      owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ais_location_history_mmsi_observed_at
+    ON ais_location_history (mmsi, observed_at);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ais_location_history_owner_user_id
+    ON ais_location_history (owner_user_id);
+  `);
+
+  // AIS historical metadata stream
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS ais_metadata_history (
+      id BIGSERIAL PRIMARY KEY,
+      mmsi TEXT NOT NULL,
+      observed_at TIMESTAMPTZ NOT NULL,
+      received_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+      name TEXT,
+      destination TEXT,
+      call_sign TEXT,
+      imo TEXT,
+      draught DOUBLE PRECISION,
+      eta BIGINT,
+      type INTEGER,
+      pos_type INTEGER,
+      ref_a INTEGER,
+      ref_b INTEGER,
+      ref_c INTEGER,
+      ref_d INTEGER,
+      owner_user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE
+    );
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ais_metadata_history_mmsi_observed_at
+    ON ais_metadata_history (mmsi, observed_at);
+  `);
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_ais_metadata_history_owner_user_id
+    ON ais_metadata_history (owner_user_id);
+  `);
+
   // Seed/update users from environment variables
   // USERS format: "username:password,username:password,..."
   // Backward compatible with ADMIN_PASSWORD (treated as "admin:ADMIN_PASSWORD")
@@ -232,6 +620,51 @@ function ensureAuth(req, res, next) {
   return res.status(401).json({ error: 'unauthorized' });
 }
 
+async function ensureUserSettingsRow(userId) {
+  await pool.query(
+    'INSERT INTO user_settings (owner_user_id) VALUES ($1) ON CONFLICT (owner_user_id) DO NOTHING',
+    [userId]
+  );
+}
+
+async function getUserSettings(userId) {
+  await ensureUserSettingsRow(userId);
+  const { rows } = await pool.query(
+    `SELECT owner_user_id, ais_persistence_enabled, updated_at
+     FROM user_settings
+     WHERE owner_user_id = $1`,
+    [userId]
+  );
+  return rows[0] || {
+    owner_user_id: userId,
+    ais_persistence_enabled: false,
+    updated_at: new Date().toISOString()
+  };
+}
+
+function parseIsoDate(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+}
+
+function parseMmsiListFromQuery(query) {
+  const list = [];
+
+  if (typeof query.mmsis === 'string') {
+    query.mmsis.split(',').map(v => v.trim()).filter(Boolean).forEach(v => list.push(v));
+  }
+
+  if (typeof query.mmsi === 'string') {
+    list.push(query.mmsi.trim());
+  } else if (Array.isArray(query.mmsi)) {
+    query.mmsi.map(v => String(v).trim()).filter(Boolean).forEach(v => list.push(v));
+  }
+
+  return Array.from(new Set(list));
+}
+
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/session', (req, res) => {
   if (req.isAuthenticated && req.isAuthenticated()) return res.json({ user: req.user });
@@ -246,6 +679,283 @@ app.post('/api/logout', (req, res) => {
 app.get('/api/users', ensureAuth, async (req, res) => {
   const { rows } = await pool.query('SELECT id, username FROM users ORDER BY username ASC');
   res.json(rows);
+});
+
+// User settings
+app.get('/api/settings', ensureAuth, async (req, res) => {
+  try {
+    const settings = await getUserSettings(req.user.id);
+    res.json({
+      aisPersistenceEnabled: Boolean(settings.ais_persistence_enabled),
+      updatedAt: settings.updated_at
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.patch('/api/settings', ensureAuth, async (req, res) => {
+  try {
+    const { aisPersistenceEnabled } = req.body || {};
+    if (typeof aisPersistenceEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'invalid_settings_payload' });
+    }
+
+    await ensureUserSettingsRow(req.user.id);
+    const { rows } = await pool.query(
+      `UPDATE user_settings
+       SET ais_persistence_enabled = $2,
+           updated_at = now()
+       WHERE owner_user_id = $1
+       RETURNING ais_persistence_enabled, updated_at`,
+      [req.user.id, aisPersistenceEnabled]
+    );
+
+    await refreshAisEnabledUsers();
+
+    res.json({
+      aisPersistenceEnabled: Boolean(rows[0]?.ais_persistence_enabled),
+      updatedAt: rows[0]?.updated_at || new Date().toISOString()
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+// AIS history ingest/query
+app.post('/api/ais/history/batch', ensureAuth, async (req, res) => {
+  const locations = Array.isArray(req.body?.locations) ? req.body.locations : [];
+  const metadata = Array.isArray(req.body?.metadata) ? req.body.metadata : [];
+
+  try {
+    const settings = await getUserSettings(req.user.id);
+    if (!settings.ais_persistence_enabled) {
+      return res.json({
+        ok: true,
+        skipped: true,
+        insertedLocations: 0,
+        insertedMetadata: 0
+      });
+    }
+
+    let insertedLocations = 0;
+    let insertedMetadata = 0;
+
+    await pool.query('BEGIN');
+
+    for (const item of locations) {
+      const mmsi = String(item?.mmsi || '').trim();
+      const lon = Number(item?.lon);
+      const lat = Number(item?.lat);
+      if (!mmsi || !Number.isFinite(lon) || !Number.isFinite(lat)) {
+        continue;
+      }
+
+      let observedAt = parseIsoDate(item.observedAt);
+      if (!observedAt && Number.isFinite(Number(item?.time))) {
+        const numericTime = Number(item.time);
+        observedAt = new Date(numericTime > 1e12 ? numericTime : numericTime * 1000);
+      }
+      if (!observedAt || Number.isNaN(observedAt.getTime())) {
+        observedAt = new Date();
+      }
+
+      await pool.query(
+        `INSERT INTO ais_location_history
+         (mmsi, observed_at, lon, lat, sog, cog, heading, nav_stat, rot, pos_acc, raim, owner_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+        [
+          mmsi,
+          observedAt.toISOString(),
+          lon,
+          lat,
+          Number.isFinite(Number(item?.sog)) ? Number(item.sog) : null,
+          Number.isFinite(Number(item?.cog)) ? Number(item.cog) : null,
+          Number.isFinite(Number(item?.heading)) ? Number(item.heading) : null,
+          Number.isFinite(Number(item?.navStat)) ? Number(item.navStat) : null,
+          Number.isFinite(Number(item?.rot)) ? Number(item.rot) : null,
+          typeof item?.posAcc === 'boolean' ? item.posAcc : null,
+          typeof item?.raim === 'boolean' ? item.raim : null,
+          req.user.id
+        ]
+      );
+      insertedLocations += 1;
+    }
+
+    for (const item of metadata) {
+      const mmsi = String(item?.mmsi || '').trim();
+      if (!mmsi) {
+        continue;
+      }
+
+      let observedAt = parseIsoDate(item.observedAt);
+      if (!observedAt && Number.isFinite(Number(item?.timestamp))) {
+        const numericTime = Number(item.timestamp);
+        observedAt = new Date(numericTime > 1e12 ? numericTime : numericTime * 1000);
+      }
+      if (!observedAt || Number.isNaN(observedAt.getTime())) {
+        observedAt = new Date();
+      }
+
+      await pool.query(
+        `INSERT INTO ais_metadata_history
+         (mmsi, observed_at, name, destination, call_sign, imo, draught, eta, type, pos_type, ref_a, ref_b, ref_c, ref_d, owner_user_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+        [
+          mmsi,
+          observedAt.toISOString(),
+          item?.name || null,
+          item?.destination || null,
+          item?.callSign || item?.call_sign || null,
+          item?.imo !== undefined && item?.imo !== null ? String(item.imo) : null,
+          Number.isFinite(Number(item?.draught)) ? Number(item.draught) : null,
+          Number.isFinite(Number(item?.eta)) ? Number(item.eta) : null,
+          Number.isFinite(Number(item?.type)) ? Number(item.type) : null,
+          Number.isFinite(Number(item?.posType)) ? Number(item.posType) : null,
+          Number.isFinite(Number(item?.refA)) ? Number(item.refA) : null,
+          Number.isFinite(Number(item?.refB)) ? Number(item.refB) : null,
+          Number.isFinite(Number(item?.refC)) ? Number(item.refC) : null,
+          Number.isFinite(Number(item?.refD)) ? Number(item.refD) : null,
+          req.user.id
+        ]
+      );
+      insertedMetadata += 1;
+    }
+
+    await pool.query('COMMIT');
+
+    res.json({
+      ok: true,
+      skipped: false,
+      insertedLocations,
+      insertedMetadata
+    });
+  } catch (e) {
+    await pool.query('ROLLBACK').catch(() => {});
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.get('/api/ais/tracks', ensureAuth, async (req, res) => {
+  try {
+    const mmsis = parseMmsiListFromQuery(req.query);
+    if (!mmsis.length) {
+      return res.status(400).json({ error: 'missing_mmsi' });
+    }
+
+    const now = new Date();
+    const defaultStart = new Date(now.getTime() - (6 * 60 * 60 * 1000));
+    const start = parseIsoDate(req.query.start) || defaultStart;
+    const end = parseIsoDate(req.query.end) || now;
+    if (end <= start) {
+      return res.status(400).json({ error: 'invalid_time_range' });
+    }
+
+    const locationsResult = await pool.query(
+      `SELECT mmsi, observed_at, lon, lat, sog, cog, heading
+       FROM ais_location_history
+       WHERE owner_user_id = $1
+         AND mmsi = ANY($2::text[])
+         AND observed_at >= $3
+         AND observed_at <= $4
+       ORDER BY mmsi ASC, observed_at ASC`,
+      [req.user.id, mmsis, start.toISOString(), end.toISOString()]
+    );
+
+    const metadataResult = await pool.query(
+      `SELECT DISTINCT ON (mmsi)
+          mmsi, name, destination, call_sign, imo, draught, type
+       FROM ais_metadata_history
+       WHERE owner_user_id = $1
+         AND mmsi = ANY($2::text[])
+         AND observed_at <= $3
+       ORDER BY mmsi ASC, observed_at DESC`,
+      [req.user.id, mmsis, end.toISOString()]
+    );
+
+    const metadataByMmsi = new Map();
+    metadataResult.rows.forEach((row) => {
+      metadataByMmsi.set(row.mmsi, {
+        name: row.name,
+        destination: row.destination,
+        callSign: row.call_sign,
+        imo: row.imo,
+        draught: row.draught,
+        type: row.type
+      });
+    });
+
+    const tracksByMmsi = new Map();
+    mmsis.forEach((mmsi) => {
+      tracksByMmsi.set(mmsi, {
+        mmsi,
+        metadata: metadataByMmsi.get(mmsi) || null,
+        points: []
+      });
+    });
+
+    locationsResult.rows.forEach((row) => {
+      if (!tracksByMmsi.has(row.mmsi)) return;
+      tracksByMmsi.get(row.mmsi).points.push({
+        timestamp: row.observed_at,
+        lon: row.lon,
+        lat: row.lat,
+        sog: row.sog,
+        cog: row.cog,
+        heading: row.heading
+      });
+    });
+
+    res.json({
+      tracks: Array.from(tracksByMmsi.values()),
+      range: {
+        start: start.toISOString(),
+        end: end.toISOString()
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
+app.get('/api/ais/latest-location', ensureAuth, async (req, res) => {
+  try {
+    const mmsi = String(req.query?.mmsi || '').trim();
+    if (!mmsi) {
+      return res.status(400).json({ error: 'missing_mmsi' });
+    }
+
+    const { rows } = await pool.query(
+      `SELECT mmsi, observed_at, lon, lat, sog, cog, heading
+       FROM ais_location_history
+       WHERE owner_user_id = $1
+         AND mmsi = $2
+       ORDER BY observed_at DESC
+       LIMIT 1`,
+      [req.user.id, mmsi]
+    );
+
+    if (!rows[0]) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+
+    res.json({
+      mmsi: rows[0].mmsi,
+      observedAt: rows[0].observed_at,
+      lon: rows[0].lon,
+      lat: rows[0].lat,
+      sog: rows[0].sog,
+      cog: rows[0].cog,
+      heading: rows[0].heading
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
 });
 
 // Markers
@@ -677,6 +1387,7 @@ app.listen(PORT, async () => {
   try {
     await waitForDb();
     await initDb();
+    await startAisBackgroundIngestion();
     console.log(`[server] listening on :${PORT}`);
   } catch (e) {
     console.error('DB init failed', e);

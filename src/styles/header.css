@@ -494,6 +494,11 @@
   width: 360px;
 }
 
+.header-dropdown-settings {
+  width: 320px;
+  max-width: calc(100vw - 20px);
+}
+
 /* Left Map Dropdown - positioned same as Right dropdown */
 #left-map-dropdown {
   right: var(--header-padding-x);
@@ -683,6 +688,13 @@
     width: 100%;
   }
 
+  .header-dropdown-settings {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100%;
+    max-width: none;
+  }
+
   #left-map-dropdown,
   #right-map-dropdown {
     left: 0;
@@ -777,6 +789,70 @@
   width: 20px;
   height: 20px;
   transition: transform 0.3s ease;
+}
+
+.settings-icon {
+  width: 20px;
+  height: 20px;
+  stroke: var(--header-text);
+}
+
+.settings-menu-section {
+  padding: 12px;
+}
+
+.settings-menu-title {
+  font-size: 12px;
+  font-weight: var(--header-font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--header-text-muted);
+  margin-bottom: 10px;
+}
+
+.settings-menu-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px;
+  border-radius: var(--header-radius);
+  background: var(--header-bg-elevated);
+  border: 1px solid var(--header-border);
+  cursor: pointer;
+}
+
+.settings-menu-row:hover {
+  border-color: var(--header-text-muted);
+}
+
+.settings-menu-text {
+  display: grid;
+  gap: 4px;
+}
+
+.settings-menu-label {
+  font-size: var(--header-font-size);
+  color: var(--header-text);
+  font-weight: var(--header-font-weight);
+}
+
+.settings-menu-hint {
+  font-size: var(--header-font-size-sm);
+  color: var(--header-text-muted);
+  line-height: 1.35;
+}
+
+.settings-menu-status {
+  margin-top: 8px;
+  font-size: var(--header-font-size-sm);
+  color: var(--header-text-muted);
+}
+
+.settings-menu-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
 }
 
 /* Smooth theme transitions for header elements */

@@ -265,7 +265,13 @@ export function updateActiveLayersPanel() {
     // 6. AIS/Ships overlay
     if (state.aisEnabled) {
         const count = state.aisFeatures.length;
-        const title = `🚢 Ships (${count})${state.aisError ? ' ⚠️' : ''}`;
+        const selectedCount = state.aisSelectedMmsi?.size || 0;
+        const trackCount = state.aisTrackFeatures?.length || 0;
+        const suffixParts = [];
+        if (selectedCount > 0) suffixParts.push(`Selected:${selectedCount}`);
+        if (trackCount > 0) suffixParts.push(`Tracks:${trackCount}`);
+        const detailSuffix = suffixParts.length ? ` ${suffixParts.join(' | ')}` : '';
+        const title = `🚢 Ships (${count})${detailSuffix}${state.aisError ? ' ⚠️' : ''}`;
         addRow(title, '#2196F3', async () => {
             const { stopAisUpdates } = await import('../ais/aisManager.js');
             const { cleanupAisInteractions } = await import('../ais/aisInteractions.js');

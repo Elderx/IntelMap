@@ -5,6 +5,7 @@ import { Point } from 'ol/geom.js';
 import { Style, Icon, Fill, Stroke, Text } from 'ol/style.js';
 import { fromLonLat } from 'ol/proj.js';
 import { AIS_OVERLAY_CONFIG } from '../config/constants.js';
+import { state } from '../state/store.js';
 
 export function createAisLayer() {
   return new VectorLayer({
@@ -72,18 +73,19 @@ function aisStyleFunction(feature) {
   const typeCode = feature.get('typeCode');
   const heading = feature.get('heading') ?? feature.get('course') ?? 0;
   const speed = feature.get('speed') || 0;
+  const selected = Boolean(feature.get('selected'));
 
   return new Style({
     image: new Icon({
       src: getShipIconPath(typeCode),
       rotation: heading * Math.PI / 180,
       anchor: [0.5, 0.5],
-      scale: 1
+      scale: selected ? 1.25 : 1
     }),
     text: speed > 0 ? new Text({
       text: speed.toFixed(0),
       font: '600 10px sans-serif',
-      offsetY: -15,
+      offsetY: selected ? -18 : -15,
       fill: new Fill({ color: '#102027' }),
       stroke: new Stroke({ color: '#fff', width: 2 })
     }) : undefined
@@ -141,7 +143,8 @@ export function vesselToFeature(vessel) {
     length: length || null,
     width: width || null,
     lastUpdate,
-    lastSeenAt: vessel.lastSeenAt
+    lastSeenAt: vessel.lastSeenAt,
+    selected: state.aisSelectedMmsi.has(String(vessel.mmsi))
   });
 
   return feature;

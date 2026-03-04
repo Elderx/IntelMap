@@ -5,6 +5,7 @@
 
 import { state } from '../state/store.js';
 import { initTheme, toggleTheme } from './themeManager.js';
+import { mountSettingsMenu } from './settingsMenu.js';
 
 let backdropElement = null;
 let currentOpenDropdown = null;
@@ -25,6 +26,8 @@ export function initHeader() {
   const rightMapDropdown = document.getElementById('right-map-dropdown');
   const logo = document.getElementById('header-logo');
   const themeToggle = document.getElementById('theme-toggle');
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsDropdown = document.getElementById('settings-dropdown');
 
   backdropElement = backdrop;
 
@@ -33,6 +36,7 @@ export function initHeader() {
   setupDropdown(layersToggle, layersDropdown);
   setupDropdown(leftMapToggle, leftMapDropdown);
   setupDropdown(rightMapToggle, rightMapDropdown);
+  setupDropdown(settingsToggle, settingsDropdown);
 
   // Setup backdrop click to close all dropdowns
   backdrop.addEventListener('click', closeAllDropdowns);
@@ -52,6 +56,9 @@ export function initHeader() {
 
   // Initialize theme
   initTheme();
+
+  // Mount settings panel content
+  mountSettingsMenu();
 
   // Close dropdowns on escape key
   document.addEventListener('keydown', (e) => {
@@ -88,6 +95,17 @@ function setupDropdown(toggleBtn, dropdownPanel) {
  */
 function openDropdown(dropdownPanel, toggleBtn) {
   dropdownPanel.classList.add('visible');
+  if (toggleBtn && dropdownPanel.classList.contains('header-dropdown-anchored')) {
+    const toggleRect = toggleBtn.getBoundingClientRect();
+    const panelRect = dropdownPanel.getBoundingClientRect();
+    const margin = 8;
+    const maxLeft = Math.max(margin, window.innerWidth - panelRect.width - margin);
+    const preferredLeft = toggleRect.right - panelRect.width;
+    const left = Math.min(Math.max(margin, preferredLeft), maxLeft);
+    dropdownPanel.style.left = `${left}px`;
+    dropdownPanel.style.right = 'auto';
+    dropdownPanel.style.top = `${toggleRect.bottom + 6}px`;
+  }
   if (toggleBtn) {
     toggleBtn.classList.add('open');
   }
@@ -104,7 +122,7 @@ export function closeAllDropdowns() {
   const dropdowns = document.querySelectorAll('.header-dropdown');
   dropdowns.forEach(d => d.classList.remove('visible'));
 
-  const toggles = document.querySelectorAll('.header-btn-dropdown');
+  const toggles = document.querySelectorAll('.header-btn-dropdown, #settings-toggle');
   toggles.forEach(t => t.classList.remove('open'));
 
   if (backdropElement) {

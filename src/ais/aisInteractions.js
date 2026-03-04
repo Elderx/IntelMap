@@ -1,6 +1,7 @@
 import Overlay from 'ol/Overlay.js';
 import { unByKey } from 'ol/Observable.js';
 import { state } from '../state/store.js';
+import { isAisVesselSelected, toggleAisVesselSelection } from './aisSelection.js';
 
 const popupOverlays = { main: null, left: null, right: null };
 const clickKeys = { main: null, left: null, right: null };
@@ -41,13 +42,37 @@ function formatTimestamp(value) {
   return new Date(value).toLocaleString();
 }
 
+function populateAisSearchField(mmsi) {
+  const inputs = Array.from(document.querySelectorAll('#ais-mmsi-search-input'));
+  if (!inputs.length) {
+    return;
+  }
+
+  const value = String(mmsi || '');
+  state.aisMmsiSearchQuery = value;
+  inputs.forEach((input) => {
+    input.value = value;
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
 function buildPopupContent(feature) {
+  const selected = isAisVesselSelected(feature.get('mmsi'));
+  const mmsi = String(feature.get('mmsi') || '');
+  const vesselFinderUrl = `https://www.vesselfinder.com/?mmsi=${encodeURIComponent(mmsi)}`;
   const container = document.createElement('div');
   container.className = 'ais-popup';
   container.innerHTML = `
     <h3>${feature.get('name')}</h3>
     <table class="ais-popup-table">
-      <tr><td>MMSI</td><td>${feature.get('mmsi')}</td></tr>
+      <tr>
+        <td>MMSI</td>
+        <td>
+          <a class="ais-popup-link" href="${vesselFinderUrl}" target="_blank" rel="noopener noreferrer">${mmsi}</a>
+          <button type="button" class="ais-popup-search-btn" data-mmsi="${mmsi}">Search</button>
+        </td>
+      </tr>
       ${feature.get('imo') ? `<tr><td>IMO</td><td>${feature.get('imo')}</td></tr>` : ''}
       ${feature.get('callSign') ? `<tr><td>Call sign</td><td>${feature.get('callSign')}</td></tr>` : ''}
       <tr><td>Type</td><td>${feature.get('vesselType')}</td></tr>
@@ -58,9 +83,20 @@ function buildPopupContent(feature) {
       ${feature.get('draught') ? `<tr><td>Draught</td><td>${feature.get('draught')}</td></tr>` : ''}
       ${feature.get('length') ? `<tr><td>Length</td><td>${feature.get('length')} m</td></tr>` : ''}
       ${feature.get('width') ? `<tr><td>Width</td><td>${feature.get('width')} m</td></tr>` : ''}
+      <tr><td>Selected</td><td>${selected ? 'Yes' : 'No'}</td></tr>
       <tr><td>Updated</td><td>${formatTimestamp(feature.get('lastUpdate'))}</td></tr>
     </table>
   `;
+
+  const searchBtn = container.querySelector('.ais-popup-search-btn');
+  if (searchBtn) {
+    searchBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const targetMmsi = searchBtn.getAttribute('data-mmsi') || mmsi;
+      populateAisSearchField(targetMmsi);
+    });
+  }
 
   return container;
 }
@@ -79,7 +115,7 @@ function showPopup(feature, mapKey, coordinate) {
     element: buildPopupContent(feature),
     position: coordinate,
     positioning: 'bottom-center',
-    stopEvent: false,
+    stopEvent: true,
     autoPan: { margin: 40 }
   });
 
@@ -113,6 +149,7 @@ export function setupAisClickHandlers() {
         return;
       }
 
+      toggleAisVesselSelection(feature.get('mmsi'));
       showPopup(feature, mapKey, feature.getGeometry().getCoordinates());
     });
   });
