@@ -41,8 +41,8 @@
         background: #8b4900 !important;
       }
     </style>
-    <script type="module" crossorigin src="/mml-map/assets/index-h0QkuVpm.js"></script>
-    <link rel="stylesheet" crossorigin href="/mml-map/assets/index-PWjUr3oh.css">
+    <script type="module" crossorigin src="/mml-map/assets/index-fHLQD321.js"></script>
+    <link rel="stylesheet" crossorigin href="/mml-map/assets/index-CLmCEae_.css">
   </head>
   <body>
     <!-- Unified Header -->
@@ -84,6 +84,14 @@
             <line class="sun-icon" x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
             <!-- Moon icon (hidden by default) -->
             <path class="moon-icon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+
+        <!-- Settings -->
+        <button class="header-btn header-btn-icon header-btn-secondary" id="settings-toggle" title="Settings">
+          <svg class="settings-icon" viewBox="0 0 24 24" fill="none" stroke-width="2">
+            <circle cx="12" cy="12" r="3.2"></circle>
+            <path d="M19.4 15a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V20a2 2 0 1 1-4 0v-.2a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H4a2 2 0 1 1 0-4h.2a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2 1 1 0 0 0 .6-.9V4a2 2 0 1 1 4 0v.2a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1 1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.2a1 1 0 0 0-.4 1.6Z"></path>
           </svg>
         </button>
 
@@ -169,6 +177,11 @@
       <div id="header-layer-manager">
         <!-- Layer manager content will be mounted here -->
       </div>
+    </div>
+
+    <!-- Settings Dropdown Panel -->
+    <div class="header-dropdown header-dropdown-settings header-dropdown-anchored" id="settings-dropdown">
+      <div id="settings-menu-content"></div>
     </div>
 
     <!-- Backdrop -->
