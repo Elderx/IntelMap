@@ -137,16 +137,38 @@ async function signIn(page, path = '/') {
   await page.waitForSelector('.ol-viewport');
 }
 
+async function waitForLayerControls(page) {
+  await page.waitForFunction(async () => {
+    const { state } = await import('/src/state/store.js');
+    return Array.isArray(state.digiroadOverlayList) && state.digiroadOverlayList.length > 0;
+  });
+}
+
 async function openLayersAccordion(page, title) {
+  await waitForLayerControls(page);
   const layersDropdown = page.locator('#layers-dropdown');
   if (!(await layersDropdown.isVisible())) {
     await page.click('#layers-toggle');
+    await expect(layersDropdown).toBeVisible();
   }
-  const item = page
+  const item = layersDropdown
     .locator('.header-accordion-item')
     .filter({ hasText: title })
-    .locator('.header-accordion-header');
-  await item.click();
+    .first();
+  const content = item.locator('.header-accordion-content');
+
+  if (!(await content.isVisible())) {
+    await item.locator('.header-accordion-header').click();
+    await expect(content).toBeVisible();
+  }
+}
+
+async function enableLayerToggle(page, title, selector) {
+  await openLayersAccordion(page, title);
+  const toggle = page.locator(selector);
+  await expect(toggle).toBeVisible();
+  await toggle.check();
+  await expect(toggle).toBeChecked();
 }
 
 async function clickRenderedFeature(page, stateKey, selector = '#map', mapKey = 'main', index = 0) {
@@ -207,8 +229,7 @@ test.describe('Train Overlays', () => {
     await mockTrainLocationPolling(page);
     await signIn(page);
 
-    await openLayersAccordion(page, 'Train Locations');
-    await page.check('#train-locations-enabled');
+    await enableLayerToggle(page, 'Train Locations', '#train-locations-enabled');
 
     await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (1)', { timeout: 10000 });
     await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (2)', { timeout: 12000 });
@@ -218,8 +239,7 @@ test.describe('Train Overlays', () => {
     await mockTrainDetail(page);
     await signIn(page);
 
-    await openLayersAccordion(page, 'Train Locations');
-    await page.check('#train-locations-enabled');
+    await enableLayerToggle(page, 'Train Locations', '#train-locations-enabled');
     await clickRenderedFeature(page, 'trainLocationFeatures');
 
     const popup = page.locator('.train-location-popup');
@@ -233,8 +253,7 @@ test.describe('Train Overlays', () => {
   test('opens a train station popup from cached metadata', async ({ page }) => {
     await signIn(page);
 
-    await openLayersAccordion(page, 'Train Stations');
-    await page.check('#train-stations-enabled');
+    await enableLayerToggle(page, 'Train Stations', '#train-stations-enabled');
 
     await expect(page.locator('.active-layers-panel')).toContainText('Train Stations (1)', { timeout: 10000 });
     await clickRenderedFeature(page, 'trainStationFeatures');
@@ -265,8 +284,7 @@ test.describe('Train Overlays', () => {
     await mockTrainDetail(page);
     await signIn(page);
 
-    await openLayersAccordion(page, 'Train Locations');
-    await page.check('#train-locations-enabled');
+    await enableLayerToggle(page, 'Train Locations', '#train-locations-enabled');
     await page.click('#split-toggle');
 
     await expect(page.locator('#map-left .ol-viewport')).toBeVisible({ timeout: 10000 });
@@ -278,8 +296,7 @@ test.describe('Train Overlays', () => {
   test('rebuilds train stations in split view', async ({ page }) => {
     await signIn(page);
 
-    await openLayersAccordion(page, 'Train Stations');
-    await page.check('#train-stations-enabled');
+    await enableLayerToggle(page, 'Train Stations', '#train-stations-enabled');
     await page.click('#split-toggle');
 
     await expect(page.locator('#map-right .ol-viewport')).toBeVisible({ timeout: 10000 });
