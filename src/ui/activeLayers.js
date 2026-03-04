@@ -309,6 +309,17 @@ export function updateActiveLayersPanel() {
     }
 
     // 10. FMI Radar overlay
+    // 10. Traffic camera overlay
+    if (state.trafficCameraEnabled) {
+        const count = state.trafficCameraFeatures.length;
+        const title = `Traffic Cameras (${count})${state.trafficCameraError ? ' ⚠️' : ''}`;
+        addRow(title, '#c0392b', async () => {
+            const { stopTrafficCameraUpdates } = await import('../trafficCameras/trafficCameraManager.js');
+            stopTrafficCameraUpdates();
+        });
+    }
+
+    // 11. FMI Radar overlay
     if (state.radarEnabled) {
         const currentTime = state.radarLayer.main?.radarTimeSteps?.[state.radarLayer.main?.radarTimeIndex];
         const timeStr = currentTime ? new Date(currentTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
@@ -319,7 +330,7 @@ export function updateActiveLayersPanel() {
         });
     }
 
-    // 11. UAS Airspace overlay
+    // 12. UAS Airspace overlay
     if (state.uasEnabled) {
         const count = state.uasFeatures.length;
         const title = `🚁 UAS Zones (${count})${state.uasError ? ' ⚠️' : ''}`;

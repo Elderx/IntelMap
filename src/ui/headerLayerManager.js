@@ -23,6 +23,10 @@ import '../styles/ais.css';
 import { startWeatherUpdates, stopWeatherUpdates } from '../weather/weatherManager.js';
 import '../styles/weather.css';
 
+// Traffic camera imports
+import { startTrafficCameraUpdates, stopTrafficCameraUpdates } from '../trafficCameras/trafficCameraManager.js';
+import '../styles/traffic-cameras.css';
+
 // Radar imports - static imports for unified time bar
 import {
   setRadarTimeByIndex,
@@ -102,6 +106,10 @@ export function mountHeaderLayerManager(capabilitiesResult) {
   // Weather Section
   const weatherItem = createWeatherAccordion();
   accordion.appendChild(weatherItem);
+
+  // Traffic Cameras Section
+  const trafficCameraItem = createTrafficCamerasAccordion();
+  accordion.appendChild(trafficCameraItem);
 
   // GPX Section
   const gpxItem = createGpxAccordion();
@@ -191,6 +199,10 @@ function createMapControlAccordion(mapKey) {
   // Weather Section
   const weatherItem = createWeatherAccordion();
   accordion.appendChild(weatherItem);
+
+  // Traffic Cameras Section
+  const trafficCameraItem = createTrafficCamerasAccordion();
+  accordion.appendChild(trafficCameraItem);
 
   // Layer Groups Section
   const layerGroupsItem = createLayerGroupsAccordion();
@@ -864,6 +876,39 @@ function createWeatherAccordion() {
   content.appendChild(infoText);
 
   return createAccordionItem('🌤️ Weather', content, false);
+}
+
+/**
+ * Create traffic camera overlay accordion
+ * @returns {HTMLElement} Accordion element
+ */
+function createTrafficCamerasAccordion() {
+  const content = document.createElement('div');
+  content.style.padding = '8px 0';
+
+  const row = createCheckboxRow(
+    'Traffic Cameras',
+    state.trafficCameraEnabled,
+    async (checked) => {
+      state.trafficCameraEnabled = checked;
+      if (checked) {
+        await startTrafficCameraUpdates();
+        const { setupTrafficCameraClickHandlers } = await import('../trafficCameras/trafficCameraInteractions.js');
+        setupTrafficCameraClickHandlers();
+      } else {
+        const { cleanupTrafficCameraInteractions } = await import('../trafficCameras/trafficCameraInteractions.js');
+        cleanupTrafficCameraInteractions();
+        stopTrafficCameraUpdates();
+      }
+      updateHeaderActiveLayers();
+      updatePermalinkWithFeatures();
+    },
+    'traffic-cameras-enabled'
+  );
+
+  content.appendChild(row);
+
+  return createAccordionItem('Traffic Cameras', content, false);
 }
 
 /**

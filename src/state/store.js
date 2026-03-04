@@ -166,6 +166,14 @@ export const state = {
   trainStationsLastFetch: null,
   trainStationsError: null,
 
+  // Traffic camera overlay
+  trafficCameraEnabled: false,
+  trafficCameraLayer: { main: null, left: null, right: null },
+  trafficCameraFeatures: [],
+  trafficCameraError: null,
+  trafficCameraLastFetch: null,
+  trafficCameraPresetIndex: {},
+
   // GPX overlay
   gpxEnabled: false,                  // Master toggle
   gpxFiles: [],                       // Array of loaded GPX file metadata
@@ -195,4 +203,3 @@ export const state = {
   uasError: null,                      // { type, message, time }
   uasLastFetch: null                   // Timestamp of last successful fetch
 };
-
