@@ -198,4 +198,30 @@ test.describe('Traffic Cameras Overlay', () => {
 
     await expect(page.locator('.traffic-camera-popup')).toBeVisible({ timeout: 10000 });
   });
+
+  test('shows a readable message when the camera image request fails', async ({ page }) => {
+    await page.route('**/weathercam.digitraffic.fi/*.jpg', async route => {
+      await route.abort();
+    });
+
+    await signIn(page);
+    await page.click('#layers-toggle');
+
+    const accordionHeader = page.locator('.header-accordion-item')
+      .filter({ hasText: 'Traffic Cameras' })
+      .locator('.header-accordion-header');
+    await accordionHeader.click();
+
+    await page.check('#traffic-cameras-enabled');
+    await page.click('#layers-toggle');
+
+    const map = page.locator('#map');
+    const box = await map.boundingBox();
+    if (!box) {
+      throw new Error('Map bounding box not available');
+    }
+    await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+
+    await expect(page.locator('.traffic-camera-popup')).toContainText('Image failed to load');
+  });
 });
