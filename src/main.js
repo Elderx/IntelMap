@@ -330,6 +330,7 @@ async function bootstrap() {
       state.trainLocationsEnabled = true;
       setTimeout(() => {
         import('./trains/trainLocationsManager.js').then(m => m.startTrainLocationUpdates());
+        import('./trains/trainLocationsInteractions.js').then(m => m.setupTrainLocationClickHandlers());
       }, 100);
     }
     if (params.trainStations === '1') {

@@ -64,6 +64,41 @@ const STATIONS = {
   ]
 };
 
+const TRAIN_DETAIL = [
+  {
+    trainNumber: 7,
+    departureDate: '2026-03-04',
+    commuterLineID: '',
+    operatorShortCode: 'vr',
+    trainType: 'IC',
+    trainCategory: 'Long-distance',
+    runningCurrently: true,
+    cancelled: false,
+    timeTableRows: [
+      {
+        stationShortCode: 'HKI',
+        type: 'DEPARTURE',
+        scheduledTime: '2026-03-04T16:54:00.000Z',
+        liveEstimateTime: null,
+        actualTime: '2026-03-04T16:55:00.000Z',
+        commercialStop: true,
+        commercialTrack: '7',
+        cancelled: false
+      },
+      {
+        stationShortCode: 'PSL',
+        type: 'ARRIVAL',
+        scheduledTime: '2026-03-04T16:59:00.000Z',
+        liveEstimateTime: null,
+        actualTime: null,
+        commercialStop: true,
+        commercialTrack: '4',
+        cancelled: false
+      }
+    ]
+  }
+];
+
 async function mockTrainApis(page) {
   await page.route('**/train-locations.geojson/latest/**', async route => {
     await route.fulfill({ json: LIVE_TRAINS });
@@ -82,6 +117,12 @@ async function mockTrainLocationPolling(page) {
     callCount += 1;
     const payload = callCount === 1 ? LIVE_TRAINS : LIVE_TRAINS_REFRESHED;
     await route.fulfill({ json: payload });
+  });
+}
+
+async function mockTrainDetail(page) {
+  await page.route('**/trains/latest/7', async route => {
+    await route.fulfill({ json: TRAIN_DETAIL });
   });
 }
 
@@ -106,6 +147,29 @@ async function openLayersAccordion(page, title) {
     .filter({ hasText: title })
     .locator('.header-accordion-header');
   await item.click();
+}
+
+async function clickRenderedFeature(page, stateKey, selector = '#map', mapKey = 'main', index = 0) {
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(async ({ featureStateKey, featureIndex }) => {
+    const { state } = await import('/src/state/store.js');
+    return Array.isArray(state[featureStateKey]) && Boolean(state[featureStateKey][featureIndex]);
+  }, { featureStateKey: stateKey, featureIndex: index });
+
+  const pixel = await page.evaluate(async ({ featureStateKey, currentMapKey, featureIndex }) => {
+    const { state } = await import('/src/state/store.js');
+    const map = currentMapKey === 'main'
+      ? state.map
+      : currentMapKey === 'left'
+        ? state.leftMap
+        : state.rightMap;
+    const feature = state[featureStateKey][featureIndex];
+    return map.getPixelFromCoordinate(feature.getGeometry().getCoordinates());
+  }, { featureStateKey: stateKey, currentMapKey: mapKey, featureIndex: index });
+
+  const viewport = page.locator(`${selector} .ol-viewport`);
+  const box = await viewport.boundingBox();
+  await page.mouse.click(box.x + pixel[0], box.y + pixel[1]);
 }
 
 test.describe('Train Overlays', () => {
@@ -148,5 +212,21 @@ test.describe('Train Overlays', () => {
 
     await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (1)', { timeout: 10000 });
     await expect(page.locator('.active-layers-panel')).toContainText('Train Locations (2)', { timeout: 12000 });
+  });
+
+  test('opens a live train popup with detail', async ({ page }) => {
+    await mockTrainDetail(page);
+    await signIn(page);
+
+    await openLayersAccordion(page, 'Train Locations');
+    await page.check('#train-locations-enabled');
+    await clickRenderedFeature(page, 'trainLocationFeatures');
+
+    const popup = page.locator('.train-location-popup');
+    await expect(popup).toContainText('Train 7', { timeout: 10000 });
+    await expect(popup).toContainText('IC', { timeout: 10000 });
+    await expect(popup).toContainText('Long-distance', { timeout: 10000 });
+    await expect(popup).toContainText('HKI', { timeout: 10000 });
+    await expect(popup).toContainText('Track 7', { timeout: 10000 });
   });
 });

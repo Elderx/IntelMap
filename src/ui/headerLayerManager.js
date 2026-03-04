@@ -11,6 +11,7 @@ import { updatePermalinkWithFeatures } from '../map/permalink.js';
 import { toggleLayerGroup } from './layerGroupMenu.js';
 import { startTrainLocationUpdates, stopTrainLocationUpdates } from '../trains/trainLocationsManager.js';
 import { startTrainStations, stopTrainStations } from '../trains/trainStationsManager.js';
+import { setupTrainLocationClickHandlers, cleanupTrainLocationInteractions } from '../trains/trainLocationsInteractions.js';
 import '../styles/trains.css';
 
 // AIS imports
@@ -563,7 +564,9 @@ function createTrainLocationsAccordion() {
       state.trainLocationsEnabled = checked;
       if (checked) {
         await startTrainLocationUpdates();
+        setupTrainLocationClickHandlers();
       } else {
+        cleanupTrainLocationInteractions();
         stopTrainLocationUpdates();
       }
       updateHeaderActiveLayers();
