@@ -19,10 +19,10 @@ import { setupTrainStationClickHandlers, cleanupTrainStationInteractions } from 
 import '../styles/trains.css';
 
 // AIS imports
-import { startAisUpdates, stopAisUpdates } from '../ais/aisManager.js';
+import { startAisUpdates, stopAisUpdates, refreshAisRenderedFeatures } from '../ais/aisManager.js';
 import { setupAisClickHandlers, cleanupAisInteractions } from '../ais/aisInteractions.js';
 import { setAisVesselSelected } from '../ais/aisSelection.js';
-import { loadAisTracksForSelection } from '../ais/aisTracksManager.js';
+import { clearAisTracks, syncAisTracksWithCurrentSelection } from '../ais/aisTracksManager.js';
 import '../styles/ais.css';
 
 // Weather imports
@@ -643,6 +643,9 @@ function createAisAccordion() {
     state.aisTrackRangeFollowNow = false;
     state.aisTrackRangeStart = parseInputToIso(startInput.value);
     state.aisTrackRangeEnd = parseInputToIso(endInput.value);
+    if (state.aisTrackAutoRenderEnabled) {
+      syncAisTracksWithCurrentSelection();
+    }
   };
   const applyPresetTrackRange = (minutes) => {
     const end = new Date();
@@ -652,6 +655,9 @@ function createAisAccordion() {
     state.aisTrackRangeEnd = end.toISOString();
     startInput.value = formatDateTimeInput(start);
     endInput.value = formatDateTimeInput(end);
+    if (state.aisTrackAutoRenderEnabled) {
+      syncAisTracksWithCurrentSelection();
+    }
   };
 
   startInput.addEventListener('input', setManualTrackRangeMode);
@@ -711,19 +717,38 @@ function createAisAccordion() {
   rangeGrid.append(startInput, endInput);
   content.appendChild(rangeGrid);
 
-  const loadTracksBtn = document.createElement('button');
-  assignIdIfMissing(loadTracksBtn, 'ais-load-tracks-btn');
-  loadTracksBtn.type = 'button';
-  loadTracksBtn.className = 'btn btn-primary';
-  loadTracksBtn.textContent = 'Load Tracks';
-  loadTracksBtn.style.width = '100%';
-  loadTracksBtn.style.marginTop = '8px';
-  loadTracksBtn.addEventListener('click', async () => {
-    const start = parseInputToIso(startInput.value);
-    const end = parseInputToIso(endInput.value);
-    await loadAisTracksForSelection({ start, end });
-  });
-  content.appendChild(loadTracksBtn);
+  const showTracksRow = createCheckboxRow(
+    'Show Tracks',
+    state.aisTrackAutoRenderEnabled,
+    async (checked) => {
+      state.aisTrackAutoRenderEnabled = checked;
+      if (checked) {
+        state.aisTrackRangeStart = parseInputToIso(startInput.value);
+        state.aisTrackRangeEnd = parseInputToIso(endInput.value);
+        await syncAisTracksWithCurrentSelection();
+        return;
+      }
+      clearAisTracks({ preserveRange: true });
+    },
+    'ais-show-tracks-toggle'
+  );
+  showTracksRow.style.marginTop = '8px';
+  content.appendChild(showTracksRow);
+
+  const showOnlySelectedRow = createCheckboxRow(
+    'Show only selected',
+    state.aisShowOnlySelected,
+    async (checked) => {
+      state.aisShowOnlySelected = checked;
+      refreshAisRenderedFeatures();
+      if (state.aisTrackAutoRenderEnabled) {
+        await syncAisTracksWithCurrentSelection();
+      }
+    },
+    'ais-show-only-selected-toggle'
+  );
+  showOnlySelectedRow.style.marginTop = '4px';
+  content.appendChild(showOnlySelectedRow);
 
   const item = createAccordionItem('🚢 Ships', content, false);
   const header = item.querySelector('.header-accordion-header');

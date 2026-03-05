@@ -114,6 +114,7 @@ async function installMockAisBroker(page, options = {}) {
 async function installAisApiMocks(page, options = {}) {
   const settingsPatchBodies = [];
   const aisBatchBodies = [];
+  const aisTrackRequests = [];
 
   const settings = {
     aisPersistenceEnabled: options.aisPersistenceEnabled ?? false
@@ -187,6 +188,18 @@ async function installAisApiMocks(page, options = {}) {
       await route.continue();
       return;
     }
+    const url = new URL(request.url());
+    const rawMmsis = url.searchParams.get('mmsis') || '';
+    const mmsis = rawMmsis
+      .split(',')
+      .map((value) => value.trim())
+      .filter(Boolean)
+      .sort();
+    aisTrackRequests.push({
+      mmsis,
+      start: url.searchParams.get('start'),
+      end: url.searchParams.get('end')
+    });
 
     await route.fulfill({
       status: 200,
@@ -231,7 +244,7 @@ async function installAisApiMocks(page, options = {}) {
     });
   });
 
-  return { settingsPatchBodies, aisBatchBodies };
+  return { settingsPatchBodies, aisBatchBodies, aisTrackRequests };
 }
 
 async function signIn(page, path = '/') {
@@ -308,6 +321,40 @@ async function setAisToggle(page, checked) {
 
   await expect.poll(async () => {
     return await page.evaluate(() => Boolean(window.__INTELMAP_APP_STATE__?.aisEnabled));
+  }).toBe(checked);
+}
+
+async function setAisShowTracksToggle(page, checked) {
+  await getAisAccordionContent(page);
+  await page.evaluate(({ nextChecked }) => {
+    const toggles = Array.from(document.querySelectorAll('#ais-show-tracks-toggle'));
+    const target = toggles.find((node) => node.offsetParent !== null) || toggles[0];
+    if (!target) {
+      throw new Error('AIS Show Tracks toggle not found');
+    }
+    target.checked = nextChecked;
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { nextChecked: checked });
+
+  await expect.poll(async () => {
+    return await page.evaluate(() => Boolean(window.__INTELMAP_APP_STATE__?.aisTrackAutoRenderEnabled));
+  }).toBe(checked);
+}
+
+async function setAisShowOnlySelectedToggle(page, checked) {
+  await getAisAccordionContent(page);
+  await page.evaluate(({ nextChecked }) => {
+    const toggles = Array.from(document.querySelectorAll('#ais-show-only-selected-toggle'));
+    const target = toggles.find((node) => node.offsetParent !== null) || toggles[0];
+    if (!target) {
+      throw new Error('AIS Show only selected toggle not found');
+    }
+    target.checked = nextChecked;
+    target.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { nextChecked: checked });
+
+  await expect.poll(async () => {
+    return await page.evaluate(() => Boolean(window.__INTELMAP_APP_STATE__?.aisShowOnlySelected));
   }).toBe(checked);
 }
 
@@ -626,9 +673,82 @@ test.describe('AIS Ships Overlay', () => {
     }).toBe(2);
   });
 
-  test('draws tracks for selected ships and shows playback slider', async ({ page }) => {
+  test('filters rendered vessels when Show only selected is enabled', async ({ page }) => {
     await installMockAisBroker(page);
     await installAisApiMocks(page, {
+      latestLocations: {
+        230145250: {
+          mmsi: '230145250',
+          lon: 24.94,
+          lat: 60.19,
+          observedAt: new Date().toISOString()
+        },
+        230145251: {
+          mmsi: '230145251',
+          lon: 25.0,
+          lat: 60.23,
+          observedAt: new Date().toISOString()
+        }
+      }
+    });
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await emitMetadata(page, '230145250', createMetadataMessage({ name: 'ARUNA CIHAN' }));
+    await emitLocation(page, '230145250', createLocationMessage({ lon: 24.94, lat: 60.19 }));
+    await emitMetadata(page, '230145251', createMetadataMessage({ name: 'BALTIC STAR', type: 80 }));
+    await emitLocation(page, '230145251', createLocationMessage({ lon: 25.0, lat: 60.23, heading: 90 }));
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }).toBe(2);
+
+    await setAisShowOnlySelectedToggle(page, true);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }).toBe(0);
+
+    await setAisInputValue(page, '#ais-mmsi-search-input', '230145250');
+    await clickAisButton(page, '#ais-mmsi-search-btn');
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const state = window.__INTELMAP_APP_STATE__;
+        return {
+          count: state.aisFeatures?.length || 0,
+          mmsis: (state.aisFeatures || []).map((feature) => String(feature.get('mmsi'))).sort()
+        };
+      });
+    }).toEqual({
+      count: 1,
+      mmsis: ['230145250']
+    });
+
+    await setAisInputValue(page, '#ais-mmsi-search-input', '230145251');
+    await clickAisButton(page, '#ais-mmsi-search-btn');
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => {
+        const state = window.__INTELMAP_APP_STATE__;
+        return {
+          count: state.aisFeatures?.length || 0,
+          mmsis: (state.aisFeatures || []).map((feature) => String(feature.get('mmsi'))).sort()
+        };
+      });
+    }).toEqual({
+      count: 2,
+      mmsis: ['230145250', '230145251']
+    });
+
+    await setAisShowOnlySelectedToggle(page, false);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }).toBe(2);
+  });
+
+  test('toggles Show Tracks and auto-refreshes tracks on selection changes', async ({ page }) => {
+    await installMockAisBroker(page);
+    const { aisTrackRequests } = await installAisApiMocks(page, {
       tracksResponse: {
         tracks: [
           {
@@ -671,7 +791,9 @@ test.describe('AIS Ships Overlay', () => {
 
     await setAisInputValue(page, '#ais-track-start', '2026-03-04T10:00');
     await setAisInputValue(page, '#ais-track-end', '2026-03-04T10:10');
-    await clickAisButton(page, '#ais-load-tracks-btn');
+    const content = await getAisAccordionContent(page);
+    await expect(content.locator('#ais-show-tracks-toggle')).toHaveCount(1);
+    await setAisShowTracksToggle(page, true);
 
     const playbackBar = page.locator('#ais-playback-bar');
     await expect(playbackBar).toBeVisible({ timeout: 10000 });
@@ -680,6 +802,39 @@ test.describe('AIS Ships Overlay', () => {
     await expect.poll(async () => {
       return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisTrackFeatures?.length || 0);
     }).toBe(2);
+
+    await expect.poll(() => aisTrackRequests.length, { timeout: 10000 }).toBeGreaterThanOrEqual(1);
+    const selectedRange = await page.evaluate(() => {
+      const state = window.__INTELMAP_APP_STATE__;
+      return {
+        start: state?.aisTrackRangeStart || null,
+        end: state?.aisTrackRangeEnd || null
+      };
+    });
+    expect(aisTrackRequests[aisTrackRequests.length - 1]).toMatchObject({
+      mmsis: ['230145250', '230145251'],
+      start: selectedRange.start,
+      end: selectedRange.end
+    });
+
+    await clickRenderedFeature(page, 'main', 1);
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => Array.from(window.__INTELMAP_APP_STATE__.aisSelectedMmsi || []).sort());
+    }).toEqual(['230145250']);
+
+    await expect.poll(() => aisTrackRequests.length, { timeout: 10000 }).toBeGreaterThanOrEqual(2);
+    expect(aisTrackRequests[aisTrackRequests.length - 1]).toMatchObject({
+      mmsis: ['230145250'],
+      start: selectedRange.start,
+      end: selectedRange.end
+    });
+
+    await setAisShowTracksToggle(page, false);
+    await expect(playbackBar).toBeHidden({ timeout: 10000 });
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisTrackFeatures?.length || 0);
+    }).toBe(0);
   });
 
   test('auto-refreshes default AIS track range time values', async ({ page }) => {

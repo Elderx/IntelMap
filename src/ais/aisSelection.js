@@ -15,6 +15,30 @@ function refreshActiveLayersPanel() {
   });
 }
 
+function syncTracksForSelectionChange() {
+  if (!state.aisTrackAutoRenderEnabled) {
+    return;
+  }
+
+  import('./aisTracksManager.js')
+    .then(({ syncAisTracksWithCurrentSelection }) => syncAisTracksWithCurrentSelection())
+    .catch((error) => {
+      console.warn('[AIS] Failed to sync tracks after selection change:', error);
+    });
+}
+
+function syncVisibleAisFeaturesForSelectionChange() {
+  if (!state.aisShowOnlySelected) {
+    return;
+  }
+
+  import('./aisManager.js')
+    .then(({ refreshAisRenderedFeatures }) => refreshAisRenderedFeatures())
+    .catch((error) => {
+      console.warn('[AIS] Failed to refresh filtered vessels after selection change:', error);
+    });
+}
+
 export function isAisVesselSelected(mmsi) {
   return state.aisSelectedMmsi.has(String(mmsi));
 }
@@ -31,6 +55,8 @@ export function setAisVesselSelected(mmsi, selected) {
 
   syncFeatureSelectionFlag(id, selected);
   refreshActiveLayersPanel();
+  syncTracksForSelectionChange();
+  syncVisibleAisFeaturesForSelectionChange();
 }
 
 export function toggleAisVesselSelection(mmsi) {

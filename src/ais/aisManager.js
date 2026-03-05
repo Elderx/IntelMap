@@ -66,7 +66,15 @@ function removeLayers() {
 }
 
 function renderAisFeatures() {
-  const features = Array.from(state.aisVesselsByMmsi.values())
+  const visibleVessels = Array.from(state.aisVesselsByMmsi.values())
+    .filter((vessel) => {
+      if (!state.aisShowOnlySelected) {
+        return true;
+      }
+      return state.aisSelectedMmsi.has(String(vessel?.mmsi));
+    });
+
+  const features = visibleVessels
     .map(vesselToFeature)
     .filter(Boolean)
     .sort((left, right) => left.get('mmsi').localeCompare(right.get('mmsi')));
@@ -275,6 +283,8 @@ export function stopAisUpdates() {
   state.aisConnected = false;
   state.aisFeatures = [];
   state.aisVesselsByMmsi = new Map();
+  state.aisTrackAutoRenderEnabled = false;
+  state.aisShowOnlySelected = false;
   clearAisSelection();
   clearAisTracks();
   state.aisError = null;
@@ -297,5 +307,12 @@ export function rebuildAisLayers() {
 
   removeLayers();
   attachLayers();
+  renderAisFeatures();
+}
+
+export function refreshAisRenderedFeatures() {
+  if (!state.aisEnabled) {
+    return;
+  }
   renderAisFeatures();
 }
