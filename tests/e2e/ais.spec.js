@@ -423,6 +423,45 @@ async function clickRenderedFeature(page, mapKey = 'main', index = 0) {
   }, { currentMapKey: mapKey, featureIndex: index });
 }
 
+async function hoverRenderedFeature(page, mapKey = 'main', index = 0) {
+  await page.waitForFunction(({ featureIndex }) => {
+    const state = window.__INTELMAP_APP_STATE__;
+    return Array.isArray(state?.aisFeatures) && Boolean(state.aisFeatures[featureIndex]);
+  }, { featureIndex: index });
+
+  const pixel = await page.evaluate(({ currentMapKey, featureIndex }) => {
+    const state = window.__INTELMAP_APP_STATE__;
+    const map = currentMapKey === 'main'
+      ? state.map
+      : currentMapKey === 'left'
+        ? state.leftMap
+        : state.rightMap;
+    const feature = state.aisFeatures[featureIndex];
+    const coordinate = feature.getGeometry().getCoordinates();
+    return map.getPixelFromCoordinate(coordinate);
+  }, { currentMapKey: mapKey, featureIndex: index });
+
+  const viewportSelector = mapKey === 'main'
+    ? '#map .ol-viewport'
+    : mapKey === 'left'
+      ? '#map-left .ol-viewport'
+      : '#map-right .ol-viewport';
+  const viewport = page.locator(viewportSelector);
+  const box = await viewport.boundingBox();
+  await page.mouse.move(box.x + pixel[0], box.y + pixel[1]);
+}
+
+async function movePointerAway(page, mapKey = 'main') {
+  const viewportSelector = mapKey === 'main'
+    ? '#map .ol-viewport'
+    : mapKey === 'left'
+      ? '#map-left .ol-viewport'
+      : '#map-right .ol-viewport';
+  const viewport = page.locator(viewportSelector);
+  const box = await viewport.boundingBox();
+  await page.mouse.move(box.x + 5, box.y + 5);
+}
+
 async function enableAisOverlay(page) {
   await setAisToggle(page, true);
 }
@@ -568,6 +607,27 @@ test.describe('AIS Ships Overlay', () => {
 
     const accordionContent = await getAisAccordionContent(page);
     await expect(accordionContent.locator('#ais-mmsi-search-input')).toHaveValue('230145250');
+  });
+
+  test('shows AIS popup details on vessel hover', async ({ page }) => {
+    await installMockAisBroker(page);
+    await signIn(page);
+    await enableAisOverlay(page);
+    await page.click('#layers-toggle');
+
+    await emitMetadata(page, '230145250', createMetadataMessage());
+    await emitLocation(page, '230145250', createLocationMessage());
+    await hoverRenderedFeature(page);
+
+    const hoverPopup = page.locator('.ais-popup-hover');
+    await expect(hoverPopup).toContainText('ARUNA CIHAN', { timeout: 10000 });
+    await expect(hoverPopup).toContainText('230145250', { timeout: 10000 });
+    await expect(hoverPopup).toContainText('9543756', { timeout: 10000 });
+    await expect(hoverPopup).toContainText('UST LUGA', { timeout: 10000 });
+    await expect(hoverPopup).toContainText('V7WW7', { timeout: 10000 });
+
+    await movePointerAway(page);
+    await expect(hoverPopup).toBeHidden({ timeout: 10000 });
   });
 
   test('keeps AIS vessels working after switching to split view', async ({ page }) => {
