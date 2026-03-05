@@ -120,6 +120,7 @@ export const state = {
   mapLegendPanel: null,
   mapLegendBody: null,
   mapLegendSections: new Map(),
+  mapLegendCollapsed: true,
 
   // Aircraft overlay state
   aircraftLayer: { main: null, left: null, right: null },
@@ -160,6 +161,8 @@ export const state = {
   aisTrackRangeNowTimer: null,
   aisTrackAutoRenderEnabled: false,
   aisShowOnlySelected: false,
+  aisTypeFilterMode: 'all',
+  aisVisibleTypeKeys: new Set(),
   aisTrackLoading: false,
   aisTrackError: null,
   aisTrackPlaybackTimestamps: [],
