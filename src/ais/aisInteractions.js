@@ -5,6 +5,8 @@ import { isAisVesselSelected, toggleAisVesselSelection } from './aisSelection.js
 
 const popupOverlays = { main: null, left: null, right: null };
 const clickKeys = { main: null, left: null, right: null };
+const hoverOverlays = { main: null, left: null, right: null };
+const hoverKeys = { main: null, left: null, right: null };
 
 function getMap(mapKey) {
   return mapKey === 'main' ? state.map : mapKey === 'left' ? state.leftMap : state.rightMap;
@@ -34,6 +36,18 @@ function findAisFeatureNearPixel(map, pixel, maxDistance = 18) {
   return closestFeature;
 }
 
+function findAisFeatureAtPixel(map, pixel) {
+  let feature = map.forEachFeatureAtPixel(pixel, (candidate) => {
+    return candidate.get('isAisVessel') ? candidate : null;
+  });
+
+  if (!feature) {
+    feature = findAisFeatureNearPixel(map, pixel);
+  }
+
+  return feature;
+}
+
 function formatTimestamp(value) {
   if (!value) {
     return '-';
@@ -57,12 +71,12 @@ function populateAisSearchField(mmsi) {
   });
 }
 
-function buildPopupContent(feature) {
+function buildPopupContent(feature, mode = 'click') {
   const selected = isAisVesselSelected(feature.get('mmsi'));
   const mmsi = String(feature.get('mmsi') || '');
   const vesselFinderUrl = `https://www.vesselfinder.com/?mmsi=${encodeURIComponent(mmsi)}`;
   const container = document.createElement('div');
-  container.className = 'ais-popup';
+  container.className = `ais-popup ais-popup-${mode}`;
   container.innerHTML = `
     <h3>${feature.get('name')}</h3>
     <table class="ais-popup-table">
@@ -112,7 +126,7 @@ function showPopup(feature, mapKey, coordinate) {
   }
 
   const overlay = new Overlay({
-    element: buildPopupContent(feature),
+    element: buildPopupContent(feature, 'click'),
     position: coordinate,
     positioning: 'bottom-center',
     stopEvent: true,
@@ -121,6 +135,34 @@ function showPopup(feature, mapKey, coordinate) {
 
   map.addOverlay(overlay);
   popupOverlays[mapKey] = overlay;
+}
+
+function showHoverPopup(feature, mapKey, coordinate) {
+  const map = getMap(mapKey);
+  if (!map) {
+    return;
+  }
+
+  if (!hoverOverlays[mapKey]) {
+    hoverOverlays[mapKey] = new Overlay({
+      element: document.createElement('div'),
+      positioning: 'bottom-center',
+      stopEvent: false
+    });
+    map.addOverlay(hoverOverlays[mapKey]);
+  }
+
+  const hoverOverlay = hoverOverlays[mapKey];
+  const content = buildPopupContent(feature, 'hover');
+  hoverOverlay.getElement().replaceChildren(content);
+  hoverOverlay.setPosition(coordinate);
+}
+
+function hideHoverPopup(mapKey) {
+  const hoverOverlay = hoverOverlays[mapKey];
+  if (hoverOverlay) {
+    hoverOverlay.setPosition(undefined);
+  }
 }
 
 export function setupAisClickHandlers() {
@@ -133,13 +175,7 @@ export function setupAisClickHandlers() {
     }
 
     clickKeys[mapKey] = map.on('click', (evt) => {
-      let feature = map.forEachFeatureAtPixel(evt.pixel, (candidate) => {
-        return candidate.get('isAisVessel') ? candidate : null;
-      });
-
-      if (!feature) {
-        feature = findAisFeatureNearPixel(map, evt.pixel);
-      }
+      const feature = findAisFeatureAtPixel(map, evt.pixel);
 
       if (!feature) {
         if (popupOverlays[mapKey]) {
@@ -152,6 +188,23 @@ export function setupAisClickHandlers() {
       toggleAisVesselSelection(feature.get('mmsi'));
       showPopup(feature, mapKey, feature.getGeometry().getCoordinates());
     });
+
+    hoverKeys[mapKey] = map.on('pointermove', (evt) => {
+      if (evt.dragging) {
+        hideHoverPopup(mapKey);
+        return;
+      }
+
+      const feature = findAisFeatureAtPixel(map, evt.pixel);
+      if (!feature) {
+        map.getTargetElement().style.cursor = '';
+        hideHoverPopup(mapKey);
+        return;
+      }
+
+      map.getTargetElement().style.cursor = 'pointer';
+      showHoverPopup(feature, mapKey, feature.getGeometry().getCoordinates());
+    });
   });
 }
 
@@ -163,10 +216,21 @@ export function cleanupAisInteractions() {
       unByKey(clickKeys[mapKey]);
       clickKeys[mapKey] = null;
     }
+    if (hoverKeys[mapKey]) {
+      unByKey(hoverKeys[mapKey]);
+      hoverKeys[mapKey] = null;
+    }
 
     if (map && popupOverlays[mapKey]) {
       map.removeOverlay(popupOverlays[mapKey]);
       popupOverlays[mapKey] = null;
+    }
+    if (map) {
+      map.getTargetElement().style.cursor = '';
+    }
+    if (map && hoverOverlays[mapKey]) {
+      map.removeOverlay(hoverOverlays[mapKey]);
+      hoverOverlays[mapKey] = null;
     }
   });
 }
