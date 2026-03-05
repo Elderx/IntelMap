@@ -8,6 +8,8 @@ import { Vector as VectorLayer } from 'ol/layer.js';
 import { state } from '../state/store.js';
 import { fetchAisTracks } from '../api/client.js';
 
+let activeTrackRequestId = 0;
+
 function refreshActiveLayersPanel() {
   import('../ui/activeLayers.js').then(({ updateActiveLayersPanel }) => {
     updateActiveLayersPanel();
@@ -388,25 +390,26 @@ function buildTrackFeatures(responseTracks) {
 }
 
 export async function loadAisTracksForSelection({ start, end }) {
+  const requestId = ++activeTrackRequestId;
   const mmsis = Array.from(state.aisSelectedMmsi);
+  state.aisTrackRangeStart = start || null;
+  state.aisTrackRangeEnd = end || null;
+
   if (!mmsis.length) {
     state.aisTrackError = 'No selected ships';
-    state.aisTrackFeatures = [];
-    state.aisTrackHeadFeatures = [];
-    state.aisTrackPlaybackTimestamps = [];
-    removePlaybackBar();
-    renderLayers();
+    clearAisTracks({ preserveRange: true });
     refreshActiveLayersPanel();
     return false;
   }
 
   state.aisTrackLoading = true;
   state.aisTrackError = null;
-  state.aisTrackRangeStart = start || null;
-  state.aisTrackRangeEnd = end || null;
   refreshActiveLayersPanel();
 
   const response = await fetchAisTracks({ mmsis, start, end });
+  if (requestId !== activeTrackRequestId) {
+    return false;
+  }
   state.aisTrackLoading = false;
 
   if (!response || !Array.isArray(response.tracks)) {
@@ -423,7 +426,29 @@ export async function loadAisTracksForSelection({ start, end }) {
   return true;
 }
 
-export function clearAisTracks() {
+export async function syncAisTracksWithCurrentSelection({ suppressNoSelectionError = true } = {}) {
+  const mmsis = Array.from(state.aisSelectedMmsi);
+  if (!mmsis.length) {
+    if (suppressNoSelectionError) {
+      state.aisTrackError = null;
+      clearAisTracks({ preserveRange: true });
+      refreshActiveLayersPanel();
+      return false;
+    }
+    return await loadAisTracksForSelection({
+      start: state.aisTrackRangeStart || null,
+      end: state.aisTrackRangeEnd || null
+    });
+  }
+
+  return await loadAisTracksForSelection({
+    start: state.aisTrackRangeStart || null,
+    end: state.aisTrackRangeEnd || null
+  });
+}
+
+export function clearAisTracks({ preserveRange = false } = {}) {
+  activeTrackRequestId += 1;
   stopAisPlayback();
   removePlaybackBar();
   removeLayers();
@@ -434,8 +459,11 @@ export function clearAisTracks() {
   state.aisTrackPlaybackIndex = 0;
   state.aisTrackError = null;
   state.aisTrackLoading = false;
-  state.aisTrackRangeStart = null;
-  state.aisTrackRangeEnd = null;
+  if (!preserveRange) {
+    state.aisTrackRangeStart = null;
+    state.aisTrackRangeEnd = null;
+    state.aisTrackAutoRenderEnabled = false;
+  }
 }
 
 export function rebuildAisTrackLayers() {

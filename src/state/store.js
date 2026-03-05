@@ -158,6 +158,8 @@ export const state = {
   aisTrackRangeEnd: null,
   aisTrackRangeFollowNow: true,
   aisTrackRangeNowTimer: null,
+  aisTrackAutoRenderEnabled: false,
+  aisShowOnlySelected: false,
   aisTrackLoading: false,
   aisTrackError: null,
   aisTrackPlaybackTimestamps: [],
