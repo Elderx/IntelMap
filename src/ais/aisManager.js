@@ -2,10 +2,94 @@ import { state } from '../state/store.js';
 import { AIS_OVERLAY_CONFIG, getAisOverlayRuntimeConfig } from '../config/constants.js';
 import { connectToAisMqtt } from '../api/aisMqtt.js';
 import { fetchAisSnapshot } from '../api/client.js';
-import { createAisLayer, vesselToFeature } from './aisLayer.js';
+import { createAisLayer, vesselToFeature, getAisLegendTypeKey } from './aisLayer.js';
 import { clearAisSelection } from './aisSelection.js';
 import { clearAisTracks } from './aisTracksManager.js';
 import { removeMapLegendSection, setMapLegendSection } from '../ui/mapLegend.js';
+
+const AIS_LEGEND_FILTER_ITEMS = [
+  { key: 'wingInGround', label: 'Wing in Ground (20-29)', color: AIS_OVERLAY_CONFIG.colors.wingInGround },
+  { key: 'fishing', label: 'Fishing (30)', color: AIS_OVERLAY_CONFIG.colors.fishing },
+  { key: 'towing', label: 'Towing (31-32)', color: AIS_OVERLAY_CONFIG.colors.towing },
+  { key: 'dredgingDiving', label: 'Dredging / Diving (33-34)', color: AIS_OVERLAY_CONFIG.colors.dredging },
+  { key: 'military', label: 'Military (35)', color: AIS_OVERLAY_CONFIG.colors.military },
+  { key: 'sailingPleasure', label: 'Sailing / Pleasure (36-37)', color: AIS_OVERLAY_CONFIG.colors.sailing },
+  { key: 'highSpeedCraft', label: 'High Speed Craft (40-49)', color: AIS_OVERLAY_CONFIG.colors.highSpeed },
+  { key: 'pilotTugPortTender', label: 'Pilot / Tug / Port Tender (50,52-53,56-57)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'searchRescue', label: 'Search and Rescue (51)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'antiPollution', label: 'Anti-pollution (54)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'lawEnforcement', label: 'Law Enforcement (55)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'medicalTransport', label: 'Medical Transport (58)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'noncombatant', label: 'Noncombatant (59)', color: AIS_OVERLAY_CONFIG.colors.specialCraft },
+  { key: 'passenger', label: 'Passenger (60-69)', color: AIS_OVERLAY_CONFIG.colors.passenger },
+  { key: 'cargo', label: 'Cargo (70-79)', color: AIS_OVERLAY_CONFIG.colors.cargo },
+  { key: 'tanker', label: 'Tanker (80-89)', color: AIS_OVERLAY_CONFIG.colors.tanker },
+  { key: 'otherType', label: 'Other Type (90-99)', color: AIS_OVERLAY_CONFIG.colors.other },
+  { key: 'unknownReserved', label: 'Not available / Reserved (0-19)', color: AIS_OVERLAY_CONFIG.colors.unknown }
+];
+
+function ensureAisTypeFilterState() {
+  if (!(state.aisVisibleTypeKeys instanceof Set)) {
+    state.aisVisibleTypeKeys = new Set();
+  }
+  if (state.aisTypeFilterMode !== 'all' && state.aisTypeFilterMode !== 'custom') {
+    state.aisTypeFilterMode = 'all';
+  }
+}
+
+function getAisTypeSelectionSummary() {
+  ensureAisTypeFilterState();
+  const totalCount = AIS_LEGEND_FILTER_ITEMS.length;
+  if (state.aisTypeFilterMode === 'all') {
+    return 'Selected types: none (showing all)';
+  }
+  const selectedCount = state.aisVisibleTypeKeys.size;
+  if (!selectedCount) {
+    return 'Selected types: none (showing none)';
+  }
+  return `Selected types: ${selectedCount}/${totalCount}`;
+}
+
+function applyAisTypeFilterChanges() {
+  enableAisLegend();
+  renderAisFeatures();
+}
+
+function setAisShowAllTypes() {
+  ensureAisTypeFilterState();
+  state.aisTypeFilterMode = 'all';
+  state.aisVisibleTypeKeys.clear();
+  applyAisTypeFilterChanges();
+}
+
+function setAisShowNoTypes() {
+  ensureAisTypeFilterState();
+  state.aisTypeFilterMode = 'custom';
+  state.aisVisibleTypeKeys.clear();
+  applyAisTypeFilterChanges();
+}
+
+function setAisTypeSelected(typeKey, selected) {
+  ensureAisTypeFilterState();
+  if (state.aisTypeFilterMode === 'all') {
+    if (!selected) {
+      return;
+    }
+    state.aisTypeFilterMode = 'custom';
+    state.aisVisibleTypeKeys.clear();
+    state.aisVisibleTypeKeys.add(typeKey);
+    applyAisTypeFilterChanges();
+    return;
+  }
+
+  if (selected) {
+    state.aisVisibleTypeKeys.add(typeKey);
+  } else {
+    state.aisVisibleTypeKeys.delete(typeKey);
+  }
+
+  applyAisTypeFilterChanges();
+}
 
 function updateAisLayer(mapKey, features) {
   const layer = state.aisLayer[mapKey];
@@ -66,8 +150,16 @@ function removeLayers() {
 }
 
 function renderAisFeatures() {
+  ensureAisTypeFilterState();
+
   const visibleVessels = Array.from(state.aisVesselsByMmsi.values())
     .filter((vessel) => {
+      if (state.aisTypeFilterMode === 'custom') {
+        const typeKey = getAisLegendTypeKey(vessel?.metadata?.type);
+        if (!state.aisVisibleTypeKeys.has(typeKey)) {
+          return false;
+        }
+      }
       if (!state.aisShowOnlySelected) {
         return true;
       }
@@ -210,14 +302,40 @@ async function loadAisSnapshotFromHistory() {
 }
 
 function enableAisLegend() {
+  ensureAisTypeFilterState();
+  const isShowingAll = state.aisTypeFilterMode === 'all';
+  const isShowingNone = state.aisTypeFilterMode === 'custom' && state.aisVisibleTypeKeys.size === 0;
+
   setMapLegendSection('ais', {
-    title: 'Ships (AIS)',
+    title: `Ships (AIS) • ${getAisTypeSelectionSummary()}`,
     items: [
-      { label: 'Passenger', color: AIS_OVERLAY_CONFIG.colors.passenger },
-      { label: 'Cargo', color: AIS_OVERLAY_CONFIG.colors.cargo },
-      { label: 'Tanker', color: AIS_OVERLAY_CONFIG.colors.tanker },
-      { label: 'Service', color: AIS_OVERLAY_CONFIG.colors.service },
-      { label: 'Unknown', color: AIS_OVERLAY_CONFIG.colors.unknown }
+      {
+        label: 'Show all',
+        selectable: true,
+        selected: isShowingAll,
+        onToggle: (checked) => {
+          if (checked) {
+            setAisShowAllTypes();
+          }
+        }
+      },
+      {
+        label: 'Show none',
+        selectable: true,
+        selected: isShowingNone,
+        onToggle: (checked) => {
+          if (checked) {
+            setAisShowNoTypes();
+          }
+        }
+      },
+      ...AIS_LEGEND_FILTER_ITEMS.map((item) => ({
+        label: item.label,
+        color: item.color,
+        selectable: true,
+        selected: !isShowingAll && state.aisVisibleTypeKeys.has(item.key),
+        onToggle: (checked) => setAisTypeSelected(item.key, checked)
+      }))
     ]
   });
 }
@@ -283,6 +401,8 @@ export function stopAisUpdates() {
   state.aisConnected = false;
   state.aisFeatures = [];
   state.aisVesselsByMmsi = new Map();
+  state.aisTypeFilterMode = 'all';
+  state.aisVisibleTypeKeys = new Set();
   state.aisTrackAutoRenderEnabled = false;
   state.aisShowOnlySelected = false;
   clearAisSelection();

@@ -99,9 +99,18 @@ export const AIS_OVERLAY_CONFIG = {
   persistenceBatchSize: 200,
   zIndex: 105,
   colors: {
+    wingInGround: '#6d4c41',
+    fishing: '#00897b',
+    towing: '#5e35b1',
+    dredging: '#7cb342',
+    military: '#546e7a',
+    sailing: '#00acc1',
+    highSpeed: '#8e24aa',
+    specialCraft: '#ef6c00',
     passenger: '#1565c0',
     cargo: '#2e7d32',
     tanker: '#c62828',
+    other: '#6a1b9a',
     service: '#f9a825',
     unknown: '#455a64'
   }

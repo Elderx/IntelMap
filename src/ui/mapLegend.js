@@ -9,9 +9,24 @@ function ensureLegendPanel() {
   panel.className = 'map-legend-panel';
   panel.style.display = 'none';
 
-  const title = document.createElement('div');
+  const title = document.createElement('button');
+  title.type = 'button';
   title.className = 'map-legend-panel-title';
-  title.textContent = 'Legend';
+  title.setAttribute('aria-expanded', 'true');
+
+  const titleText = document.createElement('span');
+  titleText.className = 'map-legend-panel-title-text';
+  titleText.textContent = 'Legend';
+
+  const chevron = document.createElement('span');
+  chevron.className = 'map-legend-panel-chevron';
+  chevron.setAttribute('aria-hidden', 'true');
+
+  title.append(titleText, chevron);
+  title.addEventListener('click', () => {
+    state.mapLegendCollapsed = !state.mapLegendCollapsed;
+    renderLegendPanel();
+  });
 
   const body = document.createElement('div');
   body.className = 'map-legend-panel-body';
@@ -28,6 +43,8 @@ function ensureLegendPanel() {
 function renderLegendPanel() {
   const panel = ensureLegendPanel();
   const body = state.mapLegendBody;
+  const title = panel.querySelector('.map-legend-panel-title');
+  const chevron = panel.querySelector('.map-legend-panel-chevron');
 
   body.innerHTML = '';
 
@@ -50,8 +67,27 @@ function renderLegendPanel() {
     }
 
     (section.items || []).forEach((item) => {
-      const row = document.createElement('div');
+      const row = document.createElement(item.selectable ? 'label' : 'div');
       row.className = 'map-legend-row';
+      if (item.selectable) {
+        row.classList.add('map-legend-row-selectable');
+      }
+      if (item.selected) {
+        row.classList.add('is-selected');
+      }
+
+      if (item.selectable) {
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'map-legend-checkbox';
+        checkbox.checked = Boolean(item.selected);
+        checkbox.addEventListener('change', () => {
+          if (typeof item.onToggle === 'function') {
+            item.onToggle(checkbox.checked);
+          }
+        });
+        row.appendChild(checkbox);
+      }
 
       if (item.color) {
         const swatch = document.createElement('span');
@@ -61,6 +97,7 @@ function renderLegendPanel() {
       }
 
       const label = document.createElement('span');
+      label.className = 'map-legend-label';
       label.textContent = item.label;
       row.appendChild(label);
 
@@ -69,6 +106,16 @@ function renderLegendPanel() {
 
     body.appendChild(wrapper);
   });
+
+  const collapsed = Boolean(state.mapLegendCollapsed);
+  panel.classList.toggle('is-collapsed', collapsed);
+  body.style.display = collapsed ? 'none' : 'grid';
+  if (title) {
+    title.setAttribute('aria-expanded', String(!collapsed));
+  }
+  if (chevron) {
+    chevron.textContent = collapsed ? '▸' : '▾';
+  }
 
   panel.style.display = 'block';
 }

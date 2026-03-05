@@ -462,6 +462,47 @@ async function movePointerAway(page, mapKey = 'main') {
   await page.mouse.move(box.x + 5, box.y + 5);
 }
 
+async function expandLegendPanel(page) {
+  const legend = page.locator('.map-legend-panel');
+  await expect(legend).toBeVisible();
+  const legendTitle = legend.locator('.map-legend-panel-title');
+  if (await legend.evaluate((node) => node.classList.contains('is-collapsed'))) {
+    await legendTitle.click();
+    await expect(legend).not.toHaveClass(/is-collapsed/);
+  }
+  return legend;
+}
+
+async function setLegendTypeChecked(page, labelText, checked) {
+  await page.evaluate(({ label, nextChecked }) => {
+    const rows = Array.from(document.querySelectorAll('.map-legend-section[data-legend-id="ais"] .map-legend-row'));
+    const row = rows.find((node) => node.textContent?.includes(label));
+    if (!row) {
+      throw new Error(`Legend row not found: ${label}`);
+    }
+    const checkbox = row.querySelector('.map-legend-checkbox');
+    if (!checkbox) {
+      throw new Error(`Legend checkbox not found for: ${label}`);
+    }
+    if (checkbox.checked === nextChecked) {
+      return;
+    }
+    checkbox.checked = nextChecked;
+    checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+  }, { label: labelText, nextChecked: checked });
+}
+
+async function expectLegendCheckboxState(page, labelText, checked) {
+  await expect.poll(async () => {
+    return await page.evaluate(({ label }) => {
+      const rows = Array.from(document.querySelectorAll('.map-legend-section[data-legend-id="ais"] .map-legend-row'));
+      const row = rows.find((node) => node.textContent?.includes(label));
+      const checkbox = row?.querySelector('.map-legend-checkbox');
+      return Boolean(checkbox?.checked);
+    }, { label: labelText });
+  }).toBe(checked);
+}
+
 async function enableAisOverlay(page) {
   await setAisToggle(page, true);
 }
@@ -502,16 +543,101 @@ test.describe('AIS Ships Overlay', () => {
     await enableAisOverlay(page);
 
     await expect(legend).toBeVisible();
+    await expect(legend).toHaveClass(/is-collapsed/);
+
+    const legendTitle = legend.locator('.map-legend-panel-title');
+    await legendTitle.click();
+    await expect(legend).not.toHaveClass(/is-collapsed/);
+
     await expect(legend).toContainText('Ships (AIS)');
-    await expect(legend).toContainText('Passenger');
-    await expect(legend).toContainText('Cargo');
-    await expect(legend).toContainText('Tanker');
-    await expect(legend).toContainText('Service');
-    await expect(legend).toContainText('Unknown');
-    await expect(legend.locator('.map-legend-swatch')).toHaveCount(5);
+    await expect(legend).toContainText('Selected types: none (showing all)');
+    await expect(legend).toContainText('Show all');
+    await expect(legend).toContainText('Show none');
+    await expectLegendCheckboxState(page, 'Show all', true);
+    await expectLegendCheckboxState(page, 'Show none', false);
+    await expectLegendCheckboxState(page, 'Cargo (70-79)', false);
+    await expect(legend).toContainText('Wing in Ground (20-29)');
+    await expect(legend).toContainText('Fishing (30)');
+    await expect(legend).toContainText('Towing (31-32)');
+    await expect(legend).toContainText('Military (35)');
+    await expect(legend).toContainText('Search and Rescue (51)');
+    await expect(legend).toContainText('Anti-pollution (54)');
+    await expect(legend).toContainText('Law Enforcement (55)');
+    await expect(legend).toContainText('Medical Transport (58)');
+    await expect(legend).toContainText('Noncombatant (59)');
+    await expect(legend).toContainText('Pilot / Tug / Port Tender (50,52-53,56-57)');
+    await expect(legend).toContainText('High Speed Craft (40-49)');
+    await expect(legend).toContainText('Passenger (60-69)');
+    await expect(legend).toContainText('Cargo (70-79)');
+    await expect(legend).toContainText('Tanker (80-89)');
+    await expect(legend).toContainText('Other Type (90-99)');
+    await expect(legend).toContainText('Not available / Reserved (0-19)');
+    await expect(legend.locator('.map-legend-swatch')).toHaveCount(18);
+
+    await legendTitle.click();
+    await expect(legend).toHaveClass(/is-collapsed/);
 
     await setAisToggle(page, false);
     await expect(legend).toBeHidden();
+  });
+
+  test('filters visible AIS vessels by selected legend types using show all/show none controls', async ({ page }) => {
+    await installMockAisBroker(page);
+    await installAisApiMocks(page);
+    await signIn(page);
+    await enableAisOverlay(page);
+
+    await emitMetadata(page, '230145250', createMetadataMessage({ name: 'CARGO ONE', type: 70 }));
+    await emitLocation(page, '230145250', createLocationMessage({ lon: 24.94, lat: 60.19 }));
+    await emitMetadata(page, '230145251', createMetadataMessage({ name: 'TANKER ONE', type: 80 }));
+    await emitLocation(page, '230145251', createLocationMessage({ lon: 25.01, lat: 60.21 }));
+
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(2);
+
+    const legend = await expandLegendPanel(page);
+    await expect(legend).toContainText('Selected types: none (showing all)');
+    await expectLegendCheckboxState(page, 'Show all', true);
+
+    await setLegendTypeChecked(page, 'Cargo (70-79)', true);
+    await expect(legend).toContainText('Selected types: 1/18');
+    await expectLegendCheckboxState(page, 'Show all', false);
+    await expectLegendCheckboxState(page, 'Cargo (70-79)', true);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(1);
+
+    await setLegendTypeChecked(page, 'Show none', true);
+    await expect(legend).toContainText('Selected types: none (showing none)');
+    await expectLegendCheckboxState(page, 'Show none', true);
+    await expectLegendCheckboxState(page, 'Cargo (70-79)', false);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(0);
+
+    await setLegendTypeChecked(page, 'Tanker (80-89)', true);
+    await expect(legend).toContainText('Selected types: 1/18');
+    await expectLegendCheckboxState(page, 'Show none', false);
+    await expectLegendCheckboxState(page, 'Tanker (80-89)', true);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(1);
+
+    await setLegendTypeChecked(page, 'Show all', true);
+    await expect(legend).toContainText('Selected types: none (showing all)');
+    await expectLegendCheckboxState(page, 'Show all', true);
+    await expectLegendCheckboxState(page, 'Tanker (80-89)', false);
+    await expectLegendCheckboxState(page, 'Cargo (70-79)', false);
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(2);
+
+    await setLegendTypeChecked(page, 'Cargo (70-79)', false);
+    await expect(legend).toContainText('Selected types: none (showing all)');
+    await expect.poll(async () => {
+      return await page.evaluate(() => window.__INTELMAP_APP_STATE__.aisFeatures?.length || 0);
+    }, { timeout: 10000 }).toBe(2);
   });
 
   test('renders live AIS vessels from MQTT location and metadata', async ({ page }) => {
@@ -596,6 +722,7 @@ test.describe('AIS Ships Overlay', () => {
     await expect(popup).toContainText('9543756', { timeout: 10000 });
     await expect(popup).toContainText('UST LUGA', { timeout: 10000 });
     await expect(popup).toContainText('V7WW7', { timeout: 10000 });
+    await expect(popup).toContainText('Cargo, all ships of this type', { timeout: 10000 });
 
     const mmsiLink = popup.locator('.ais-popup-link');
     await expect(mmsiLink).toHaveAttribute('href', 'https://www.vesselfinder.com/?mmsi=230145250');
@@ -953,7 +1080,7 @@ test.describe('AIS Ships Overlay', () => {
     await expect(content.locator('#ais-range-preset-12h')).toHaveText('Last 12h');
     await expect(content.locator('#ais-range-preset-24h')).toHaveText('Last 24h');
 
-    await content.locator('#ais-range-preset-1h').click();
+    await content.locator('#ais-range-preset-1h').click({ force: true });
 
     await expect.poll(async () => {
       return await page.evaluate(() => {

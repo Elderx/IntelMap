@@ -16,12 +16,64 @@ export function createAisLayer() {
   });
 }
 
+function normalizeTypeCode(typeCode) {
+  const numeric = Number(typeCode);
+  if (!Number.isFinite(numeric)) return null;
+  const normalized = Math.trunc(numeric);
+  if (normalized < 0 || normalized > 99) return null;
+  return normalized;
+}
+
+function getHazardFamilyLabel(familyName, typeCode, noInfoLabel = 'No additional information') {
+  const suffix = typeCode % 10;
+  if (suffix === 0) return `${familyName}, all ships of this type`;
+  if (suffix >= 1 && suffix <= 4) return `${familyName}, Hazardous category ${String.fromCharCode(64 + suffix)}`;
+  if (suffix >= 5 && suffix <= 8) return `${familyName}, Reserved for future use`;
+  return `${familyName}, ${noInfoLabel}`;
+}
+
 function getVesselTypeLabel(typeCode) {
-  if (typeCode >= 60 && typeCode < 70) return 'Passenger';
-  if (typeCode >= 70 && typeCode < 80) return 'Cargo';
-  if (typeCode >= 80 && typeCode < 90) return 'Tanker';
-  if (typeCode >= 30 && typeCode < 40) return 'Fishing';
-  if (typeCode >= 50 && typeCode < 60) return 'Service';
+  const code = normalizeTypeCode(typeCode);
+  if (code === null) return 'Unknown';
+  if (code === 0) return 'Not available (default)';
+  if (code >= 1 && code <= 19) return 'Reserved for future use';
+
+  if (code >= 20 && code <= 29) {
+    if (code === 20) return 'Wing in ground (WIG), all ships of this type';
+    if (code >= 21 && code <= 24) return `Wing in ground (WIG), Hazardous category ${String.fromCharCode(44 + code)}`;
+    return 'Wing in ground (WIG), Reserved for future use';
+  }
+
+  const serviceAndSpecialTypes = {
+    30: 'Fishing',
+    31: 'Towing',
+    32: 'Towing: length exceeds 200m or breadth exceeds 25m',
+    33: 'Dredging or underwater ops',
+    34: 'Diving ops',
+    35: 'Military ops',
+    36: 'Sailing',
+    37: 'Pleasure Craft',
+    38: 'Reserved',
+    39: 'Reserved',
+    50: 'Pilot Vessel',
+    51: 'Search and Rescue vessel',
+    52: 'Tug',
+    53: 'Port Tender',
+    54: 'Anti-pollution equipment',
+    55: 'Law Enforcement',
+    56: 'Spare - Local Vessel',
+    57: 'Spare - Local Vessel',
+    58: 'Medical Transport',
+    59: 'Noncombatant ship according to RR Resolution No. 18'
+  };
+  if (serviceAndSpecialTypes[code]) return serviceAndSpecialTypes[code];
+
+  if (code >= 40 && code <= 49) return getHazardFamilyLabel('High speed craft (HSC)', code);
+  if (code >= 60 && code <= 69) return getHazardFamilyLabel('Passenger', code);
+  if (code >= 70 && code <= 79) return getHazardFamilyLabel('Cargo', code);
+  if (code >= 80 && code <= 89) return getHazardFamilyLabel('Tanker', code);
+  if (code >= 90 && code <= 99) return getHazardFamilyLabel('Other Type', code, 'no additional information');
+
   return 'Unknown';
 }
 
@@ -41,20 +93,64 @@ function getNavigationStatusLabel(statusCode) {
   return labels[statusCode] || 'Unknown';
 }
 
+export function getAisLegendTypeKey(typeCode) {
+  const code = normalizeTypeCode(typeCode);
+  if (code === null) return 'unknownReserved';
+  if (code >= 20 && code <= 29) return 'wingInGround';
+  if (code === 30) return 'fishing';
+  if (code === 31 || code === 32) return 'towing';
+  if (code === 33 || code === 34) return 'dredgingDiving';
+  if (code === 35) return 'military';
+  if (code === 36 || code === 37) return 'sailingPleasure';
+  if (code >= 40 && code <= 49) return 'highSpeedCraft';
+  if (code === 50 || code === 52 || code === 53 || code === 56 || code === 57) return 'pilotTugPortTender';
+  if (code === 51) return 'searchRescue';
+  if (code === 54) return 'antiPollution';
+  if (code === 55) return 'lawEnforcement';
+  if (code === 58) return 'medicalTransport';
+  if (code === 59) return 'noncombatant';
+  if (code >= 60 && code <= 69) return 'passenger';
+  if (code >= 70 && code <= 79) return 'cargo';
+  if (code >= 80 && code <= 89) return 'tanker';
+  if (code >= 90 && code <= 99) return 'otherType';
+  return 'unknownReserved';
+}
+
 function getVesselColor(typeCode) {
-  if (typeCode >= 60 && typeCode < 70) {
-    return AIS_OVERLAY_CONFIG.colors.passenger;
+  const legendTypeKey = getAisLegendTypeKey(typeCode);
+  switch (legendTypeKey) {
+    case 'wingInGround':
+      return AIS_OVERLAY_CONFIG.colors.wingInGround;
+    case 'fishing':
+      return AIS_OVERLAY_CONFIG.colors.fishing;
+    case 'towing':
+      return AIS_OVERLAY_CONFIG.colors.towing;
+    case 'dredgingDiving':
+      return AIS_OVERLAY_CONFIG.colors.dredging;
+    case 'military':
+      return AIS_OVERLAY_CONFIG.colors.military;
+    case 'sailingPleasure':
+      return AIS_OVERLAY_CONFIG.colors.sailing;
+    case 'highSpeedCraft':
+      return AIS_OVERLAY_CONFIG.colors.highSpeed;
+    case 'pilotTugPortTender':
+    case 'searchRescue':
+    case 'antiPollution':
+    case 'lawEnforcement':
+    case 'medicalTransport':
+    case 'noncombatant':
+      return AIS_OVERLAY_CONFIG.colors.specialCraft;
+    case 'passenger':
+      return AIS_OVERLAY_CONFIG.colors.passenger;
+    case 'cargo':
+      return AIS_OVERLAY_CONFIG.colors.cargo;
+    case 'tanker':
+      return AIS_OVERLAY_CONFIG.colors.tanker;
+    case 'otherType':
+      return AIS_OVERLAY_CONFIG.colors.other;
+    default:
+      return AIS_OVERLAY_CONFIG.colors.unknown;
   }
-  if (typeCode >= 70 && typeCode < 80) {
-    return AIS_OVERLAY_CONFIG.colors.cargo;
-  }
-  if (typeCode >= 80 && typeCode < 90) {
-    return AIS_OVERLAY_CONFIG.colors.tanker;
-  }
-  if (typeCode >= 30 && typeCode < 60) {
-    return AIS_OVERLAY_CONFIG.colors.service;
-  }
-  return AIS_OVERLAY_CONFIG.colors.unknown;
 }
 
 function getShipIconPath(typeCode) {
@@ -105,7 +201,7 @@ export function vesselToFeature(vessel) {
   const coord = fromLonLat([longitude, latitude], 'EPSG:3857');
   const length = (metadata.refA ?? 0) + (metadata.refB ?? 0);
   const width = (metadata.refC ?? 0) + (metadata.refD ?? 0);
-  const typeCode = Number.isFinite(metadata.type) ? metadata.type : null;
+  const typeCode = normalizeTypeCode(metadata.type);
   const speed = Number.isFinite(location.sog) ? location.sog : 0;
   const course = Number.isFinite(location.cog) ? location.cog : null;
   const heading = Number.isFinite(location.heading) ? location.heading : course;
@@ -126,6 +222,7 @@ export function vesselToFeature(vessel) {
     draught: metadata.draught ?? null,
     eta: metadata.eta ?? null,
     typeCode,
+    legendTypeKey: getAisLegendTypeKey(typeCode),
     vesselType: getVesselTypeLabel(typeCode),
     speed,
     course,
