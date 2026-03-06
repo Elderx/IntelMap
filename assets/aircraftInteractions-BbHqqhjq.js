@@ -1,4 +1,4 @@
-import{s as a,O as f}from"./index-DCupFSWs.js";let i={main:null,left:null,right:null};function p(t){return t===null?"-":`${Math.round(t*3.28084).toLocaleString()} ft`}function g(t){return t===null?"-":`${Math.round(t*1.94384)} kts`}function m(t){const n=document.createElement("div");n.className="aircraft-popup";const l=t[0],o=t[1]||"N/A",r=t[2]||"Unknown",e=p(t[7]),u=g(t[9]),c=t[10],d=t[8];return n.innerHTML=`
+import{s as a,O as f}from"./index-Bxg6IBKi.js";let i={main:null,left:null,right:null};function p(t){return t===null?"-":`${Math.round(t*3.28084).toLocaleString()} ft`}function g(t){return t===null?"-":`${Math.round(t*1.94384)} kts`}function m(t){const n=document.createElement("div");n.className="aircraft-popup";const l=t[0],o=t[1]||"N/A",r=t[2]||"Unknown",e=p(t[7]),u=g(t[9]),c=t[10],d=t[8];return n.innerHTML=`
     <div class="aircraft-popup-content">
       <h3>✈️ ${o}</h3>
       <table>
