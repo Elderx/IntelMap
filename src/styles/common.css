@@ -150,6 +150,21 @@ body {
   background: rgba(56, 189, 248, 0.18);
 }
 
+[data-theme="dark"] .map-context-menu {
+  background: rgba(22, 27, 34, 0.98);
+  border-color: #374151;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .map-context-menu-item {
+  color: #e5e7eb;
+}
+
+[data-theme="dark"] .map-context-menu-item:hover,
+[data-theme="dark"] .map-context-menu-item:focus-visible {
+  background: rgba(59, 130, 246, 0.2);
+}
+
 /* ============================================
    PANEL OVERLAY
    ============================================ */
@@ -302,6 +317,50 @@ body {
 
 .map-legend-label {
   line-height: 1.2;
+}
+
+/* ============================================
+   MAP CONTEXT MENU
+   ============================================ */
+.map-context-menu {
+  position: fixed;
+  min-width: 210px;
+  max-width: 280px;
+  background: rgba(255, 255, 255, 0.98);
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  box-shadow: 0 14px 32px rgba(15, 23, 42, 0.22);
+  padding: 6px;
+  z-index: 2200;
+  display: none;
+}
+
+.map-context-menu.is-open {
+  display: block;
+}
+
+.map-context-menu-items {
+  display: grid;
+  gap: 2px;
+}
+
+.map-context-menu-item {
+  width: 100%;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #1f2937;
+  text-align: left;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.map-context-menu-item:hover,
+.map-context-menu-item:focus-visible {
+  background: rgba(59, 130, 246, 0.12);
+  outline: none;
 }
 
 /* ============================================
