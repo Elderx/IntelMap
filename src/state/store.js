@@ -1,6 +1,8 @@
 // Lightweight global app state shared across modules
 
 export const state = {
+  currentUser: null,
+  isAdmin: false,
   map: null,
   leftMap: null,
   rightMap: null,

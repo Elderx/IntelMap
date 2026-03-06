@@ -73,6 +73,6 @@ export function showLoginOverlay(onSuccess) {
     if (!res || !res.ok) { err.textContent = 'Invalid credentials'; return; }
     overlay.remove();
     if (map) map.style.display = 'block';
-    onSuccess && onSuccess(res.user);
+    onSuccess && onSuccess(res);
   };
 }

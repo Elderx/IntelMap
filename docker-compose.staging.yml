@@ -19,6 +19,8 @@ services:
     # Use !override on each port mapping to ensure base mapping is replaced
     ports:
       - !override "3001:3000"
+    volumes:
+      - !override tile-cache-staging:/var/cache/nginx/tiles:ro
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/mmlmap_staging
       # Staging users (use same as production for local testing)

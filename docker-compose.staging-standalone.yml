@@ -29,6 +29,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    volumes:
+      - tile-cache-staging:/var/cache/nginx/tiles:ro
     ports:
       - "3001:3000"
 
