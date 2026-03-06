@@ -1,11 +1,24 @@
 import Map from 'ol/Map.js';
 import View from 'ol/View.js';
 import WMTSCapabilities from 'ol/format/WMTSCapabilities.js';
+import DragZoom from 'ol/interaction/DragZoom.js';
+import { mouseOnly } from 'ol/events/condition.js';
 import { fromLonLat } from 'ol/proj';
 import { hardcodedLayers, capsUrl, mapboxAccessToken } from '../config/constants.js';
 import { state } from '../state/store.js';
 import { createTileLayerFromList } from './layers.js';
 import { setupWeatherInteractions } from '../weather/weatherInteractions.js';
+
+function createMiddleMouseDragZoomInteraction() {
+  return new DragZoom({
+    condition: (event) => {
+      if (!mouseOnly(event)) {
+        return false;
+      }
+      return event.originalEvent?.button === 1;
+    }
+  });
+}
 
 export async function loadCapabilities() {
   const parser = new WMTSCapabilities();
@@ -25,6 +38,7 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
     view: new View({ center: initialCenter, zoom: initialZoom }),
     controls: []
   });
+  state.map.addInteraction(createMiddleMouseDragZoomInteraction());
 
   // Setup weather interactions (will be active when weather is enabled)
   setupWeatherInteractions(state.map, 'main');
@@ -35,6 +49,8 @@ export function createBaseMap(result, initialCenter, initialZoom, initialLayerId
 export function createSplitMaps(result, center, zoom, rotation) {
   state.leftMap = new Map({ target: 'map-left', layers: [createTileLayerFromList(result, state.leftLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
   state.rightMap = new Map({ target: 'map-right', layers: [createTileLayerFromList(result, state.rightLayerId, null, mapboxAccessToken)], view: new View({ center: center.slice(), zoom, rotation }), controls: [] });
+  state.leftMap.addInteraction(createMiddleMouseDragZoomInteraction());
+  state.rightMap.addInteraction(createMiddleMouseDragZoomInteraction());
 
   // Setup weather interactions
   setupWeatherInteractions(state.leftMap, 'left');
@@ -72,4 +88,3 @@ export function parseInitialFromParams(params) {
   state.currentLayerId = hardcodedLayers[state.initialLayerIdx].id;
   return { initialCenter, initialZoom, initialIsSplit };
 }
-
