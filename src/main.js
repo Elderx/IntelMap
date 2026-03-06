@@ -16,6 +16,7 @@ import { createOSMPopup } from './ui/osmPopup.js';
 import { updateOSMLegend } from './ui/osmLegend.js';
 import { initMapLegendPanel } from './ui/mapLegend.js';
 import { setupOSMInteractions } from './map/osmInteractions.js';
+import { setupMapContextMenu } from './map/contextMenu.js';
 import { fromLonLat } from 'ol/proj';
 import 'ol/ol.css';
 import { fetchMarkers, fetchPolygons, fetchCircles, createMarker, createPolygon, createCircle, fetchUsers } from './api/client.js';
@@ -61,6 +62,7 @@ async function bootstrap() {
   const splitMapsContainer = document.getElementById('split-maps-container');
 
   createBaseMap(result, initialCenter, initialZoom, state.initialLayerIdx);
+  setupMapContextMenu();
   ensureUserLayers();
   setupUserFeatureHover(state.map);
   setupUserFeatureClick(state.map);
@@ -119,6 +121,7 @@ async function bootstrap() {
     const mainView = state.map.getView();
     const center = mainView.getCenter(); const zoom = mainView.getZoom(); const rotation = mainView.getRotation();
     createSplitMaps(result, center, zoom, rotation);
+    setupMapContextMenu();
     ensureUserLayers();
     rebuildUserLayersAllMaps();
     setupUserFeatureHover(state.leftMap);
@@ -199,6 +202,7 @@ async function bootstrap() {
     state.leftMapMoveendListener = null;
     if (state.rightMap && state.rightMapMoveendListener) state.rightMap.un('moveend', state.rightMapMoveendListener);
     state.rightMapMoveendListener = null;
+    setupMapContextMenu();
 
     // Update header buttons for single mode
     updateHeaderButtonVisibility(false);
