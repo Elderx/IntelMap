@@ -71,4 +71,35 @@ test.describe('Map Interaction', () => {
         });
         expect(zoomedOut).toBeLessThanOrEqual(zoomedIn);
     });
+
+    test('should drag-zoom with middle mouse button', async ({ page }) => {
+        await page.waitForFunction(() => {
+            return Boolean(window.__INTELMAP_APP_STATE__?.map);
+        });
+
+        const initialZoom = await page.evaluate(() => {
+            return window.__INTELMAP_APP_STATE__.map.getView().getZoom();
+        });
+
+        const viewport = page.locator('#map .ol-viewport');
+        const box = await viewport.boundingBox();
+        expect(box).not.toBeNull();
+
+        const startX = box.x + box.width * 0.25;
+        const startY = box.y + box.height * 0.25;
+        const endX = box.x + box.width * 0.75;
+        const endY = box.y + box.height * 0.75;
+
+        await page.mouse.move(startX, startY);
+        await page.mouse.down({ button: 'middle' });
+        await page.mouse.move(endX, endY);
+        await page.mouse.up({ button: 'middle' });
+        await page.waitForTimeout(500);
+
+        const zoomedIn = await page.evaluate(() => {
+            return window.__INTELMAP_APP_STATE__.map.getView().getZoom();
+        });
+
+        expect(zoomedIn).toBeGreaterThan(initialZoom);
+    });
 });
