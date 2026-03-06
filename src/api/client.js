@@ -181,3 +181,7 @@ export async function fetchAisLatestLocationByMmsi(mmsi) {
   if (!mmsi) return null;
   return await apiGet(`/api/ais/latest-location?mmsi=${encodeURIComponent(String(mmsi))}`);
 }
+
+export async function fetchAdminStats() {
+  return await apiGet('/api/admin/stats');
+}

@@ -26,6 +26,7 @@ import { openUserFeatureForm } from './ui/userFeatureForm.js';
 import { getSession } from './auth/session.js';
 import { showLoginOverlay } from './ui/loginOverlay.js';
 import { initHeader, updateSplitToggleText, updateRemoveFeaturesButton, closeAllDropdowns, updateHeaderButtonVisibility } from './ui/header.js';
+import { initAdminModal, updateAdminUiVisibility } from './ui/adminModal.js';
 import { mountHeaderLayerManager, mountSplitModeLayerManagers, updateHeaderActiveLayers, refreshDynamicOsmFeatures } from './ui/headerLayerManager.js';
 import { loadSettings } from './ui/settingsMenu.js';
 import { updateAllOverlays } from './map/overlays.js';
@@ -74,6 +75,8 @@ async function bootstrap() {
 
   // Initialize header (for UI only - dropdowns, badges, etc.)
   initHeader();
+  initAdminModal();
+  updateAdminUiVisibility();
   mountHeaderLayerManager(result); // Populate header layers dropdown (always available)
 
   // Initialize GPX control
@@ -463,8 +466,14 @@ async function bootstrap() {
 (async () => {
   const sess = await getSession();
   if (!sess || !sess.user) {
-    showLoginOverlay(async () => { await bootstrap(); });
+    showLoginOverlay(async (loginResult) => {
+      state.currentUser = loginResult?.user || null;
+      state.isAdmin = Boolean(loginResult?.isAdmin || loginResult?.user?.username === 'admin');
+      await bootstrap();
+    });
   } else {
+    state.currentUser = sess.user;
+    state.isAdmin = Boolean(sess.isAdmin || sess.user?.username === 'admin');
     await bootstrap();
   }
 })();

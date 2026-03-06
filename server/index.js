@@ -5,6 +5,8 @@ const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy;
 const bcrypt = require('bcrypt');
 const mqtt = require('mqtt');
+const fs = require('fs/promises');
+const path = require('path');
 const { randomUUID } = require('crypto');
 const { Pool } = require('pg');
 
@@ -20,6 +22,8 @@ const AIS_MQTT_CONNECT_TIMEOUT_MS = Math.max(1000, Number(process.env.AIS_MQTT_C
 const AIS_MQTT_KEEPALIVE_SECONDS = Math.max(5, Number(process.env.AIS_MQTT_KEEPALIVE_SECONDS) || 30);
 const AIS_PERSIST_FLUSH_INTERVAL_MS = Math.max(250, Number(process.env.AIS_PERSIST_FLUSH_INTERVAL_MS) || 3000);
 const AIS_PERSIST_BATCH_SIZE = Math.max(1, Number(process.env.AIS_PERSIST_BATCH_SIZE) || 500);
+const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin';
+const NGINX_TILE_CACHE_PATH = process.env.NGINX_TILE_CACHE_PATH || '/var/cache/nginx/tiles';
 
 const pool = new Pool({ connectionString: DATABASE_URL });
 const aisIngestion = {
@@ -256,14 +260,16 @@ async function flushAisIngestionQueue() {
   if (!enabledUserIds.length) {
     return;
   }
+  const sharedOwnerUserId = Math.min(...enabledUserIds);
+  if (!Number.isFinite(sharedOwnerUserId)) {
+    return;
+  }
 
   aisIngestion.flushing = true;
   try {
     await pool.query('BEGIN');
-    for (const userId of enabledUserIds) {
-      await insertAisLocationBatchForUser(userId, locationBatch);
-      await insertAisMetadataBatchForUser(userId, metadataBatch);
-    }
+    await insertAisLocationBatchForUser(sharedOwnerUserId, locationBatch);
+    await insertAisMetadataBatchForUser(sharedOwnerUserId, metadataBatch);
     await pool.query('COMMIT');
   } catch (error) {
     await pool.query('ROLLBACK').catch(() => { });
@@ -620,6 +626,67 @@ function ensureAuth(req, res, next) {
   return res.status(401).json({ error: 'unauthorized' });
 }
 
+function isAdminUser(user) {
+  return Boolean(user && user.username === ADMIN_USERNAME);
+}
+
+function ensureAdmin(req, res, next) {
+  if (!(req.isAuthenticated && req.isAuthenticated())) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+  if (!isAdminUser(req.user)) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+  return next();
+}
+
+async function getDirectorySizeBytes(rootPath) {
+  let rootStat;
+  try {
+    rootStat = await fs.stat(rootPath);
+  } catch {
+    return null;
+  }
+
+  if (!rootStat.isDirectory()) {
+    return null;
+  }
+
+  let totalSize = 0;
+  const stack = [rootPath];
+
+  while (stack.length) {
+    const currentPath = stack.pop();
+    let entries = [];
+    try {
+      entries = await fs.readdir(currentPath, { withFileTypes: true });
+    } catch {
+      continue;
+    }
+
+    for (const entry of entries) {
+      const fullPath = path.join(currentPath, entry.name);
+      if (entry.isSymbolicLink()) {
+        continue;
+      }
+      if (entry.isDirectory()) {
+        stack.push(fullPath);
+        continue;
+      }
+      if (entry.isFile()) {
+        try {
+          const stat = await fs.stat(fullPath);
+          totalSize += stat.size;
+        } catch {
+          // Ignore transient files disappearing during scan.
+        }
+      }
+    }
+  }
+
+  return totalSize;
+}
+
 async function ensureUserSettingsRow(userId) {
   await pool.query(
     'INSERT INTO user_settings (owner_user_id) VALUES ($1) ON CONFLICT (owner_user_id) DO NOTHING',
@@ -667,11 +734,20 @@ function parseMmsiListFromQuery(query) {
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 app.get('/api/session', (req, res) => {
-  if (req.isAuthenticated && req.isAuthenticated()) return res.json({ user: req.user });
+  if (req.isAuthenticated && req.isAuthenticated()) {
+    return res.json({
+      user: req.user,
+      isAdmin: isAdminUser(req.user)
+    });
+  }
   return res.status(401).json({ error: 'unauthorized' });
 });
 app.post('/api/login', passport.authenticate('local'), (req, res) => {
-  res.json({ ok: true, user: req.user });
+  res.json({
+    ok: true,
+    user: req.user,
+    isAdmin: isAdminUser(req.user)
+  });
 });
 app.post('/api/logout', (req, res) => {
   req.logout && req.logout(() => res.json({ ok: true }));
@@ -724,6 +800,35 @@ app.patch('/api/settings', ensureAuth, async (req, res) => {
   }
 });
 
+app.get('/api/admin/stats', ensureAdmin, async (req, res) => {
+  try {
+    const tileCacheBytes = await getDirectorySizeBytes(NGINX_TILE_CACHE_PATH);
+    const { rows } = await pool.query(
+      `SELECT
+        COALESCE(pg_total_relation_size('ais_location_history'), 0)::bigint AS location_bytes,
+        COALESCE(pg_total_relation_size('ais_metadata_history'), 0)::bigint AS metadata_bytes`
+    );
+    const locationBytes = Number(rows[0]?.location_bytes || 0);
+    const metadataBytes = Number(rows[0]?.metadata_bytes || 0);
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      tileCache: {
+        path: NGINX_TILE_CACHE_PATH,
+        bytes: Number.isFinite(tileCacheBytes) ? tileCacheBytes : null
+      },
+      aisData: {
+        locationBytes,
+        metadataBytes,
+        totalBytes: locationBytes + metadataBytes
+      }
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ error: 'db_error' });
+  }
+});
+
 // AIS history ingest/query
 app.post('/api/ais/history/batch', ensureAuth, async (req, res) => {
   const locations = Array.isArray(req.body?.locations) ? req.body.locations : [];
@@ -739,6 +844,11 @@ app.post('/api/ais/history/batch', ensureAuth, async (req, res) => {
         insertedMetadata: 0
       });
     }
+    await refreshAisEnabledUsers();
+    const enabledUserIds = Array.from(aisIngestion.enabledUserIds);
+    const sharedOwnerUserId = enabledUserIds.length
+      ? Math.min(...enabledUserIds)
+      : req.user.id;
 
     let insertedLocations = 0;
     let insertedMetadata = 0;
@@ -778,7 +888,7 @@ app.post('/api/ais/history/batch', ensureAuth, async (req, res) => {
           Number.isFinite(Number(item?.rot)) ? Number(item.rot) : null,
           typeof item?.posAcc === 'boolean' ? item.posAcc : null,
           typeof item?.raim === 'boolean' ? item.raim : null,
-          req.user.id
+          sharedOwnerUserId
         ]
       );
       insertedLocations += 1;
@@ -818,7 +928,7 @@ app.post('/api/ais/history/batch', ensureAuth, async (req, res) => {
           Number.isFinite(Number(item?.refB)) ? Number(item.refB) : null,
           Number.isFinite(Number(item?.refC)) ? Number(item.refC) : null,
           Number.isFinite(Number(item?.refD)) ? Number(item.refD) : null,
-          req.user.id
+          sharedOwnerUserId
         ]
       );
       insertedMetadata += 1;
@@ -856,24 +966,27 @@ app.get('/api/ais/tracks', ensureAuth, async (req, res) => {
 
     const locationsResult = await pool.query(
       `SELECT mmsi, observed_at, lon, lat, sog, cog, heading
-       FROM ais_location_history
-       WHERE owner_user_id = $1
-         AND mmsi = ANY($2::text[])
-         AND observed_at >= $3
-         AND observed_at <= $4
+       FROM (
+         SELECT DISTINCT ON (mmsi, observed_at)
+           mmsi, observed_at, lon, lat, sog, cog, heading, received_at, id
+         FROM ais_location_history
+         WHERE mmsi = ANY($1::text[])
+           AND observed_at >= $2
+           AND observed_at <= $3
+         ORDER BY mmsi ASC, observed_at ASC, received_at DESC, id DESC
+       ) dedup
        ORDER BY mmsi ASC, observed_at ASC`,
-      [req.user.id, mmsis, start.toISOString(), end.toISOString()]
+      [mmsis, start.toISOString(), end.toISOString()]
     );
 
     const metadataResult = await pool.query(
       `SELECT DISTINCT ON (mmsi)
           mmsi, name, destination, call_sign, imo, draught, type
        FROM ais_metadata_history
-       WHERE owner_user_id = $1
-         AND mmsi = ANY($2::text[])
-         AND observed_at <= $3
+       WHERE mmsi = ANY($1::text[])
+         AND observed_at <= $2
        ORDER BY mmsi ASC, observed_at DESC`,
-      [req.user.id, mmsis, end.toISOString()]
+      [mmsis, end.toISOString()]
     );
 
     const metadataByMmsi = new Map();
@@ -946,11 +1059,10 @@ app.get('/api/ais/snapshot', ensureAuth, async (req, res) => {
           pos_acc,
           raim
        FROM ais_location_history
-       WHERE owner_user_id = $1
-         AND observed_at >= $2
-         AND observed_at <= $3
+       WHERE observed_at >= $1
+         AND observed_at <= $2
        ORDER BY mmsi ASC, observed_at DESC`,
-      [req.user.id, start.toISOString(), end.toISOString()]
+      [start.toISOString(), end.toISOString()]
     );
 
     const mmsis = locationsResult.rows.map((row) => row.mmsi).filter(Boolean);
@@ -974,10 +1086,9 @@ app.get('/api/ais/snapshot', ensureAuth, async (req, res) => {
             ref_c,
             ref_d
          FROM ais_metadata_history
-         WHERE owner_user_id = $1
-           AND mmsi = ANY($2::text[])
+         WHERE mmsi = ANY($1::text[])
          ORDER BY mmsi ASC, observed_at DESC`,
-        [req.user.id, mmsis]
+        [mmsis]
       );
 
       metadataResult.rows.forEach((row) => {
@@ -1040,11 +1151,10 @@ app.get('/api/ais/latest-location', ensureAuth, async (req, res) => {
     const { rows } = await pool.query(
       `SELECT mmsi, observed_at, lon, lat, sog, cog, heading
        FROM ais_location_history
-       WHERE owner_user_id = $1
-         AND mmsi = $2
+       WHERE mmsi = $1
        ORDER BY observed_at DESC
        LIMIT 1`,
-      [req.user.id, mmsi]
+      [mmsi]
     );
 
     if (!rows[0]) {
